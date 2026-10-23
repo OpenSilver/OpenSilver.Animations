@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Samples/">
+    <Project Path="samples/OpenSilver.Animations.Gallery.Browser/OpenSilver.Animations.Gallery.Browser.csproj" />
+    <Project Path="samples/OpenSilver.Animations.Gallery.Simulator/OpenSilver.Animations.Gallery.Simulator.csproj" />
+    <Project Path="samples/OpenSilver.Animations.Gallery/OpenSilver.Animations.Gallery.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".github/workflows/build-package.yml" />
+    <File Path="build/Build_Local_OpenSilver.bat" />
+    <File Path="build/Build_NuGet.bat" />
+    <File Path="Directory.Build.props" />
+    <File Path="NuGet.Config" />
+  </Folder>
+  <Project Path="src/OpenSilver.Animations/OpenSilver.Animations.csproj" />
+</Solution>

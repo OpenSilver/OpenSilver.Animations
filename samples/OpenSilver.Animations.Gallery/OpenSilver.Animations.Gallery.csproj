@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <RootNamespace>OpenSilver.Animations.Gallery</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenSilver" Version="[$(OpenSilverVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenSilver.Animations\OpenSilver.Animations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </ApplicationDefinition>
+    <Page Include="**\*.xaml" Exclude="App.xaml;bin\**;obj\**">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="**\*.cs" Exclude="bin\**;obj\**" />
+    <Content Include="Images\**" />
+  </ItemGroup>
+
+</Project>

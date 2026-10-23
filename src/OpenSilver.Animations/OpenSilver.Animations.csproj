@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <RootNamespace>OpenSilver.Animations</RootNamespace>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>OpenSilver.Animations</PackageId>
+    <Version>0.1.0</Version>
+    <Title>OpenSilver.Animations</Title>
+    <Authors>Userware</Authors>
+    <Company>Userware</Company>
+    <Description>Easy animations for OpenSilver: elements move and resize smoothly, and everything around them follows.</Description>
+    <Copyright>Copyright (c) 2026, Userware. All rights reserved.</Copyright>
+    <PackageProjectUrl>https://www.opensilver.net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/OpenSilver/OpenSilver.Animations</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageTags>opensilver silverlight wpf webassembly csharp xaml wasm dotnet blazor animation animations transition motion layout</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenSilver" Version="$(OpenSilverVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="**\*.cs" Exclude="bin\**;obj\**" />
+    <EmbeddedResource Include="Scripts\animations.js" LogicalName="OpenSilver.Animations.animations.js" />
+    <None Include="..\..\build\icon.png" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+</Project>

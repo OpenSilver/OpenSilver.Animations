@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <!--
+      The library needs OpenSilver's LayoutObserver API. Until an OpenSilver build that includes it
+      is published, build it locally with build\Build_Local_OpenSilver.bat (it fills build\local-packages).
+    -->
+    <OpenSilverVersion Condition=" '$(OpenSilverVersion)' == '' ">3.4.0-preview-animations-local</OpenSilverVersion>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+</Project>
