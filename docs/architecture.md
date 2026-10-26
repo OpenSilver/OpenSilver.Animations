@@ -1,6 +1,6 @@
 # Architecture: how the built part works
 
-This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the first step of phase 3 (Appear and Disappear with their presets and OthersMove, and the automatic effects of elements that appear or disappear inside an area). The full specification, including the phases not built yet, is in [design.md](design.md).
+This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the first three steps of phase 3 (Appear and Disappear with their presets and OthersMove, the automatic effects of elements that appear or disappear inside an area, StartAfter and OnPageOpen, and the item properties). The full specification, including the phases not built yet, is in [design.md](design.md).
 
 ## The two halves
 
@@ -70,7 +70,7 @@ The library repository gets these changes through locally built OpenSilver packa
 
 | File (under `src/OpenSilver.Animations/`) | Role                                                                                                                                                      |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, `Animate.Changes` and `Animate.Skip`.                          |
+| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Animate.Changes` and `Animate.Skip`. |
 | `Movement.cs`                             | `Movement` (abstract, a `MarkupExtension`), `Smooth`, `Bouncy`, `Movement.None`, `MovementConverter`, the `AnimationScope` enum.                          |
 | `Transition.cs`                           | `Transition` (abstract, a `MarkupExtension`), the presets `Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur` and `Custom`, `Transition.None`, `TransitionConverter`, the `Side`, `OthersMove` and `PageOpen` enums, the `Distance` struct and its converter, and the internal `EffectLook`. |
 | `AnimationTime.cs`                        | A readable duration (`0.3s`, `300ms`, `300`), with its type converter.                                                                                    |
@@ -82,7 +82,7 @@ The library repository gets these changes through locally built OpenSilver packa
 | `Engine/Timing.cs`                        | The duration and curve of a group, and their JSON form.                                                                                                   |
 | `Engine/BatchBuilder.cs`                  | Builds the JavaScript object sent once per pass.                                                                                                          |
 | `Engine/BrowserBridge.cs`                 | Loads `animations.js` and runs the batch. It keeps `IsDragging` and `PrefersReducedMotion` up to date through JavaScript callbacks.                       |
-| `Engine/ElementNames.cs`                  | Names elements in messages: their `x:Name`, or their type and a bit of their text.                                                                        |
+| `Engine/ElementNames.cs`                  | Names elements in messages: their `x:Name`, or their type and a bit of their text. Items are named by their text and their list: `Item "Buy milk" of Tasks`. |
 | `Scripts/animations.js`                   | Embedded resource (`OpenSilver.Animations.animations.js`). It plays the batch with Web Animations, and tracks dragging and reduced motion.                |
 
 
@@ -104,6 +104,9 @@ The library repository gets these changes through locally built OpenSilver packa
     <Border anim:Animate.Disappear="None" />  <!-- no automatic effect inside an area -->
     <TextBlock anim:Animate.Appear="{anim:Fade StartAfter=0.2s}" />
     <Border anim:Animate.Appear="{anim:Slide From=Top, StartAfter=0.6s, OnPageOpen=PushOthers}" />
+    <ItemsControl anim:Animate.ItemAppear="{anim:Slide From=Top, Distance=Short}" anim:Animate.ItemDisappear="Fade"
+                  anim:Animate.ItemMoveAndResize="Smooth" anim:Animate.ItemCascade="0.05s" />
+    <StackPanel anim:Animate.ItemAppear="{anim:Slide From=Right}" />  <!-- the children of a Panel are its items -->
 </UserControl>
 ```
 
@@ -136,6 +139,10 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - **Parameters** on every preset: `Duration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter` (clamped to 10 s when set) and `OnPageOpen` (`PageOpen.InPlace`, `PushOthers` or `Skip`). `Slide` has `From`, `To` and `Distance`; `Wipe` has `From` and `To`; `Custom` has `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate` and `Blur`.
   - `Distance` is a struct: `Distance.Short` (10 px), `Medium` (30 px, the default) and `Long` (100 px), or a number of pixels, from XAML (`Distance=Short`, `Distance=60`) or from a `double`.
   - **Duration.** The default is `AnimationSettings.DefaultDuration`, doubled for `Pop` and for `Easing=Bouncy`. Bouncy effects play a spring sampled with `Bounciness`; the elements around them move Smooth, with the same duration (`Timing.ForOthers`).
+- **The item properties** (attached, not inherited), on a Panel for its children, or on an ItemsControl for its items. The engine reads them from the items panel, or else from the ItemsControl it hosts the items of, so setting them on the items panel in a template works too.
+  - `ItemAppear` and `ItemDisappear` (`Transition`) work as if each item had this `Appear` or `Disappear`. `ItemMoveAndResize` (`Movement`) works as if each item had this `MoveAndResize`, without `ApplyTo`. An item's own setting wins.
+  - `ItemCascade` (`AnimationTime`, default zero) is the time between items that play their effect in the same change, at most 0.3 s, and 0.6 s for the whole cascade.
+  - Setting one turns on `LayoutAnimator.AnyItems`; a `Transition` also turns on `AnyEffects`, and `None` on `AnyAreas`, because each item is then carved out. `CheckItemSetting` warns about a value that doesn't apply.
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
 - **Nested scopes:** the inner one applies until it exits, then the outer one applies again.
@@ -208,7 +215,7 @@ When the stack is empty, the arrange session is over. `EndArrangeSession` walks 
   - `IsEnabled` is false;
   - a designer;
   - reduced motion, real (the `prefers-reduced-motion` media query, if `RespectReducedMotion`) or simulated (`SimulateReducedMotion`);
-  - `BrowserBridge.IsDragging`, except for the groups of `{Responsive}` switches (see below).
+  - `BrowserBridge.IsDragging`, except for the groups of `{Responsive}` switches (see below), and the groups with items shown in new places (see "Lists and their items").
 2. **Buckets.** For each record that changed or is an origin, except appearing ones:
   - without a group, a change snaps;
   - otherwise it goes into its group's bucket, as an origin and/or a member (a member is a record whose rect changed).
@@ -274,9 +281,9 @@ An element that appears or disappears is a change of its parent: the elements ar
   - when it pushes no sibling but its container grows, the top edge (or the left edge, when the container grew more in width);
   - otherwise, a fade.
 - **The wave.** A revealed element starts with the element it follows (the sibling or container that `GetRevealEdge` returns), so it doesn't open before the space does.
-- **With the container.** An explicit Appear inside an element that appears, or on an element visible when the page opens, gets the `WithContainer` flag. It plays in its place, after its `StartAfter`, and doesn't make room: "2 elements appeared with their container, and play their Appear effects, like Border". Under a scrolled parent, nothing plays. With `OnPageOpen=Skip`, it is marked `Played` without an effect: "SkipBanner appeared with its container, without its effect, as OnPageOpen=Skip asks."
+- **With the container.** An explicit Appear inside an element that appears, or on an element visible when the page opens, gets the `WithContainer` flag. It plays in its place, after its `StartAfter`, and doesn't make room: "2 elements appeared with their container, and play their effects, like Border". Under a scrolled parent, nothing plays. With `OnPageOpen=Skip`, it is marked `Played` without an effect: "SkipBanner appeared with its container, without its effect, as OnPageOpen=Skip asks."
 - **StartAfter.** `GetWaitMs` (`StartAfter` divided by `Speed`) is added to the delay of the element's own effect, everywhere it plays: `PlayAppearEffect`, `PlayGhost`, `PlayAtOnce` (Hidden), and the quick fades of reduced motion. The others don't wait for it, except with `OthersMove=After`, where they wait for the wait and the ghost's duration. `KeepGhosted` extends `_ghostedUntil` by the wait. The messages say "it slides in after 0.3 s" (`After`), and the bucket keeps the wait of its own effect in `EffectWait` for `DescribeAnimated`.
-- **Disappearances.** `CaptureDisappearing` runs from `OnVisibilityChanged` (Visible to Collapsed or Hidden) and from `OnDetaching` (a visible element). It copies the element in the browser (`BrowserBridge.Ghost`) when it has a `Disappear`, or, inside an area, when it doesn't have `Disappear=None`, isn't Hidden, and fewer than 40 automatic ones were captured in the pass.
+- **Disappearances.** `CaptureDisappearing` runs from `OnVisibilityChanged` (Visible to Collapsed or Hidden) and from `OnDetaching` (a visible element). It copies the element in the browser (`BrowserBridge.Ghost`) when it has a `Disappear` (or its list has an `ItemDisappear`), or, inside an area, when it doesn't have `Disappear=None`, isn't Hidden, and fewer than 40 automatic ones were captured in the pass. An item that is still moving is copied in any case, without an effect, for its item to go on from there (see "Lists and their items").
   - A Hidden element keeps its space, so no layout pass comes: its ghost plays at once (`PlayAtOnce`), with the message "X was hidden; …".
   - The others wait in `_disappearing` and join their parent's bucket at the end of the pass. An explicit ghost plays its own effect (`PlayGhost`, batch key `g`); an automatic one wipes toward the side its neighbors come from (`GetDisappearEdge`), or fades, with the group's timing and the size curve.
   - With `OthersMove=After`, the rest of the group waits for the ghost's duration.
@@ -297,13 +304,31 @@ An element that appears or disappears is a change of its parent: the elements ar
 - **The next pass.** `OnArranging` marks the released element `Released`, and its parent `Origin | Released`: the parent is where the change starts, even if the element wasn't a measure origin, and `Decide` doesn't apply the settling rule to it. Its effect plays at once, without waiting for `StartAfter` again: "PushOthersBanner appeared 0.6 s after its page opened, as OnPageOpen=PushOthers asks; it slides in, and 3 elements animate together (…)" (`DescribeAppeared`). Off screen, the group is culled like any other, and only the effect plays.
 - An element that is never added keeps nothing alive: the holds are in a `ConditionalWeakTable`, and the Loaded handler is on the element.
 
+### Lists and their items
+
+- **Lists.** `GetList(panel)` gives an `ItemList` for a Panel with item settings, for the items panel of an ItemsControl that has them (`ItemsControl.GetItemsOwner`), and for the items panel of an ItemsControl inside an area, which only uses it for pairing. The answer is memoized per pass in `_listCache`, and the lists are kept in a `ConditionalWeakTable` (`_lists`). `ItemList` reads each setting from the panel, or else from the ItemsControl (`Owner`).
+- **The lookups.** `GetAppearEffect`, `GetDisappearEffect`, `HasNoEffect` and `GetOwnMovement` return the element's own setting, or else the setting of the list it is an item of (`GetListOf`, its visual parent). So everything that works for an `Appear`, a `Disappear` or a `MoveAndResize` works for items. `ItemMoveAndResize=None` makes `GetArea` carve the item out; its `ApplyTo` is not used (`fromItems`).
+- **Tracking.** `OnArranged` stores, for every container of a list, its data item in `ItemOf` (`ItemFromContainer`: the generator's item, or the container itself for the children of a Panel) and the item's container and rect in `Slots`, also for the containers that appear with their list and get no record. `OnDetaching` adds each removed container to `_removedItems`, and `ForgetRemovedItems` drops them at the end of the pass, unless the container is back in its list with the same item.
+- **Pairing.** `TryPair` runs in `OnArranging`, for a container arranged for the first time under a parent that didn't scroll: when `Slots` has its item in a container that has left the panel since then, or in the same container, the record takes the item's old rect and the `Paired` flag, instead of `Appears`. Its content is not recorded, so no effect plays inside it. The old container's ghost is marked `Paired` and plays nothing, and `_pairedGhosts` keeps its id for `Emit`.
+  - OpenSilver always detaches the containers it removes or recycles, and a new or re-attached div always gets a new id (`NewId()`), so a container never shares its id with its old ghost.
+  - A `Reset` unlinks the containers before the panel removes them, so `OnDetaching` finds their item in `ItemOf`, not in the generator.
+- **Refreshes.** On a `Reset`, like a new `ItemsSource` or a `Clear()`, OpenSilver unlinks every container while it's still in its panel: it clears its `DataContext`, and a `ListBox` first clears its content. A ghost made at `OnDetaching` would be empty, and the list would show nothing until the next pass. So the containers are copied when the first one is emptied:
+  - The signals: `OnArranged` subscribes to `DataContextChanged` on each container of an ItemsControl, the first time it tracks it. `OnDetaching` looks for a container a few levels above removed content (`FindContainer`, `MaxContainerDepth`). `FrameworkElement` raises `DataContextChanged` before the new value reaches the bindings inside, so both signals come before the empty values are written.
+  - `CopyBeforeRemoval` checks that the container is still in its panel but no longer linked to its item (`ItemFromContainer` gives `UnsetValue`). Only a refresh does that: a remove, a move, and a virtualizing panel unlink a container after its panel removes it. It then copies the visible containers of the list in one call (`ghostInView`), and keeps their ids in `_copiedBeforeRemoval`.
+  - `OnDetaching` uses that copy instead of making one (`copied`). Without an effect, the copy is kept with `NoEffect`, like with `keepOffset`, so that a paired move starts from it; when `CaptureDisappearing` keeps nothing, it is removed at once. The copies of containers that weren't removed are removed at the end of the next pass.
+- **From the ghost.** When a container is detached while it's still moving (`_runningUntil`), `CaptureDisappearing` copies it even without an effect (`keepOffset`, then `NoEffect`), so that its ghost keeps where it is on screen. A paired move carries the ghost's id (`fromGhost`, the 11th value of a move): the script adds the ghost's current offset to the move's start, then removes the ghost. A ghost that nothing uses is removed by `PlayRemainingEffects`.
+- **Virtualization.** A `VirtualizingStackPanel` removes its containers in `CleanupContainers`, while it measures, before `VerifyScrollingData` updates its offset. So at `OnDetaching` the scroll can't be seen yet. `CompletePass` decides instead: a disappearance whose parent scrolled in the pass, or whose item is still in `Owner.Items`, has its effect dropped (`NoEffect`), and its ghost is removed. Containers realized under a scrolled parent are marked `Scrolled`, like before. An `IScrollInfo` that appears has its offsets stored at once (`IsScrolled`), so that its first scroll is seen as a scroll.
+- **Dragging to reorder.** A bucket with paired members (`bucket.Paired`) is not stopped by the dragging reason. In `Emit`, while something is dragged, the element that holds the mouse capture, its ancestors (`_capturedChain`) and its descendants snap, and are left out of the count of the message: the dragged item follows the pointer while the others glide out of its way.
+- **Cascade.** `CountCascades` counts, per list, the items that play their `ItemAppear`, and those that play their `ItemDisappear`, in the pass. `NextCascadeDelay` gives each one `index × step`, where the step is `min(ItemCascade, 600 ms / (count - 1))`, divided by `Speed`. The cascade is used in `Emit`, `PlayEffectsAlone` and `PlayRemainingEffects`. The page-open message only mentions it when all the items that open with the page are items of the same list (`firstList`).
+- **Names.** `NameOf(element, parent)` passes the data item to `ElementNames.Of`, so an item whose container lost its text, like after a `Reset`, is named by its item's `ToString`, unless that is only the type name.
+
 
 
 ### Window-resize passes
 
 `IsWindowResizePass` compares `Application.Current.Host.Content.ActualWidth`/`ActualHeight` with the size seen at the previous pass. The Host's ResizeObserver updates it before the layout pass runs. It is evaluated lazily, once per pass, from `OnArranging`.
 
-In such a pass there are no origins: everything follows the window. Only the elements that set `AlsoOnWindowResize`, and their content, form WindowResize groups. Without this rule, the scroll bar parts that measure again in a resize pass would look like changes. Their group would climb to the root and snap the whole page, or animate it.
+In such a pass there are no origins: everything follows the window. Only the elements that set `AlsoOnWindowResize`, and their content, form WindowResize groups. With `ItemMoveAndResize` and `AlsoOnWindowResize`, each item that moves forms its own group, and the groups with the same setting share one timing in the batch (`_windowTimings`). Without this rule, the scroll bar parts that measure again in a resize pass would look like changes. Their group would climb to the root and snap the whole page, or animate it.
 
 ### `{Responsive}` switches
 
@@ -356,10 +381,13 @@ Messages are produced only when `LogForDebugging` is on or `Logged` has handlers
 - **An effect:** "Details appeared; it fades in, and 30 elements animate together (Smooth, 0.25 s, from the Appear of Details)."
   - With `OthersMove`: "2 elements animate together, then it fades in", "it fades out, then 2 elements animate together".
   - With `StartAfter`: "GiftMessage appeared; it slides in after 0.3 s, and 15 elements animate together (…)".
-  - With the page: "12 elements appeared with their container, and play their Appear effects, like TextBlock "CHAPTER 4"", and the `OnPageOpen` messages (see "Page open with PushOthers").
+  - With the page: "12 elements appeared with their container, and play their effects, like TextBlock "CHAPTER 4"", and the `OnPageOpen` messages (see "Page open with PushOthers").
   - With another effect in the same change: "Body1 appeared; it wipes in, Body0 wipes out, and 17 elements animate together (…)". More than one give "2 other elements play their effects".
   - Under reduced motion: "Details appeared; it fades in quickly, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion), and nothing else animated."
-- **A window-resize group:** "The window was resized; FollowingTiles follows it (Smooth, 0.25 s, from the AlsoOnWindowResize of FollowingTiles)." At most one per second.
+- **Items:** "Item "Buy milk" of Tasks appeared; it slides in, 2 other items follow, one every 0.05 s, and 4 elements animate together (Smooth, 0.25 s, from the ItemAppear of Tasks)."
+  - A sort, a filter or a refresh: "The items of Products changed order; 8 elements animate together (…, from the ItemMoveAndResize of Products)", or "The items of Products changed" when some appear or disappear too.
+  - With the page, and a cascade: "3 elements appeared with their container, and play their effects, one after the other (every 0.05 s), like Item "Buy milk" of Tasks."
+- **A window-resize group:** "The window was resized; SidePanel follows it (Smooth, 0.25 s, from the AlsoOnWindowResize of SidePanel)." For items: "The window was resized; the items of FollowingTiles follow it (Smooth, 0.25 s, from the ItemMoveAndResize of FollowingTiles)." At most one per second.
 - **A switch:** "{Responsive} switched the Orientation of StackPanel; 17 elements animate together (Smooth, 0.25 s, from the EverythingInside of ProfilePanel)." For a target that isn't an element: "{Responsive} switched the Width of a ColumnDefinition in ProfileGrid".
 - **A snap:** "SliderBar changed size; nothing animated because something is being dragged."
   - Only snaps that would otherwise have animated are explained: inside `Animate.Changes`, or when an origin or a member has an effective setting (`InvolvesSettings`).
@@ -400,7 +428,7 @@ These are at the top of `LayoutAnimator`:
 
 ```text
 { t: [ { d: durationMs, e?: cssEasing, s?: [samples], se?: sizeEasing } ],
-  m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags] ],
+  m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags, fromGhost?] ],
   a: [ [id, timingIndex, delayMs, edge] ],
   e: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, raise] ],
   g: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, sizeCurve] ],
@@ -411,13 +439,14 @@ These are at the top of `LayoutAnimator`:
   r: [ ids to release ] }
 ```
 
-They run in this order: cancels, retargets, moves, reveals, effects, ghosts, ghost removals, outlines, releases. `osAnimations.hold(id)` and `osAnimations.ghost(id)` are called on their own, from the hooks.
+They run in this order: cancels, retargets, moves, reveals, effects, ghosts, ghost removals, outlines, releases. `osAnimations.hold(id)`, `osAnimations.ghost(id)` and `osAnimations.ghostInView(ids)` are called on their own, from the hooks.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
   - Position: `translate` from `(dx, dy)` to 0 with `composite: 'add'`.
   - Size: `width`/`height` from the old size to the new one.
   - Delays use `fill: 'backwards'`, so a delayed element shows its old place until it starts.
+  - `fromGhost`, for an item shown again in a new container: the offset of that ghost is added to the start, and the ghost is removed. The new container then starts from where the old one was on screen.
 - **Flags.**
   - `1` (`ClipOwnBox`): the element's clip is exactly its own box, as with `ClipToBounds` or a `ScrollContentPresenter`: a `RectangleGeometry` the size of the element, with no transform or an identity one. The size animation holds `clip-path: inset(0px)` so that the clip follows the animated box. Without the flag, the core's clip has the final size at once: a sidebar that narrows looks like it snaps, and the content of a dialog that narrows is cut.
   - `2` (`Rectangle`) and `4` (`Ellipse`): a shape with `Stretch=Fill`. Its SVG geometry (`width`/`height`, or `rx`/`ry`/`cx`/`cy`) is animated too, where the browser supports these CSS properties. `Path` geometry always snaps.
@@ -433,6 +462,7 @@ They run in this order: cancels, retargets, moves, reveals, effects, ghosts, gho
   - Media, frames and plugins become empty boxes of the same size, so that they don't load or play again, and that ghost fades out in 0.15 s whatever its effect.
   - It starts from what was on screen: the progress of a running effect, and the offset and size of a running move.
   - `vanish` (batch key `g`) animates it from there to the look, with `fill: 'both'`, then removes it. `removeGhost` (key `x`) removes it at once.
+  - `ghostInView(ids)`, for a list that is refreshed, reads where all the elements are first, then copies those less than 100 px from the window (`VIEW_MARGIN`).
   - When the element appears again while its ghost plays, `appear` and `reveal` start from what the ghost showed (`takeGhost`).
 - **Outlines** (`ShowWhatAnimates`) animate `outline` on the element: orange for the origin, pink for members. They last at least 700 ms.
 

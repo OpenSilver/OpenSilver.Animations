@@ -64,6 +64,13 @@ namespace OpenSilver.Animations.Engine
         // Automatic effects of elements that disappear at once, like a page full of elements removed.
         private const int MaxAutomaticGhosts = 40;
         private const long GhostLifetimeMs = 3000;
+
+        // How far up from an element that is removed a container of a list is searched for.
+        private const int MaxContainerDepth = 6;
+
+        // ItemCascade: the time between two items, and the whole cascade, at most.
+        private const double MaxCascadeMs = 300;
+        private const double MaxCascadeTotalMs = 600;
         private static readonly Timing QuickFadeTiming = Timing.QuickFade();
         private static readonly EffectLook FadeLook = new EffectLook { Opacity = 0 };
 
@@ -86,6 +93,12 @@ namespace OpenSilver.Animations.Engine
         /// container that is shown again are never searched for one.
         /// </summary>
         internal static bool AnyPushOthers;
+
+        /// <summary>
+        /// Set once a Panel or an ItemsControl has an item setting. Until then, elements are never
+        /// checked for the settings of the list they are in.
+        /// </summary>
+        internal static bool AnyItems;
 
         private Record[] _records = new Record[64];
         private int _recordCount;
@@ -132,6 +145,8 @@ namespace OpenSilver.Animations.Engine
         // The records of the elements that appear in this pass with an Appear of their own.
         private readonly List<int> _effectAppears = new List<int>();
         private readonly Dictionary<Transition, Timing> _effectTimings = new Dictionary<Transition, Timing>();
+        // The items that follow the window each make a group, with the same setting: one timing for all.
+        private readonly Dictionary<Movement, Timing> _windowTimings = new Dictionary<Movement, Timing>();
         // The elements that may still have a ghost in the browser, until when.
         private readonly Dictionary<UIElement, long> _ghostedUntil = new Dictionary<UIElement, long>();
         private bool _effectsPlay;
@@ -141,6 +156,26 @@ namespace OpenSilver.Animations.Engine
         // those shown again since the last pass, which appear in the next one.
         private readonly PageOpenHolds _pageOpenHolds;
         private readonly HashSet<UIElement> _released = new HashSet<UIElement>();
+
+        // The lists with item settings, or inside an area: where each of their items was at the end
+        // of the last pass, the lists found since then (null for the panels that are not lists),
+        // the containers removed from them since the last pass, and the ghosts of those containers.
+        private readonly ConditionalWeakTable<Panel, ItemList> _lists = new ConditionalWeakTable<Panel, ItemList>();
+        private readonly Dictionary<Panel, ItemList> _listCache = new Dictionary<Panel, ItemList>();
+        private readonly List<RemovedItem> _removedItems = new List<RemovedItem>();
+        private readonly Dictionary<UIElement, Disappearance> _ghostOf = new Dictionary<UIElement, Disappearance>();
+        // The containers that show an item again in this pass, and the ghost of its old container.
+        private readonly Dictionary<UIElement, string> _pairedGhosts = new Dictionary<UIElement, string>();
+        // The containers copied when their list was refreshed, before their panel removes them, with
+        // the id of their copy.
+        private readonly Dictionary<UIElement, string> _copiedBeforeRemoval = new Dictionary<UIElement, string>();
+
+        // The items of each list that play their effects together in this pass, for ItemCascade.
+        private readonly Dictionary<ItemList, Cascade> _appearCascades = new Dictionary<ItemList, Cascade>();
+        private readonly Dictionary<ItemList, Cascade> _disappearCascades = new Dictionary<ItemList, Cascade>();
+
+        // While something is dragged: the element that holds the mouse capture and its containers.
+        private readonly HashSet<DependencyObject> _capturedChain = new HashSet<DependencyObject>();
 
         private Point[] _absOld = new Point[64];
         private Point[] _absNew = new Point[64];
@@ -240,7 +275,7 @@ namespace OpenSilver.Animations.Engine
                 if (VisualTreeHelper.GetChild(container, i) is UIElement child &&
                     (child.Visibility == Visibility.Visible || _pageOpenHolds.IsHolding(child)))
                 {
-                    if (child is FrameworkElement fe && GetAppearEffect(child) is Transition effect && effect.OnPageOpen == PageOpen.PushOthers)
+                    if (child is FrameworkElement fe && Animate.GetAppear(child) is Transition effect && effect.OnPageOpen == PageOpen.PushOthers)
                     {
                         StartHold(fe, effect);
                     }
@@ -273,7 +308,7 @@ namespace OpenSilver.Animations.Engine
         /// <summary>
         /// Warns about the parameters of an effect that don't apply where it is used. They are ignored.
         /// </summary>
-        public static void CheckEffect(Transition effect, bool appear, UIElement element)
+        public static void CheckEffect(Transition effect, bool appear, UIElement element, bool items)
         {
             if (_instance == null || effect.IsNone)
             {
@@ -281,7 +316,11 @@ namespace OpenSilver.Animations.Engine
             }
 
             string problem = null;
-            if (appear && effect.OthersMove == OthersMove.After)
+            if (items && appear && effect.OnPageOpen == PageOpen.PushOthers)
+            {
+                problem = "OnPageOpen=PushOthers is not available for items, so they play their effect in their place (InPlace)";
+            }
+            else if (appear && effect.OthersMove == OthersMove.After)
             {
                 problem = "OthersMove=After is for Disappear, so the elements around it move while it appears";
             }
@@ -310,23 +349,64 @@ namespace OpenSilver.Animations.Engine
                 problem = "Bounciness is only used by Pop and by Easing=Bouncy";
             }
 
-            // Later, so that the element has its name, and the app had time to turn on the log.
             if (problem != null)
             {
-                Deployment.Current.Dispatcher.BeginInvoke(() =>
-                {
-                    string message = $"The {(appear ? "Appear" : "Disappear")} of {ElementNames.Of(element)}: {problem}.";
-                    if (AnimationSettings.Current.LogForDebugging)
-                    {
-                        BrowserBridge.WriteToConsole(message);
-                    }
-
-                    if (AnimationSettings.HasLoggedHandlers)
-                    {
-                        AnimationSettings.RaiseLogged(message);
-                    }
-                });
+                Warn((items ? "Item" : string.Empty) + (appear ? "Appear" : "Disappear"), element, problem);
             }
+        }
+
+        /// <summary>
+        /// Warns about an item setting that doesn't apply where it is used.
+        /// </summary>
+        public static void CheckItemSetting(DependencyProperty property, object value, UIElement element)
+        {
+            if (_instance == null)
+            {
+                return;
+            }
+
+            string name = property == Animate.ItemAppearProperty ? "ItemAppear"
+                : property == Animate.ItemDisappearProperty ? "ItemDisappear"
+                : property == Animate.ItemMoveAndResizeProperty ? "ItemMoveAndResize"
+                : "ItemCascade";
+
+            if (element is not Panel && element is not ItemsControl)
+            {
+                Warn(name, element, "it is for a Panel or an ItemsControl, so it is ignored");
+                return;
+            }
+
+            if (value is Transition effect)
+            {
+                CheckEffect(effect, property == Animate.ItemAppearProperty, element, items: true);
+            }
+            else if (value is Movement movement && movement.ApplyTo == AnimationScope.EverythingInside)
+            {
+                Warn(name, element, "ApplyTo is not used for items, so each item animates its own moves and size changes. " +
+                                    "To animate everything inside the list, set MoveAndResize on the list instead");
+            }
+            else if (value is AnimationTime cascade && cascade.Seconds > MaxCascadeMs / 1000)
+            {
+                Warn(name, element, $"it is at most {Seconds(MaxCascadeMs)}, so {Seconds(MaxCascadeMs)} is used");
+            }
+        }
+
+        private static void Warn(string property, UIElement element, string problem)
+        {
+            // Later, so that the element has its name, and the app had time to turn on the log.
+            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            {
+                string message = $"The {property} of {ElementNames.Of(element)}: {problem}.";
+                if (AnimationSettings.Current.LogForDebugging)
+                {
+                    BrowserBridge.WriteToConsole(message);
+                }
+
+                if (AnimationSettings.HasLoggedHandlers)
+                {
+                    AnimationSettings.RaiseLogged(message);
+                }
+            });
         }
 
         #region Layout hooks
@@ -370,9 +450,10 @@ namespace OpenSilver.Animations.Engine
 
             // Everything inside an element that appears appears with it. Only the elements that have
             // an Appear of their own are recorded, to play it, unless it appears by scrolling.
-            if (parent >= 0 && (_records[parent].Flags & RecordFlags.Appears) != 0)
+            // An item that glides to its new place keeps its content as it was, without effects.
+            if (parent >= 0 && (_records[parent].Flags & (RecordFlags.Appears | RecordFlags.Paired)) != 0)
             {
-                if (AnyEffects && (_records[parent].Flags & RecordFlags.Scrolled) == 0 && GetAppearEffect(element) != null)
+                if (AnyEffects && (_records[parent].Flags & (RecordFlags.Scrolled | RecordFlags.Paired)) == 0 && GetAppearEffect(element) != null)
                 {
                     int nested = GetOrAddRecord(element);
                     _records[nested].Parent = parent;
@@ -386,6 +467,18 @@ namespace OpenSilver.Animations.Engine
             ref Record record = ref _records[index];
             record.Parent = parent;
 
+            // A new container for an item that the list showed in the last pass, like after a sort,
+            // or the same container moved: it glides from where the item was.
+            if (isFirstArrange && (AnyItems || AnyAreas) && parent >= 0 && (_records[parent].Flags & RecordFlags.Scrolled) == 0 &&
+                TryPair(element, out Rect itemRect))
+            {
+                record.OldRect = itemRect;
+                record.Flags |= RecordFlags.HasRects | RecordFlags.Paired;
+                _stack.Add(index);
+                _sessionOrder.Add(index);
+                return;
+            }
+
             // An element shown again still has the box it had before it was collapsed: it appears,
             // like an element arranged for the first time, and the change starts in its parent.
             bool shown = !isFirstArrange && _shown.Count > 0 && _shown.Contains(element);
@@ -393,6 +486,12 @@ namespace OpenSilver.Animations.Engine
             {
                 record.Flags |= RecordFlags.Appears;
                 _appeared[element] = _clock.ElapsedMilliseconds;
+
+                // Where it starts, so that its first scroll is a scroll.
+                if (element is IScrollInfo appearingScrollInfo)
+                {
+                    IsScrolled(element, appearingScrollInfo);
+                }
 
                 // Realized by a scrolling list, like a virtualizing panel: no effects.
                 if (parent >= 0 && (_records[parent].Flags & RecordFlags.Scrolled) != 0)
@@ -435,6 +534,19 @@ namespace OpenSilver.Animations.Engine
 
         protected override void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered)
         {
+            // Where each item is, including those that appear with their container, which are not recorded.
+            if ((AnyItems || AnyAreas) && VisualTreeHelper.GetParent(element) is Panel panel && GetList(panel) is ItemList list)
+            {
+                object item = list.ItemFromContainer(element);
+                if (list.Owner != null && item != element && element is FrameworkElement container && !list.ItemOf.ContainsKey(container))
+                {
+                    container.DataContextChanged -= OnContainerDataContextChanged;
+                    container.DataContextChanged += OnContainerDataContextChanged;
+                }
+                list.ItemOf[element] = item;
+                list.Slots[item] = new Slot { Container = element, Rect = visualRect };
+            }
+
             int count = _stack.Count;
             if (count == 0)
             {
@@ -515,7 +627,7 @@ namespace OpenSilver.Animations.Engine
             {
                 if (AnyEffects && GetAppearEffect(element) is Transition effect && IsAnimatable(element, out string hiddenId))
                 {
-                    PlayAtOnce(element, effect, appear: true, hiddenId);
+                    PlayAtOnce(element, effect, appear: true, hiddenId, VisualTreeHelper.GetParent(element) as UIElement);
                 }
                 return;
             }
@@ -549,14 +661,50 @@ namespace OpenSilver.Animations.Engine
 
         protected override void OnDetaching(UIElement child, UIElement parent)
         {
-            if (_runningUntil.Count > 0)
+            bool moving = false;
+            if (_runningUntil.Count > 0 && _runningUntil.TryGetValue(child, out (long Until, bool FromSwitch) running))
             {
+                moving = running.Until > _clock.ElapsedMilliseconds;
                 _runningUntil.Remove(child);
             }
 
-            if ((AnyEffects || AnyAreas) && child.Visibility == Visibility.Visible)
+            // Its item may be shown again in the next pass, by a new container or by this one. While
+            // it moves, its ghost keeps where it is on screen, for its item to go on from there.
+            ItemList list = null;
+            object shown = null;
+            ItemList parentList = (AnyItems || AnyAreas) && parent is Panel panel ? GetList(panel) : null;
+            if (parentList != null && parentList.ItemOf.TryGetValue(child, out shown))
             {
-                CaptureDisappearing(child, parent, hidden: false);
+                list = parentList;
+                _removedItems.Add(new RemovedItem { List = list, Container = child, Item = shown });
+            }
+            else if (parentList == null && (AnyItems || AnyAreas) && FindContainer(parent) is UIElement container)
+            {
+                // A ListBox clears the content of its containers when it is refreshed, before
+                // their DataContext.
+                CopyBeforeRemoval(container);
+            }
+
+            string copy = null;
+            if (_copiedBeforeRemoval.Count > 0 && _copiedBeforeRemoval.TryGetValue(child, out copy))
+            {
+                _copiedBeforeRemoval.Remove(child);
+            }
+
+            bool captured = false;
+            if ((AnyEffects || AnyAreas || copy != null || (list != null && moving)) && child.Visibility == Visibility.Visible)
+            {
+                captured = CaptureDisappearing(child, parent, hidden: false, keepOffset: list != null && (moving || copy != null), copied: copy != null);
+                if (list?.Owner != null && _ghostOf.TryGetValue(child, out Disappearance disappearance))
+                {
+                    disappearance.Owner = list.Owner;
+                    disappearance.Item = shown;
+                }
+            }
+
+            if (copy != null && !captured)
+            {
+                RemoveGhosts(new[] { copy });
             }
         }
 
@@ -564,37 +712,62 @@ namespace OpenSilver.Animations.Engine
         /// Copies an element that is being collapsed, hidden or removed, if it has an effect to play:
         /// its own Disappear, or an automatic one inside an area. A hidden element keeps its space,
         /// so its effect plays at once; the others play theirs at the end of the next layout pass.
+        /// With <paramref name="keepOffset"/>, an item that moves is copied anyway, so that its
+        /// item goes on from where it is if it is shown again in the next pass. With
+        /// <paramref name="copied"/>, it was copied already (<see cref="CopyBeforeRemoval"/>).
+        /// Says whether the copy is kept, to play or for where it is on screen.
         /// </summary>
-        private void CaptureDisappearing(UIElement element, UIElement parent, bool hidden)
+        private bool CaptureDisappearing(UIElement element, UIElement parent, bool hidden, bool keepOffset = false, bool copied = false)
         {
             if (parent == null || !parent.IsVisible || _skip || _held.Contains(element) || !AnimationSettings.Current.IsEnabled)
             {
-                return;
+                return false;
             }
 
-            Transition effect = AnyEffects ? GetDisappearEffect(element) : null;
-            if (effect == null &&
-                (hidden || !AnyAreas || HasNoEffect(element, appear: false) || CountAutomaticGhosts() >= MaxAutomaticGhosts || !IsInsideArea(element)))
+            // Removed by a scrolling list, like a virtualizing panel: no effects.
+            if (parent is IScrollInfo scrollInfo && WasScrolled(parent, scrollInfo))
             {
-                return;
+                return false;
+            }
+
+            ItemList effectList = null;
+            Transition effect = AnyEffects ? GetDisappearEffect(element, parent, out effectList) : null;
+            bool offsetOnly = false;
+            if (effect == null &&
+                (hidden || !AnyAreas || HasNoEffect(element, appear: false, parent) || CountAutomaticGhosts() >= MaxAutomaticGhosts || !IsInsideArea(element)))
+            {
+                if (!keepOffset)
+                {
+                    return false;
+                }
+                offsetOnly = true;
             }
 
             Size size = element.RenderSize;
             if (size.Width <= 0 || size.Height <= 0 || !IsAnimatable(element, out string id))
             {
-                return;
+                return false;
             }
 
-            BrowserBridge.Ghost(id);
+            if (!copied)
+            {
+                BrowserBridge.Ghost(id);
+            }
             _ghostedUntil[element] = _clock.ElapsedMilliseconds + GhostLifetimeMs;
 
             if (hidden)
             {
-                PlayAtOnce(element, effect, appear: false, id);
-                return;
+                PlayAtOnce(element, effect, appear: false, id, parent);
+                return true;
             }
 
-            _disappearing.Add(new Disappearance { Element = element, Parent = parent, Id = id, Effect = effect, ParentIndex = -1 });
+            var disappearance = new Disappearance { Element = element, Parent = parent, Id = id, Effect = effect, List = effectList, NoEffect = offsetOnly, ParentIndex = -1 };
+            _disappearing.Add(disappearance);
+            if (AnyItems || AnyAreas)
+            {
+                _ghostOf[element] = disappearance;
+            }
+            return true;
         }
 
         private int CountAutomaticGhosts()
@@ -602,7 +775,7 @@ namespace OpenSilver.Animations.Engine
             int count = 0;
             foreach (Disappearance disappearance in _disappearing)
             {
-                if (disappearance.Effect == null)
+                if (disappearance.Effect == null && !disappearance.NoEffect)
                 {
                     count++;
                 }
@@ -615,7 +788,7 @@ namespace OpenSilver.Animations.Engine
         /// Plays the effect of an element that becomes hidden or visible again, which doesn't need
         /// a layout pass.
         /// </summary>
-        private void PlayAtOnce(UIElement element, Transition effect, bool appear, string id)
+        private void PlayAtOnce(UIElement element, Transition effect, bool appear, string id, UIElement parent)
         {
             AnimationSettings settings = AnimationSettings.Current;
             string reason = GetGlobalSnapReason(settings);
@@ -649,7 +822,8 @@ namespace OpenSilver.Animations.Engine
             if (settings.LogForDebugging || AnimationSettings.HasLoggedHandlers)
             {
                 string what = appear ? "became visible again" : "was hidden";
-                _messages.Add($"{ElementNames.Of(element)} {what}; {DescribeOwnEffect(effect, appear, quick, timing, reason, wait)}.");
+                _messages.Add($"{NameOf(element, parent)} {what}; " +
+                              $"{DescribeOwnEffect(effect, appear, quick, timing, reason, wait, DescribeEffectSource(element, effect, appear, parent, own: true))}.");
                 Publish(settings);
             }
         }
@@ -658,10 +832,42 @@ namespace OpenSilver.Animations.Engine
         /// "it fades in (Smooth, 0.25 s, from its Appear)", "it fades in after 0.5 s (...)", or "it
         /// fades in quickly, because the device asks for reduced motion".
         /// </summary>
-        private static string DescribeOwnEffect(Transition effect, bool appear, bool quick, Timing timing, string reason, double waitMs)
+        private static string DescribeOwnEffect(Transition effect, bool appear, bool quick, Timing timing, string reason, double waitMs, string source)
             => quick
                 ? $"it {(appear ? "fades in" : "fades out")} quickly{After(waitMs)}, because {reason}"
-                : $"it {effect.Describe(appear)}{After(waitMs)} ({timing.Description}, from its {(appear ? "Appear" : "Disappear")})";
+                : $"it {effect.Describe(appear)}{After(waitMs)} ({timing.Description}, from {source})";
+
+        /// <summary>
+        /// Where an effect comes from: "its Appear" (<paramref name="own"/>) or "the Appear of
+        /// Banner", or, for an item, "the ItemAppear of TodoList".
+        /// </summary>
+        private string DescribeEffectSource(UIElement element, Transition effect, bool appear, UIElement parent, bool own)
+        {
+            Transition elementEffect = appear ? Animate.GetAppear(element) : Animate.GetDisappear(element);
+            if (!ReferenceEquals(elementEffect, effect) && parent is Panel panel && GetList(panel) is ItemList list)
+            {
+                DependencyProperty property = appear ? Animate.ItemAppearProperty : Animate.ItemDisappearProperty;
+                return $"the {(appear ? "ItemAppear" : "ItemDisappear")} of {ElementNames.Of(list.HolderOf(property))}";
+            }
+
+            string name = appear ? "Appear" : "Disappear";
+            return own ? "its " + name : $"the {name} of {ElementNames.Of(element, parent)}";
+        }
+
+        /// <summary>
+        /// Names an element in a message. An item that was removed is also named by its data item,
+        /// as its container may show no text anymore.
+        /// </summary>
+        private string NameOf(UIElement element, UIElement parent)
+        {
+            object item = null;
+            if ((AnyItems || AnyAreas) && parent is Panel panel && GetList(panel) is ItemList list)
+            {
+                list.ItemOf.TryGetValue(element, out item);
+            }
+
+            return ElementNames.Of(element, parent, item);
+        }
 
         /// <summary>
         /// " after 0.5 s", or nothing when the effect doesn't wait.
@@ -776,6 +982,13 @@ namespace OpenSilver.Animations.Engine
             if (_pageOpenHolds.IsWaitingForPass)
             {
                 _pageOpenHolds.OnLayoutPassCompleted(AppearsWithContainer);
+            }
+
+            // The containers copied before their removal, but not removed.
+            if (_copiedBeforeRemoval.Count > 0)
+            {
+                RemoveGhosts(_copiedBeforeRemoval.Values);
+                _copiedBeforeRemoval.Clear();
             }
 
             if (_recordCount == 0 && _disappearing.Count == 0 && !_forced && !_skip)
@@ -899,12 +1112,26 @@ namespace OpenSilver.Animations.Engine
             double h = scrollInfo.HorizontalOffset;
             double v = scrollInfo.VerticalOffset;
             ScrollOffset offset = _scrollOffsets.GetOrCreateValue(element);
-            scrolled = offset.IsKnown && (!AreClose(offset.Horizontal, h) || !AreClose(offset.Vertical, v));
+            scrolled = !AreClose(offset.Horizontal, h) || !AreClose(offset.Vertical, v);
             offset.Horizontal = h;
             offset.Vertical = v;
-            offset.IsKnown = true;
             _scrollChecked[element] = scrolled;
             return scrolled;
+        }
+
+        /// <summary>
+        /// Like <see cref="IsScrolled"/>, without remembering the offset: for the containers that a
+        /// virtualizing panel removes while it measures, and for elements removed between passes.
+        /// </summary>
+        private bool WasScrolled(UIElement element, IScrollInfo scrollInfo)
+        {
+            if (_scrollChecked.TryGetValue(element, out bool scrolled))
+            {
+                return scrolled;
+            }
+
+            ScrollOffset offset = _scrollOffsets.GetOrCreateValue(element);
+            return !AreClose(offset.Horizontal, scrollInfo.HorizontalOffset) || !AreClose(offset.Vertical, scrollInfo.VerticalOffset);
         }
 
         #endregion
@@ -976,12 +1203,32 @@ namespace OpenSilver.Animations.Engine
                 if (changed)
                 {
                     bucket.Members.Add(i);
+                    if ((record.Flags & RecordFlags.Paired) != 0 && bucket.Paired++ == 0)
+                    {
+                        bucket.PairedList = VisualTreeHelper.GetParent(record.Element) as Panel;
+                    }
                 }
             }
 
-            // An element that disappears is a change of its parent, like one that appears.
+            // An element that disappears is a change of its parent, like one that appears. The
+            // ghost of an item shown again in its new place has nothing to play.
             foreach (Disappearance disappearance in _disappearing)
             {
+                if (disappearance.Paired || disappearance.NoEffect)
+                {
+                    continue;
+                }
+
+                // A virtualizing panel removes its containers while it measures, before it tells
+                // its new offset, and the containers it removes still have their items in the list.
+                if ((disappearance.Parent is IScrollInfo scrollInfo && IsScrolled(disappearance.Parent, scrollInfo)) ||
+                    (disappearance.Owner != null && disappearance.Owner.Items.Contains(disappearance.Item)))
+                {
+                    disappearance.Effect = null;
+                    disappearance.NoEffect = true;
+                    continue;
+                }
+
                 if (_recordIndex.TryGetValue(disappearance.Parent, out int parentIndex) && _records[parentIndex].Group != 0)
                 {
                     int group = Find(_records[parentIndex].Group);
@@ -994,6 +1241,7 @@ namespace OpenSilver.Animations.Engine
                         {
                             bucket.Effect = disappearance.Effect;
                             bucket.EffectElement = disappearance.Element;
+                            bucket.EffectParent = disappearance.Parent;
                             bucket.EffectAppears = false;
                         }
                     }
@@ -1117,6 +1365,7 @@ namespace OpenSilver.Animations.Engine
             {
                 bucket.Effect = effect;
                 bucket.EffectElement = element;
+                bucket.EffectParent = VisualTreeHelper.GetParent(element) as UIElement;
                 bucket.EffectAppears = true;
             }
         }
@@ -1144,12 +1393,25 @@ namespace OpenSilver.Animations.Engine
                 reason = null;
             }
 
+            // Dragging to reorder a list changes its order: its items glide out of the way, while
+            // the dragged item, which holds the mouse capture, follows the pointer.
+            else if (ReferenceEquals(reason, DraggingReason) && bucket.Paired > 0)
+            {
+                reason = null;
+            }
+
             if (reason == null)
             {
                 if (windowResize)
                 {
-                    timing = Timing.FromMovement(info.Movement, settings);
-                    source = "the AlsoOnWindowResize of " + ElementNames.Of(info.Element);
+                    if (!_windowTimings.TryGetValue(info.Movement, out timing))
+                    {
+                        timing = Timing.FromMovement(info.Movement, settings);
+                        _windowTimings.Add(info.Movement, timing);
+                    }
+                    source = IsItemOfList(info.Element, out _)
+                        ? DescribeSource(info.Movement, info.Element, null)
+                        : "the AlsoOnWindowResize of " + ElementNames.Of(info.Element);
                 }
                 else
                 {
@@ -1213,7 +1475,8 @@ namespace OpenSilver.Animations.Engine
                         else
                         {
                             Timing effectTiming = _quickFades ? QuickFadeTiming : GetEffectTiming(played, settings);
-                            what = DescribeOwnEffect(played, bucket.EffectAppears, _quickFades, effectTiming, reason, playedWait) +
+                            string effectSource = DescribeEffectSource(bucket.EffectElement, played, bucket.EffectAppears, bucket.EffectParent, own: true);
+                            what = DescribeOwnEffect(played, bucket.EffectAppears, _quickFades, effectTiming, reason, playedWait, effectSource) +
                                    (_quickFades ? ", and nothing else animated" : ", and nothing else animated because " + reason);
                         }
 
@@ -1232,7 +1495,10 @@ namespace OpenSilver.Animations.Engine
                     if (now - _lastWindowResizeLog > 1000)
                     {
                         _lastWindowResizeLog = now;
-                        _messages.Add($"The window was resized; {ElementNames.Of(info.Element)} follows it ({timing.Description}, from {source}).");
+                        string followers = IsItemOfList(info.Element, out ItemList list)
+                            ? $"the items of {ElementNames.Of(list.Element)} follow it"
+                            : $"{ElementNames.Of(info.Element)} follows it";
+                        _messages.Add($"The window was resized; {followers} ({timing.Description}, from {source}).");
                     }
                 }
                 else
@@ -1358,7 +1624,7 @@ namespace OpenSilver.Animations.Engine
             if (bucket.Effect != null && !_switchOnly)
             {
                 timing = Timing.ForOthers(GetEffectTiming(bucket.Effect, settings), bucket.Effect);
-                source = (bucket.EffectAppears ? "the Appear of " : "the Disappear of ") + ElementNames.Of(bucket.EffectElement);
+                source = DescribeEffectSource(bucket.EffectElement, bucket.Effect, bucket.EffectAppears, bucket.EffectParent, own: false);
                 firstOrigin = bucket.EffectElement;
                 return null;
             }
@@ -1378,7 +1644,7 @@ namespace OpenSilver.Animations.Engine
             if (FindNearestMemberMovement(bucket, eligible, out UIElement memberOwner) is Movement memberMovement)
             {
                 timing = Timing.FromMovement(memberMovement, settings);
-                source = "the MoveAndResize of " + ElementNames.Of(memberOwner);
+                source = DescribeSource(memberMovement, memberOwner, memberOwner);
                 return null;
             }
 
@@ -1472,10 +1738,21 @@ namespace OpenSilver.Animations.Engine
             return null;
         }
 
-        private static string DescribeSource(Movement movement, UIElement owner, UIElement origin)
-            => (movement.ApplyTo == AnimationScope.EverythingInside && owner != origin
+        /// <summary>
+        /// "the MoveAndResize of Card", "the EverythingInside of Form", or, for an item, "the
+        /// ItemMoveAndResize of TodoList".
+        /// </summary>
+        private string DescribeSource(Movement movement, UIElement owner, UIElement origin)
+        {
+            if (!ReferenceEquals(Animate.GetMoveAndResize(owner), movement) && GetListOf(owner) is ItemList list && ReferenceEquals(list.Movement, movement))
+            {
+                return "the ItemMoveAndResize of " + ElementNames.Of(list.HolderOf(Animate.ItemMoveAndResizeProperty));
+            }
+
+            return (movement.ApplyTo == AnimationScope.EverythingInside && owner != origin
                 ? "the EverythingInside of "
                 : "the MoveAndResize of ") + ElementNames.Of(owner);
+        }
 
         /// <summary>
         /// The setting that gives its timing to a change that starts at the origin: its own, even
@@ -1486,7 +1763,7 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         private int FindNearestMovement(UIElement origin, int group, int maxLevels, out Movement movement, out UIElement owner)
         {
-            if (Animate.GetMoveAndResize(origin) is Movement own && !own.IsNone)
+            if (GetOwnMovement(origin, out _) is Movement own && !own.IsNone)
             {
                 movement = own;
                 owner = origin;
@@ -1496,7 +1773,7 @@ namespace OpenSilver.Animations.Engine
             int levels = 1;
             for (UIElement e = VisualTreeHelper.GetParent(origin) as UIElement; e != null && levels <= maxLevels; e = VisualTreeHelper.GetParent(e) as UIElement, levels++)
             {
-                if (Animate.GetMoveAndResize(e) is not Movement m)
+                if (GetOwnMovement(e, out bool fromItems) is not Movement m)
                 {
                     continue;
                 }
@@ -1506,7 +1783,7 @@ namespace OpenSilver.Animations.Engine
                     break;
                 }
 
-                if (m.ApplyTo == AnimationScope.EverythingInside || IsMember(e, group))
+                if ((m.ApplyTo == AnimationScope.EverythingInside && !fromItems) || IsMember(e, group))
                 {
                     movement = m;
                     owner = e;
@@ -1652,7 +1929,15 @@ namespace OpenSilver.Animations.Engine
                 return bucket.EffectAppears
                     ? DescribeAppeared(origin, _recordIndex.TryGetValue(origin, out int effectIndex) && (_records[effectIndex].Flags & RecordFlags.Released) != 0,
                                        bucket.Effect, AnimationSettings.Current)
-                    : ElementNames.Of(origin) + " disappeared";
+                    : NameOf(origin, bucket.EffectParent) + " disappeared";
+            }
+
+            // Items shown again in new places: the list was sorted, filtered or refreshed, or an
+            // item was moved.
+            if (bucket.Paired > 0 && bucket.PairedList != null && GetList(bucket.PairedList) is ItemList pairedList)
+            {
+                return $"The items of {ElementNames.Of(pairedList.Element)} " +
+                       (bucket.Ghosts.Count > 0 || bucket.Appearing.Count > 0 ? "changed" : "changed order");
             }
 
             if (!_recordIndex.TryGetValue(origin, out int originIndex))
@@ -1710,12 +1995,14 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// "it fades in, and 5 elements animate together", "it wipes in, Body0 wipes out, and 5
-        /// elements animate together", "3 elements animate together, and Notes wipes out".
+        /// elements animate together", "3 elements animate together, and Notes wipes out", "it
+        /// slides in, 2 other items follow, one every 0.05 s, and 4 elements animate together".
         /// </summary>
         private static string DescribeAnimated(Bucket bucket)
         {
             string moved = bucket.Animated.Count == 0 ? null : ElementNames.Count(bucket.Animated.Count, "element animates", "elements animate together");
             string others = bucket.OtherEffects == 0 ? null
+                : bucket.CascadeStepMs > 0 ? ElementNames.Count(bucket.OtherEffects, "other item follows", "other items follow") + ", one every " + Seconds(bucket.CascadeStepMs)
                 : bucket.OtherEffects == 1 ? bucket.OtherEffect
                 : bucket.OtherEffects + " other elements play their effects";
             var parts = new List<string>(5);
@@ -1784,12 +2071,42 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         private Movement GetEffectiveMovement(UIElement element)
         {
-            if (Animate.GetMoveAndResize(element) is Movement own)
+            if (GetOwnMovement(element, out _) is Movement own)
             {
                 return own.IsNone ? null : own;
             }
 
             return GetArea(element).Movement;
+        }
+
+        /// <summary>
+        /// The MoveAndResize of the element, or else the ItemMoveAndResize of the list it is an
+        /// item of (<paramref name="fromItems"/>), whose ApplyTo is not used.
+        /// </summary>
+        private Movement GetOwnMovement(UIElement element, out bool fromItems)
+        {
+            fromItems = false;
+            if (Animate.GetMoveAndResize(element) is Movement own)
+            {
+                return own;
+            }
+
+            if (AnyItems && GetListOf(element) is ItemList list && list.Movement is Movement item)
+            {
+                fromItems = true;
+                return item;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Says whether the setting of the element comes from the ItemMoveAndResize of its list.
+        /// </summary>
+        private bool IsItemOfList(UIElement element, out ItemList list)
+        {
+            list = GetOwnMovement(element, out bool fromItems) != null && fromItems ? GetListOf(element) : null;
+            return list != null;
         }
 
         private Area GetArea(UIElement element)
@@ -1804,13 +2121,13 @@ namespace OpenSilver.Animations.Engine
                 return area;
             }
 
-            if (Animate.GetMoveAndResize(element) is Movement own)
+            if (GetOwnMovement(element, out bool fromItems) is Movement own)
             {
                 if (own.IsNone)
                 {
                     area = new Area { IsCarvedOut = true, Element = element };
                 }
-                else if (own.ApplyTo == AnimationScope.EverythingInside)
+                else if (own.ApplyTo == AnimationScope.EverythingInside && !fromItems)
                 {
                     area = new Area { Movement = own, Element = element };
                 }
@@ -1828,14 +2145,14 @@ namespace OpenSilver.Animations.Engine
             return area;
         }
 
-        private static bool HasNone(UIElement element)
-            => Animate.GetMoveAndResize(element) is Movement own && own.IsNone;
+        private bool HasNone(UIElement element)
+            => GetOwnMovement(element, out _) is Movement own && own.IsNone;
 
         /// <summary>
         /// Says whether an element would be revealed when it appears. Called outside the layout
         /// passes, so nothing is memoized.
         /// </summary>
-        private static bool IsInsideArea(UIElement element)
+        private bool IsInsideArea(UIElement element)
         {
             if (HasNone(element))
             {
@@ -1844,14 +2161,14 @@ namespace OpenSilver.Animations.Engine
 
             for (UIElement e = VisualTreeHelper.GetParent(element) as UIElement; e != null; e = VisualTreeHelper.GetParent(e) as UIElement)
             {
-                if (Animate.GetMoveAndResize(e) is Movement movement)
+                if (GetOwnMovement(e, out bool fromItems) is Movement movement)
                 {
                     if (movement.IsNone)
                     {
                         return false;
                     }
 
-                    if (movement.ApplyTo == AnimationScope.EverythingInside)
+                    if (movement.ApplyTo == AnimationScope.EverythingInside && !fromItems)
                     {
                         return true;
                     }
@@ -1859,6 +2176,161 @@ namespace OpenSilver.Animations.Engine
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// The list whose items include the element, or null: its parent is a Panel with item
+        /// settings, the items panel of an ItemsControl that has them, or an items panel inside
+        /// an area.
+        /// </summary>
+        private ItemList GetListOf(UIElement element)
+            => VisualTreeHelper.GetParent(element) is Panel panel ? GetList(panel) : null;
+
+        private ItemList GetList(Panel panel)
+        {
+            if (_listCache.TryGetValue(panel, out ItemList list))
+            {
+                return list;
+            }
+
+            ItemsControl owner = panel.IsItemsHost ? ItemsControl.GetItemsOwner(panel) : null;
+            bool settings = AnyItems && (ItemList.HasSettings(panel) || (owner != null && ItemList.HasSettings(owner)));
+            bool inArea = !settings && AnyAreas && owner != null &&
+                          ((Animate.GetMoveAndResize(panel) is Movement own && !own.IsNone && own.ApplyTo == AnimationScope.EverythingInside) || IsInsideArea(panel));
+
+            list = null;
+            if (settings || inArea)
+            {
+                list = _lists.GetValue(panel, p => new ItemList(p));
+                list.Owner = owner;
+            }
+
+            _listCache[panel] = list;
+            return list;
+        }
+
+        private static void OnContainerDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+            => _instance?.CopyBeforeRemoval((UIElement)sender);
+
+        /// <summary>
+        /// The container of a list that the element is in, a few levels up at most, or null.
+        /// </summary>
+        private UIElement FindContainer(UIElement element)
+        {
+            for (int depth = 0; element != null && depth < MaxContainerDepth; depth++)
+            {
+                UIElement parent = VisualTreeHelper.GetParent(element) as UIElement;
+                if (parent is Panel panel && GetList(panel) is ItemList list && list.ItemOf.ContainsKey(element))
+                {
+                    return element;
+                }
+                element = parent;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Copies the containers of a list that is refreshed, like when its ItemsSource is
+        /// replaced. Its containers are emptied first, then removed: copied when the first one is
+        /// emptied, they are still shown until the next pass, which pairs their items with the
+        /// new containers. Only a refresh empties a container still in its panel: the others
+        /// remove it first.
+        /// </summary>
+        private void CopyBeforeRemoval(UIElement container)
+        {
+            if (_skip || !AnimationSettings.Current.IsEnabled || _copiedBeforeRemoval.ContainsKey(container) ||
+                GetListOf(container) is not ItemList list || list.Owner == null || !list.Panel.IsVisible ||
+                !list.ItemOf.ContainsKey(container) ||
+                list.Owner.ItemContainerGenerator.ItemFromContainer(container) != DependencyProperty.UnsetValue)
+            {
+                return;
+            }
+
+            var ids = new List<string>();
+            foreach (UIElement child in list.Panel.Children)
+            {
+                if (child.Visibility == Visibility.Visible && list.ItemOf.ContainsKey(child) && !_copiedBeforeRemoval.ContainsKey(child) &&
+                    child.RenderSize.Width > 0 && child.RenderSize.Height > 0 && IsAnimatable(child, out string id))
+                {
+                    _copiedBeforeRemoval[child] = id;
+                    ids.Add(id);
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                BrowserBridge.GhostInView(ids);
+            }
+        }
+
+        private void RemoveGhosts(IEnumerable<string> ids)
+        {
+            var batch = new BatchBuilder();
+            foreach (string id in ids)
+            {
+                batch.AddGhostRemoval(id);
+            }
+            BrowserBridge.Run(batch.ToJson());
+        }
+
+        /// <summary>
+        /// Pairs a container arranged for the first time with the item it shows, if the list
+        /// showed that item at the end of the last pass in a container that is gone since then:
+        /// the item glides from there. Its old container doesn't play its disappear effect.
+        /// </summary>
+        private bool TryPair(UIElement element, out Rect itemRect)
+        {
+            itemRect = default;
+            if (VisualTreeHelper.GetParent(element) is not Panel panel || GetList(panel) is not ItemList list ||
+                !list.Slots.TryGetValue(list.ItemFromContainer(element), out Slot slot))
+            {
+                return false;
+            }
+
+            UIElement old = slot.Container;
+            if (old != element && VisualTreeHelper.GetParent(old) == panel)
+            {
+                return false;
+            }
+
+            itemRect = slot.Rect;
+            if (_ghostOf.TryGetValue(old, out Disappearance ghost))
+            {
+                ghost.Paired = true;
+                _pairedGhosts[element] = ghost.Id;
+            }
+            _ghostedUntil.Remove(old);
+            return true;
+        }
+
+        /// <summary>
+        /// Forgets where the items of the containers removed since the last pass were, unless the
+        /// container is back in its list with the same item.
+        /// </summary>
+        private void ForgetRemovedItems()
+        {
+            foreach (RemovedItem removed in _removedItems)
+            {
+                ItemList list = removed.List;
+                bool back = VisualTreeHelper.GetParent(removed.Container) == list.Panel;
+                if (back && list.ItemOf.TryGetValue(removed.Container, out object item) && Equals(item, removed.Item))
+                {
+                    continue;
+                }
+
+                if (!back)
+                {
+                    list.ItemOf.Remove(removed.Container);
+                }
+
+                if (list.Slots.TryGetValue(removed.Item, out Slot slot) && slot.Container == removed.Container)
+                {
+                    list.Slots.Remove(removed.Item);
+                }
+            }
+
+            _removedItems.Clear();
         }
 
         /// <summary>
@@ -2074,6 +2546,18 @@ namespace OpenSilver.Animations.Engine
                 }
             }
 
+            // While something is dragged, the element that holds the mouse capture follows the
+            // pointer: it, the elements around it and the elements inside it snap.
+            UIElement captured = BrowserBridge.IsDragging ? Mouse.Captured as UIElement : null;
+            if (captured != null)
+            {
+                _capturedChain.Clear();
+                for (DependencyObject e = captured; e != null; e = VisualTreeHelper.GetParent(e))
+                {
+                    _capturedChain.Add(e);
+                }
+            }
+
             foreach (int index in bucket.Animated)
             {
                 ref Record record = ref _records[index];
@@ -2084,15 +2568,27 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
+                if (captured != null && (_capturedChain.Contains(element) || IsStrictDescendant(element, captured)))
+                {
+                    Snap(index, now);
+                    continue;
+                }
+
                 double delay = (wave ? GetWaveDelay(index, originIndex, timing.Wave) / settings.Speed : 0) + othersDelay;
                 int flags = GetFlags(element, ref record);
+
+                string fromGhost = null;
+                if ((record.Flags & RecordFlags.Paired) != 0)
+                {
+                    _pairedGhosts.TryGetValue(element, out fromGhost);
+                }
 
                 batch.AddMove(id, timingIndex, delay,
                     record.OldRect.X - record.NewRect.X,
                     record.OldRect.Y - record.NewRect.Y,
                     record.OldRect.Width, record.OldRect.Height,
                     record.NewRect.Width, record.NewRect.Height,
-                    flags);
+                    flags, fromGhost);
 
                 _runningUntil[element] = (now + (long)(delay + timing.DurationMs) + 50, fromSwitch);
 
@@ -2102,11 +2598,18 @@ namespace OpenSilver.Animations.Engine
                 }
             }
 
+            if (captured != null)
+            {
+                bucket.Animated.RemoveAll(index => _capturedChain.Contains(_records[index].Element) || IsStrictDescendant(_records[index].Element, captured));
+            }
+
             bucket.Wipes = bucket.Fades = bucket.GhostWipes = bucket.GhostFades = bucket.OtherEffects = 0;
             bucket.OtherEffect = null;
             bucket.EffectPlayed = false;
             bucket.EffectWait = 0;
+            bucket.CascadeStepMs = 0;
             bool othersMove = bucket.Animated.Count > 0;
+            CountCascades(bucket.Revealed, bucket.Ghosts);
             foreach (int index in bucket.Revealed)
             {
                 UIElement element = _records[index].Element;
@@ -2116,12 +2619,14 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
-                // OthersMove=Before: the element waits for the room to be made, then for its StartAfter.
-                if (AnyEffects && GetAppearEffect(element) is Transition effect)
+                // OthersMove=Before: the element waits for the room to be made, then for its turn
+                // in the cascade of its list, then for its StartAfter.
+                if (AnyEffects && GetAppearEffect(element, out ItemList itemList) is Transition effect)
                 {
-                    double effectDelay = effect.OthersMove == OthersMove.Before && othersMove ? timing.DurationMs : 0;
+                    double effectDelay = (effect.OthersMove == OthersMove.Before && othersMove ? timing.DurationMs : 0) +
+                                         NextCascadeDelay(_appearCascades, itemList, bucket, element, settings);
                     double wait = PlayAppearEffect(index, effect, effectDelay, raise: othersMove, settings, batch);
-                    CountEffect(bucket, element, effect, appears: true, wait);
+                    CountEffect(bucket, element, null, effect, appears: true, wait);
                     continue;
                 }
 
@@ -2153,8 +2658,8 @@ namespace OpenSilver.Animations.Engine
             {
                 if (disappearance.Effect != null)
                 {
-                    double wait = PlayGhost(disappearance, settings, batch);
-                    CountEffect(bucket, disappearance.Element, disappearance.Effect, appears: false, wait);
+                    double wait = PlayGhost(disappearance, NextCascadeDelay(_disappearCascades, disappearance.List, bucket, disappearance.Element, settings), settings, batch);
+                    CountEffect(bucket, disappearance.Element, disappearance.Parent, disappearance.Effect, appears: false, wait);
                     continue;
                 }
 
@@ -2360,24 +2865,98 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// Plays the Disappear of a ghost after its StartAfter, and returns how long it waits.
+        /// Plays the Disappear of a ghost after its turn in the cascade of its list
+        /// (<paramref name="cascadeMs"/>) and its StartAfter, and returns how long it waits for
+        /// its StartAfter.
         /// </summary>
-        private double PlayGhost(Disappearance disappearance, AnimationSettings settings, BatchBuilder batch)
+        private double PlayGhost(Disappearance disappearance, double cascadeMs, AnimationSettings settings, BatchBuilder batch)
         {
             disappearance.Handled = true;
             double wait = GetWaitMs(disappearance.Effect, settings);
+            double delay = _quickFades ? wait : cascadeMs + wait;
             Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(disappearance.Effect, settings);
             EffectLook look = _quickFades ? FadeLook : disappearance.Effect.GetLook(appear: false);
-            batch.AddGhost(disappearance.Id, batch.AddTiming(timing), wait, look, sizeCurve: false);
-            if (wait > 0)
+            batch.AddGhost(disappearance.Id, batch.AddTiming(timing), delay, look, sizeCurve: false);
+            if (delay > 0)
             {
-                KeepGhosted(disappearance.Element, wait + timing.DurationMs);
+                KeepGhosted(disappearance.Element, delay + timing.DurationMs);
             }
 
             return wait;
         }
 
-        private static void CountEffect(Bucket bucket, UIElement element, Transition effect, bool appears, double waitMs)
+        /// <summary>
+        /// Counts, for each list with ItemCascade, the items that play its ItemAppear or its
+        /// ItemDisappear together, for <see cref="NextCascadeDelay"/>.
+        /// </summary>
+        private void CountCascades(List<int> appearing, List<Disappearance> ghosts)
+        {
+            _appearCascades.Clear();
+            _disappearCascades.Clear();
+            if (!AnyItems)
+            {
+                return;
+            }
+
+            foreach (int index in appearing)
+            {
+                if ((_records[index].Flags & RecordFlags.Played) == 0 && GetAppearEffect(_records[index].Element, out ItemList list) != null)
+                {
+                    CountCascade(_appearCascades, list);
+                }
+            }
+
+            foreach (Disappearance disappearance in ghosts)
+            {
+                if (!disappearance.Handled && !disappearance.Paired && disappearance.Effect != null)
+                {
+                    CountCascade(_disappearCascades, disappearance.List);
+                }
+            }
+        }
+
+        private static void CountCascade(Dictionary<ItemList, Cascade> cascades, ItemList list)
+        {
+            if (list == null || list.CascadeMs <= 0)
+            {
+                return;
+            }
+
+            if (!cascades.TryGetValue(list, out Cascade cascade))
+            {
+                cascade = new Cascade();
+                cascades.Add(list, cascade);
+            }
+            cascade.Count++;
+        }
+
+        /// <summary>
+        /// When the next item of a list starts its effect, in the cascade of the items counted by
+        /// <see cref="CountCascades"/>. With many items, they come closer together, so that the
+        /// whole cascade lasts at most 0.6 s.
+        /// </summary>
+        private static double NextCascadeDelay(Dictionary<ItemList, Cascade> cascades, ItemList list, Bucket bucket, UIElement element, AnimationSettings settings)
+        {
+            double step = GetCascadeStep(cascades, list, settings);
+            if (step <= 0)
+            {
+                return 0;
+            }
+
+            if (bucket != null && element == bucket.EffectElement)
+            {
+                bucket.CascadeStepMs = step;
+            }
+
+            return cascades[list].Next++ * step;
+        }
+
+        private static double GetCascadeStep(Dictionary<ItemList, Cascade> cascades, ItemList list, AnimationSettings settings)
+            => list != null && cascades.TryGetValue(list, out Cascade cascade) && cascade.Count >= 2
+                ? Math.Min(list.CascadeMs, MaxCascadeTotalMs / (cascade.Count - 1)) / settings.Speed
+                : 0;
+
+        private void CountEffect(Bucket bucket, UIElement element, UIElement parent, Transition effect, bool appears, double waitMs)
         {
             if (element == bucket.EffectElement)
             {
@@ -2386,7 +2965,7 @@ namespace OpenSilver.Animations.Engine
             }
             else if (bucket.OtherEffects++ == 0)
             {
-                bucket.OtherEffect = ElementNames.Of(element) + " " + effect.Describe(appears) + After(waitMs);
+                bucket.OtherEffect = NameOf(element, parent) + " " + effect.Describe(appears) + After(waitMs);
             }
         }
 
@@ -2403,12 +2982,14 @@ namespace OpenSilver.Animations.Engine
             }
 
             Transition played = null;
+            CountCascades(bucket.Appearing, bucket.Ghosts);
             foreach (int index in bucket.Appearing)
             {
-                if ((_records[index].Flags & RecordFlags.Played) == 0 && GetAppearEffect(_records[index].Element) is Transition effect)
+                UIElement element = _records[index].Element;
+                if ((_records[index].Flags & RecordFlags.Played) == 0 && GetAppearEffect(element, out ItemList itemList) is Transition effect)
                 {
-                    double wait = PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
-                    if (_records[index].Element == bucket.EffectElement)
+                    double wait = PlayAppearEffect(index, effect, NextCascadeDelay(_appearCascades, itemList, null, element, settings), raise: false, settings, batch);
+                    if (element == bucket.EffectElement)
                     {
                         played = effect;
                         playedWait = wait;
@@ -2420,7 +3001,7 @@ namespace OpenSilver.Animations.Engine
             {
                 if (!disappearance.Handled && disappearance.Effect != null)
                 {
-                    double wait = PlayGhost(disappearance, settings, batch);
+                    double wait = PlayGhost(disappearance, NextCascadeDelay(_disappearCascades, disappearance.List, null, disappearance.Element, settings), settings, batch);
                     if (disappearance.Element == bucket.EffectElement)
                     {
                         played = disappearance.Effect;
@@ -2442,9 +3023,13 @@ namespace OpenSilver.Animations.Engine
             UIElement firstWithContainer = null;
             Transition firstEffect = null;
             double firstWait = 0;
+            // The cascade is told when all of them are items of the same list.
+            double firstCascade = 0;
+            ItemList firstList = null;
             int skipped = 0;
             UIElement firstSkipped = null;
 
+            CountCascades(_effectAppears, _disappearing);
             foreach (int index in _effectAppears)
             {
                 ref Record record = ref _records[index];
@@ -2454,7 +3039,7 @@ namespace OpenSilver.Animations.Engine
                 }
 
                 UIElement element = record.Element;
-                Transition effect = GetAppearEffect(element);
+                Transition effect = GetAppearEffect(element, out ItemList itemList);
                 bool appearsWithContainer = (record.Flags & RecordFlags.WithContainer) != 0;
 
                 // OnPageOpen=Skip: it is simply there with its page.
@@ -2468,7 +3053,7 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
-                double wait = PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
+                double wait = PlayAppearEffect(index, effect, NextCascadeDelay(_appearCascades, itemList, null, element, settings), raise: false, settings, batch);
 
                 if (logging)
                 {
@@ -2479,13 +3064,20 @@ namespace OpenSilver.Animations.Engine
                             firstWithContainer = element;
                             firstEffect = effect;
                             firstWait = wait;
+                            firstList = itemList;
+                            firstCascade = GetCascadeStep(_appearCascades, itemList, settings);
+                        }
+                        else if (itemList != firstList)
+                        {
+                            firstCascade = 0;
                         }
                     }
                     else
                     {
                         Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(effect, settings);
+                        UIElement parent = VisualTreeHelper.GetParent(element) as UIElement;
                         _messages.Add($"{DescribeAppeared(element, (record.Flags & RecordFlags.Released) != 0, effect, settings)}; " +
-                                      $"{DescribeOwnEffect(effect, true, _quickFades, timing, snapReason, wait)}.");
+                                      $"{DescribeOwnEffect(effect, true, _quickFades, timing, snapReason, wait, DescribeEffectSource(element, effect, true, parent, own: true))}.");
                     }
                 }
             }
@@ -2493,11 +3085,14 @@ namespace OpenSilver.Animations.Engine
             if (withContainer == 1)
             {
                 Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(firstEffect, settings);
-                _messages.Add($"{ElementNames.Of(firstWithContainer)} appeared with its container; {DescribeOwnEffect(firstEffect, true, _quickFades, timing, snapReason, firstWait)}.");
+                UIElement parent = VisualTreeHelper.GetParent(firstWithContainer) as UIElement;
+                _messages.Add($"{ElementNames.Of(firstWithContainer)} appeared with its container; " +
+                              $"{DescribeOwnEffect(firstEffect, true, _quickFades, timing, snapReason, firstWait, DescribeEffectSource(firstWithContainer, firstEffect, true, parent, own: true))}.");
             }
             else if (withContainer > 1)
             {
-                _messages.Add($"{withContainer} elements appeared with their container, and play their Appear effects, like {ElementNames.Of(firstWithContainer)}.");
+                string cascade = firstCascade > 0 && !_quickFades ? $", one after the other (every {Seconds(firstCascade)})" : string.Empty;
+                _messages.Add($"{withContainer} elements appeared with their container, and play their effects{cascade}, like {ElementNames.Of(firstWithContainer)}.");
             }
 
             if (logging && skipped == 1)
@@ -2516,13 +3111,15 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
-                if (disappearance.Effect != null && _effectsPlay)
+                if (disappearance.Effect != null && _effectsPlay && !disappearance.Paired)
                 {
-                    double wait = PlayGhost(disappearance, settings, batch);
+                    double wait = PlayGhost(disappearance, NextCascadeDelay(_disappearCascades, disappearance.List, null, disappearance.Element, settings), settings, batch);
                     if (logging)
                     {
                         Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(disappearance.Effect, settings);
-                        _messages.Add($"{ElementNames.Of(disappearance.Element)} disappeared; {DescribeOwnEffect(disappearance.Effect, false, _quickFades, timing, snapReason, wait)}.");
+                        string source = DescribeEffectSource(disappearance.Element, disappearance.Effect, false, disappearance.Parent, own: true);
+                        _messages.Add($"{NameOf(disappearance.Element, disappearance.Parent)} disappeared; " +
+                                      $"{DescribeOwnEffect(disappearance.Effect, false, _quickFades, timing, snapReason, wait, source)}.");
                     }
                 }
                 else
@@ -2544,17 +3141,55 @@ namespace OpenSilver.Animations.Engine
             return timing;
         }
 
-        private static Transition GetAppearEffect(UIElement element)
-            => Animate.GetAppear(element) is Transition effect && !effect.IsNone ? effect : null;
+        /// <summary>
+        /// The Appear of the element, or else the ItemAppear of the list it is an item of.
+        /// </summary>
+        private Transition GetAppearEffect(UIElement element) => GetAppearEffect(element, out _);
 
-        private static Transition GetDisappearEffect(UIElement element)
-            => Animate.GetDisappear(element) is Transition effect && !effect.IsNone ? effect : null;
+        private Transition GetAppearEffect(UIElement element, out ItemList itemList)
+        {
+            itemList = null;
+            Transition effect = Animate.GetAppear(element);
+            if (effect == null && AnyItems && GetListOf(element) is ItemList list && list.Appear is Transition item)
+            {
+                effect = item;
+                itemList = list;
+            }
+
+            return effect != null && !effect.IsNone ? effect : null;
+        }
 
         /// <summary>
-        /// Says whether the element turned off its automatic effect with Appear=None or Disappear=None.
+        /// The Disappear of the element, or else the ItemDisappear of the list it is an item of
+        /// (<paramref name="itemList"/>). <paramref name="parent"/> is where it is removed from.
         /// </summary>
-        private static bool HasNoEffect(UIElement element, bool appear)
-            => (appear ? Animate.GetAppear(element) : Animate.GetDisappear(element)) is Transition effect && effect.IsNone;
+        private Transition GetDisappearEffect(UIElement element, UIElement parent, out ItemList itemList)
+        {
+            itemList = null;
+            Transition effect = Animate.GetDisappear(element);
+            if (effect == null && AnyItems && parent is Panel panel && GetList(panel) is ItemList list && list.Disappear is Transition item)
+            {
+                effect = item;
+                itemList = list;
+            }
+
+            return effect != null && !effect.IsNone ? effect : null;
+        }
+
+        /// <summary>
+        /// Says whether the element turned off its automatic effect with Appear=None or Disappear=None,
+        /// or the list it is an item of with ItemAppear=None or ItemDisappear=None.
+        /// </summary>
+        private bool HasNoEffect(UIElement element, bool appear, UIElement parent = null)
+        {
+            Transition effect = appear ? Animate.GetAppear(element) : Animate.GetDisappear(element);
+            if (effect == null && AnyItems && (parent ?? VisualTreeHelper.GetParent(element)) is Panel panel && GetList(panel) is ItemList list)
+            {
+                effect = appear ? list.Appear : list.Disappear;
+            }
+
+            return effect != null && effect.IsNone;
+        }
 
         private static int GetFlags(UIElement element, ref Record record)
         {
@@ -2833,6 +3468,8 @@ namespace OpenSilver.Animations.Engine
             if (_released.Count > 0) _released.Clear();
             if (_scrollChecked.Count > 0) _scrollChecked.Clear();
             if (_switches.Count > 0) _switches.Clear();
+            if (_removedItems.Count > 0) ForgetRemovedItems();
+            if (_listCache.Count > 0) _listCache.Clear();
             _switchOnly = false;
             _windowChecked = false;
         }
@@ -2843,6 +3480,7 @@ namespace OpenSilver.Animations.Engine
             ClearMeasureState();
             _messages.Clear();
             _disappearing.Clear();
+            _ghostOf.Clear();
         }
 
         /// <summary>
@@ -2853,6 +3491,7 @@ namespace OpenSilver.Animations.Engine
             Array.Clear(_records, 0, _recordCount);
             _recordCount = 0;
             _recordIndex.Clear();
+            _pairedGhosts.Clear();
             _stack.Clear();
             _sessionOrder.Clear();
             _areaCache.Clear();
@@ -2861,6 +3500,7 @@ namespace OpenSilver.Animations.Engine
             _keepRunning = false;
             _effectAppears.Clear();
             _effectTimings.Clear();
+            _windowTimings.Clear();
 
             _groupParents.Clear();
             _groupParents.Add(0);
@@ -2880,7 +3520,7 @@ namespace OpenSilver.Animations.Engine
         #region Types
 
         [Flags]
-        private enum RecordFlags : byte
+        private enum RecordFlags : ushort
         {
             None = 0,
             HasRects = 1,
@@ -2894,6 +3534,8 @@ namespace OpenSilver.Animations.Engine
             Played = 64,
             // Shown again after its page opened (OnPageOpen=PushOthers), or the parent it appears in.
             Released = 128,
+            // A container that shows an item its list showed in the last pass: it glides from there.
+            Paired = 256,
         }
 
         private struct Record
@@ -2938,9 +3580,12 @@ namespace OpenSilver.Animations.Engine
             public readonly Bucket Part = new Bucket();
         }
 
+        /// <summary>
+        /// The offset of a scrolling element at the last pass where it was measured or arranged,
+        /// from when it appeared. Until then, it is at the top left.
+        /// </summary>
         private sealed class ScrollOffset
         {
-            public bool IsKnown;
             public double Horizontal;
             public double Vertical;
         }
@@ -2955,14 +3600,20 @@ namespace OpenSilver.Animations.Engine
             public readonly List<Disappearance> Ghosts = new List<Disappearance>();
 
             // The first effect of an element that appears or disappears in the group, which gives
-            // the group its timing.
+            // the group its timing, and the parent it appears in or disappears from.
             public Transition Effect;
             public UIElement EffectElement;
+            public UIElement EffectParent;
             public bool EffectAppears;
+
+            // The items that glide to their new places, and the list of the first one.
+            public int Paired;
+            public Panel PairedList;
 
             // What Emit played, for the message.
             public bool EffectPlayed;
             public double EffectWait;
+            public double CascadeStepMs;
             public int OtherEffects;
             public string OtherEffect;
             public int Wipes;
@@ -2982,9 +3633,13 @@ namespace OpenSilver.Animations.Engine
                 Ghosts.Clear();
                 Effect = null;
                 EffectElement = null;
+                EffectParent = null;
                 EffectAppears = false;
+                Paired = 0;
+                PairedList = null;
                 EffectPlayed = false;
                 EffectWait = 0;
+                CascadeStepMs = 0;
                 OtherEffects = Wipes = Fades = GhostWipes = GhostFades = 0;
                 OtherEffect = null;
                 RevealedElement = VanishedElement = null;
@@ -3001,8 +3656,114 @@ namespace OpenSilver.Animations.Engine
             public UIElement Parent;
             public string Id;
             public Transition Effect;
+            // The list whose ItemDisappear it plays, or null.
+            public ItemList List;
             public int ParentIndex;
             public bool Handled;
+            // Its item is shown again in the next pass: its ghost goes away.
+            public bool Paired;
+            // Copied without an effect to play: only for where it is on screen, or because it was
+            // only scrolled or virtualized out of view.
+            public bool NoEffect;
+            // For an item of an ItemsControl: the ItemsControl, and the data item it showed.
+            public ItemsControl Owner;
+            public object Item;
+        }
+
+        /// <summary>
+        /// A Panel whose children are items: with item settings, on it or on the ItemsControl it
+        /// is the items panel of, or the items panel of an ItemsControl inside an area. Knows
+        /// where each item was at the end of the last pass, to pair it with its new container.
+        /// </summary>
+        private sealed class ItemList
+        {
+            public ItemList(Panel panel)
+            {
+                Panel = panel;
+            }
+
+            public Panel Panel { get; }
+
+            public ItemsControl Owner;
+
+            // The item shown by each container, and where each item is, relative to the panel.
+            public readonly Dictionary<UIElement, object> ItemOf = new Dictionary<UIElement, object>();
+            public readonly Dictionary<object, Slot> Slots = new Dictionary<object, Slot>();
+
+            /// <summary>
+            /// The list, as the app sees it: the ItemsControl, or the Panel.
+            /// </summary>
+            public UIElement Element => (UIElement)Owner ?? Panel;
+
+            public Transition Appear => (Transition)Read(Animate.ItemAppearProperty);
+
+            public Transition Disappear => (Transition)Read(Animate.ItemDisappearProperty);
+
+            public Movement Movement => (Movement)Read(Animate.ItemMoveAndResizeProperty);
+
+            public double CascadeMs
+            {
+                get
+                {
+                    AnimationTime cascade = Animate.GetItemCascade(Panel);
+                    if (cascade == AnimationTime.Zero && Owner != null)
+                    {
+                        cascade = Animate.GetItemCascade(Owner);
+                    }
+
+                    return Math.Min(MaxCascadeMs, cascade.Seconds * 1000);
+                }
+            }
+
+            /// <summary>
+            /// The element that has the setting: the Panel, or else the ItemsControl.
+            /// </summary>
+            public UIElement HolderOf(DependencyProperty property)
+                => Panel.GetValue(property) != null || Owner == null ? Panel : Owner;
+
+            /// <summary>
+            /// The data item a container shows, or the container itself for the children of a Panel.
+            /// </summary>
+            public object ItemFromContainer(UIElement container)
+            {
+                if (Owner != null)
+                {
+                    object item = Owner.ItemContainerGenerator.ItemFromContainer(container);
+                    if (item != null && item != DependencyProperty.UnsetValue)
+                    {
+                        return item;
+                    }
+                }
+
+                return container;
+            }
+
+            public static bool HasSettings(UIElement element)
+                => element.GetValue(Animate.ItemAppearProperty) != null ||
+                   element.GetValue(Animate.ItemDisappearProperty) != null ||
+                   element.GetValue(Animate.ItemMoveAndResizeProperty) != null ||
+                   Animate.GetItemCascade(element) != AnimationTime.Zero;
+
+            private object Read(DependencyProperty property) => Panel.GetValue(property) ?? Owner?.GetValue(property);
+        }
+
+        private struct Slot
+        {
+            public UIElement Container;
+            public Rect Rect;
+        }
+
+        private struct RemovedItem
+        {
+            public ItemList List;
+            public UIElement Container;
+            public object Item;
+        }
+
+        private sealed class Cascade
+        {
+            public int Count;
+            public int Next;
         }
 
         #endregion

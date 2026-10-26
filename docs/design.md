@@ -196,9 +196,12 @@ Animate.Skip(() => LoadInitialData());
     - A `{Responsive}` value that switches when the window, or the element it watches, crosses a breakpoint animates without this flag, like a click (see "Window resizes" in "When things animate").
 - **Items** (Panel or ItemsControl). Items are the containers of an ItemsControl, or the children of a Panel. Setting the properties on the items panel inside an ItemsControl's template also works.
   - `Animate.ItemAppear` and `Animate.ItemDisappear`: the same presets and parameters as Appear/Disappear, except the text ones. `OnPageOpen` accepts `InPlace` or `Skip`.
-  - `Animate.ItemMoveAndResize`: `Smooth`, `Bouncy` or `None`, with the same parameters as `MoveAndResize` except `ApplyTo`. Each item moves and resizes smoothly, including when the list is re-sorted, filtered or refreshed.
-  - `Animate.ItemCascade`: the time between items that appear or disappear together, from 0 to 0.3 s (default 0, all together). The total is capped at 0.6 s.
+  - `Animate.ItemMoveAndResize`: `Smooth`, `Bouncy` or `None`, with the same parameters as `MoveAndResize` except `ApplyTo`. Each item moves and resizes smoothly, including when the list is re-sorted, filtered or refreshed. `None` carves each item out, like `MoveAndResize=None` on it: changes that start inside an item never animate.
+  - `Animate.ItemCascade`: the time between items that appear or disappear together, from 0 to 0.3 s (default 0, all together). The total is capped at 0.6 s: with many items, they come closer together.
+    - The items follow the order in which the list arranges them. Those that appear and those that disappear in the same change make two cascades, which start together.
+    - The time is divided by `Speed`, like durations.
   - An item's own `Appear`, `Disappear` or `MoveAndResize` wins.
+  - A value that doesn't apply writes a warning, like the effects do: an item setting on an element that is not a Panel or an ItemsControl, `ApplyTo` on `ItemMoveAndResize`, `OnPageOpen=PushOthers` on `ItemAppear`, and a cascade longer than 0.3 s.
 - **Animate.TextChange** (TextBlock), used when `Text` changes while the TextBlock is visible:
   - `Roll`: `From=Bottom` (default) or `Top`, plus `Duration`.
   - `CrossFade`, `Scramble`: `Duration`.
@@ -543,7 +546,7 @@ Each chapter is added in the phase that implements its feature, so the gallery g
 - Phase 7: chapter 11.
 - Chapter 12 and the rest of chapter 13 are completed along the way.
 
-Chapters 5, 7, 8, 10, 12 and 13 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
+Chapters 1 to 8, 10, 12 and 13 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
 
 ## Acceptance scenarios (covered by the gallery chapters)
 
@@ -559,7 +562,7 @@ Each line is what the developer sets, and what must happen.
 - **Bar chart** (Width bound to data): `MoveAndResize=Smooth` in the bar template.
 - **Image loads, card grows:** `MoveAndResize=Smooth` on the card.
 - **Search box widens on focus:** `MoveAndResize=Smooth` on the TextBox. Typing inside it never animates.
-- **AI chat, streaming answer:** `ItemMoveAndResize=Smooth` and `ItemAppear` Slide from Bottom on the message list. The growing bubble pushes smoothly while text streams in.
+- **AI chat, streaming answer:** `ItemMoveAndResize=Smooth` and `ItemAppear` Slide from Bottom on the message list. The growing bubble pushes what is below it smoothly while text streams in.
 - **Toasts:** on the toast StackPanel, `ItemAppear` Slide from Right, `ItemDisappear=Fade`, `ItemMoveAndResize=Smooth`.
 - **Sortable, filterable list:** `ItemMoveAndResize=Smooth`. Items glide to their new places, also with recycling virtualization.
 - **Drag to reorder:** `ItemMoveAndResize=Smooth`. While dragging, the other items glide out of the way; the dragged item follows the pointer without lag.
@@ -605,18 +608,20 @@ Each line is what the developer sets, and what must happen.
 
   When several changes start in the same group, the setting found the fewest levels up wins. Otherwise the timing comes from the nearest affected element with a setting (fewest tree hops, then document order), and otherwise from the defaults.
 - **Page open.** An element appears together with its container when it isn't the topmost element appearing in that pass. Such appearances follow `OnPageOpen` and never push others unless it's `PushOthers`. A container that is shown at runtime is a page that opens, for the elements inside it.
-- **Items re-sorted, filtered or refreshed.** The library keeps, for lists with item animations, a map from each data item to its rectangle from the previous completed pass. It records each container's item when it's first arranged, using `ItemContainerGenerator.ItemFromContainer` (public).
-  - Containers that are removed, created or recycled in the same pass glide from their item's old rectangle to its new one, instead of running the item disappear and appear effects.
-  - Collection changes are observed on `ItemsControl.Items` (`INotifyCollectionChanged`).
+- **Items re-sorted, filtered or refreshed.** For each list with item settings, and each items panel inside an area, the library keeps the data item of each container (`ItemContainerGenerator.ItemFromContainer`, public), and where each item was at the end of the last pass. Both are updated every time a container is arranged. For the children of a Panel, the child is its own item.
+  - **Pairing.** A container arranged for the first time, for an item that the list showed in another container that is gone since then, glides from where that item was, instead of playing the appear effect; the old container doesn't play its disappear effect. This covers sorts, filters, `Reset` notifications, `Move`, and recycling, with no subscription to the collection: a `Reset` removes every container and creates new ones, and pairing finds the items that stayed.
+  - **From where it is on screen.** When the old container was still moving, its copy keeps where it was on screen (without an effect), and the new container's move starts from there. So a second sort, during the first one, doesn't jump.
+  - **No empty frames.** A `Reset` empties every container (its `DataContext`) before it removes them, and the new containers are only shown at the next layout pass. So the library copies the containers on screen, with their content, as soon as the first one is emptied. The copies stay until that pass, whose moves start from them and whose disappear effects play on them. The list never looks empty, and the items filtered out fade with their content.
+  - Containers that virtualization removes while their item is still in the list play no effect: they were scrolled out of view, not removed.
 - **Never animates:**
   - **Window resizes** (new constraints on the roots), except for the elements that set `AlsoOnWindowResize` and their content. The rest of that group snaps.
     - A pass is a window-resize pass when `Application.Current.Host.Content` has a different size than at the previous pass. Such a pass has no origins at all: scroll bar parts and other elements that measure again would otherwise look like changes, and their group would climb to the root and take the whole page with it.
     - Groups that follow the window never join their containers, even when an element is arranged again later in the same pass.
     - **`{Responsive}` switches** are the exception, in a window resize and during a drag. A switch is a change, like a click: what was arranged before it follows the resize, and the rest of the pass only has the switches as origins. Each setting found going up from a switch animates what is inside it, with its own timing and its own message; the rest snaps with the resize. While the resize goes on, their animations go on too, and follow the new sizes.
-  - **Settling after appearing.** For 0.5 s after an element is first arranged (a page, a dialog, new items), changes that start inside it snap silently: scroll bars showing up, fonts and images loading. An element released by `OnPageOpen=PushOthers` is the exception: it pushes the others even with a short `StartAfter`.
+  - **Settling after appearing.** For 0.5 s after an element is first arranged (a page, a dialog, new items), changes that start inside it snap silently: scroll bars showing up, fonts and images loading. An element released by `OnPageOpen=PushOthers` is the exception: it pushes the others even with a short `StartAfter`. So a new item whose content grows at once, like a chat answer that starts streaming as soon as it's added, snaps for that time; the gallery's chat waits 0.7 s with "…" before the words come.
   - **Scroll chrome.** Changes that start in a scroll bar or in a part of a scroll viewer's template snap silently; they're consequences of a content change.
-  - **Scrolling.** An arrange-only change of an `IScrollInfo` whose offset changed (OpenSilver scrolls by arranging, through `ScrollContentPresenter`). Items that virtualization realizes or removes in that pass get no effects either.
-  - **Dragging.** A dragging state is on while a pointer button is held and the pointer has moved more than 4 px. A small JS pointer tracker notifies C# only when a drag starts and ends. During a drag, everything snaps except list items that move because the list order changed (drag-to-reorder), and `{Responsive}` switches. The element holding the mouse capture, and everything inside it, always snaps.
+  - **Scrolling.** An arrange-only change of an `IScrollInfo` whose offset changed (OpenSilver scrolls by arranging, through `ScrollContentPresenter`). Items that virtualization realizes or removes in that pass get no effects either. A virtualizing panel removes its containers while it measures, before it reports its new offset, so the decision for a removed container waits for the end of the pass.
+  - **Dragging.** A dragging state is on while a pointer button is held and the pointer has moved more than 4 px. A small JS pointer tracker notifies C# only when a drag starts and ends. During a drag, everything snaps except list items that move because the list order changed (drag-to-reorder: a change with containers paired by item), and `{Responsive}` switches. The element holding the mouse capture, its containers and everything inside it always snap, so the dragged item follows the pointer.
   - **Typing.** Changes that start inside the content of the focused text box (`FocusManager.GetFocusedElement()`). The text box's own Width and similar properties still animate.
   - Reduced motion (see the API), design mode, `AnimationSettings.IsEnabled = false`, `Animate.Skip`, and origins under `MoveAndResize=None`.
 - **Performance:**
@@ -740,6 +745,9 @@ Each line is what the developer sets, and what must happen.
 - Ghost clones don't carry the animations running inside them; inner elements show their final look.
 - Storyboards that animate layout properties of animated elements get smoothed twice.
 - If the app's own storyboard animates Visibility during a hold, the app wins.
+- Items are told apart with `Equals`. With equal items in the same list, like the same string twice, removing one while an equal one stays plays no disappear effect, and after a sort one of them can glide from the other's old place while the other appears like a new item.
+- An item shown again in a new place goes on from where its old container was on screen, but not from its size or opacity at that moment.
+- An element whose layout clip isn't its own box, like an items panel that overflows its list, moves its clip with it when it animates.
 - In the Simulator, JS batches can arrive a frame apart.
 
 ## Phases

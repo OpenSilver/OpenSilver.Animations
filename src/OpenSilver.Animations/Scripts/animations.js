@@ -188,8 +188,16 @@
         return frames ? shape.animate(frames, options) : null;
     }
 
-    function animateBox(element, timing, delay, dx, dy, ow, oh, nw, nh, flags) {
+    function animateBox(element, timing, delay, dx, dy, ow, oh, nw, nh, flags, fromGhost) {
         let fromX = dx, fromY = dy, fromW = ow, fromH = oh;
+
+        // An item shown again in a new place goes on from where its old element was on screen.
+        const ghost = fromGhost && ghosts.get(fromGhost);
+        if (ghost) {
+            fromX += ghost.x;
+            fromY += ghost.y;
+            removeGhost(fromGhost);
+        }
 
         // Continue from where the element is on screen, so that interrupted animations stay fluid.
         const previous = states.get(element);
@@ -403,6 +411,7 @@
     const MEDIA = 'video, audio, iframe, object, embed';
     const QUICK_FADE = { d: 150, e: 'linear' };
     const FADE_LOOK = [0, 0, 0, 1, 0, 0, 0];
+    const VIEW_MARGIN = 100;
 
     function replaceMedia(from, to) {
         const originals = from.querySelectorAll(MEDIA);
@@ -470,6 +479,22 @@
         const entry = { clone, from, x, y, opacity, media, animation: null, curve: null, timer: 0 };
         entry.timer = setTimeout(() => removeGhost(id, entry), 1500);
         ghosts.set(id, entry);
+    }
+
+    // Copies the containers of a list that is refreshed, those near the screen, before their
+    // content is cleared. Reads where they all are before copying any.
+    function ghostInView(ids) {
+        const width = window.innerWidth, height = window.innerHeight;
+        const near = [];
+        for (const id of ids) {
+            const element = document.getElementById(id);
+            if (!element) continue;
+            const r = element.getBoundingClientRect();
+            if (r.bottom > -VIEW_MARGIN && r.top < height + VIEW_MARGIN && r.right > -VIEW_MARGIN && r.left < width + VIEW_MARGIN) {
+                near.push(id);
+            }
+        }
+        for (const id of near) ghost(id);
     }
 
     function removeGhost(id, entry) {
@@ -545,7 +570,7 @@
             for (const m of batch.m) {
                 const element = document.getElementById(m[0]);
                 if (!element) continue;
-                animateBox(element, batch.t[m[1]], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9]);
+                animateBox(element, batch.t[m[1]], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10]);
             }
         }
 
@@ -627,5 +652,5 @@
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost });
+    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView });
 })();

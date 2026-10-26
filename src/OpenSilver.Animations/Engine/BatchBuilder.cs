@@ -6,7 +6,7 @@ namespace OpenSilver.Animations.Engine
 {
     /// <summary>
     /// Builds the JavaScript object read by <c>osAnimations.run</c>:
-    /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags]], a: [[id, timing, delay, edge]],
+    /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags, fromGhost?]], a: [[id, timing, delay, edge]],
     /// e: [[id, timing, delay, look..., raise]], g: [[id, timing, delay, look..., sizeCurve]], x: [ids], c: [ids],
     /// s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>, where a look is
     /// <c>opacity, x, y, scale, rotate, blur, wipe</c>.
@@ -50,7 +50,12 @@ namespace OpenSilver.Animations.Engine
             return index;
         }
 
-        public void AddMove(string id, int timing, double delay, double dx, double dy, double oldWidth, double oldHeight, double newWidth, double newHeight, int flags)
+        /// <summary>
+        /// Moves and resizes an element from its old box. <paramref name="fromGhost"/> is the ghost
+        /// of the element that showed the same item before, if any: the move goes on from where
+        /// that element was on screen.
+        /// </summary>
+        public void AddMove(string id, int timing, double delay, double dx, double dy, double oldWidth, double oldHeight, double newWidth, double newHeight, int flags, string fromGhost = null)
         {
             StringBuilder sb = _moves;
             if (sb.Length > 0)
@@ -74,7 +79,13 @@ namespace OpenSilver.Animations.Engine
             BrowserBridge.AppendNumber(sb, newWidth);
             sb.Append(',');
             BrowserBridge.AppendNumber(sb, newHeight);
-            sb.Append(',').Append(flags).Append(']');
+            sb.Append(',').Append(flags);
+            if (fromGhost != null)
+            {
+                sb.Append(',');
+                BrowserBridge.AppendString(sb, fromGhost);
+            }
+            sb.Append(']');
         }
 
         /// <summary>

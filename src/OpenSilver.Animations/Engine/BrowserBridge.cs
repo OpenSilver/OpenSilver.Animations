@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -77,6 +78,23 @@ namespace OpenSilver.Animations.Engine
             var sb = new StringBuilder("globalThis.osAnimations.ghost(");
             AppendString(sb, id);
             Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
+        /// <summary>
+        /// Copies the elements that are near the screen, like <see cref="Ghost"/>.
+        /// </summary>
+        public static void GhostInView(IList<string> ids)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.ghostInView([");
+            for (int i = 0; i < ids.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+                AppendString(sb, ids[i]);
+            }
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append("])").ToString());
         }
 
         public static void WriteToConsole(string message)

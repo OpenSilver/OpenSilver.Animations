@@ -12,6 +12,7 @@ namespace OpenSilver.Animations
     /// &lt;StackPanel x:Name="Details" anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" /&gt;
     /// &lt;Button Content="Save" anim:Animate.MoveAndResize="Smooth" /&gt;
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
+    /// &lt;ItemsControl anim:Animate.ItemAppear="Fade" anim:Animate.ItemDisappear="Fade" anim:Animate.ItemMoveAndResize="Smooth" /&gt;
     /// </code>
     /// </example>
     public static class Animate
@@ -99,7 +100,7 @@ namespace OpenSilver.Animations
                 bool appear = e.Property == AppearProperty;
                 LayoutAnimator.AnyEffects = true;
                 LayoutAnimator.EnsureStarted();
-                LayoutAnimator.CheckEffect(effect, appear, element);
+                LayoutAnimator.CheckEffect(effect, appear, element, items: false);
 
                 // The page opens without it: it is held out of the layout before it is ever shown.
                 if (appear && effect.OnPageOpen == PageOpen.PushOthers)
@@ -158,6 +159,184 @@ namespace OpenSilver.Animations
 
                 LayoutAnimator.EnsureStarted();
             }
+        }
+
+        /// <summary>
+        /// Identifies the ItemAppear attached property.
+        /// </summary>
+        public static readonly DependencyProperty ItemAppearProperty =
+            DependencyProperty.RegisterAttached(
+                "ItemAppear",
+                typeof(Transition),
+                typeof(Animate),
+                new PropertyMetadata(null, OnItemSettingChanged));
+
+        /// <summary>
+        /// Gets what the items of a list do when they appear.
+        /// </summary>
+        public static Transition GetItemAppear(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Transition)element.GetValue(ItemAppearProperty);
+        }
+
+        /// <summary>
+        /// Sets what the items of a list do when they appear, as if each item had this
+        /// <see cref="SetAppear">Appear</see>. Set it on a Panel, for its children, or on an
+        /// ItemsControl, for its items. An item's own Appear wins. When the list appears with its
+        /// page, <see cref="Transition.OnPageOpen"/> can be InPlace or Skip.
+        /// </summary>
+        public static void SetItemAppear(UIElement element, Transition value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(ItemAppearProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the ItemDisappear attached property.
+        /// </summary>
+        public static readonly DependencyProperty ItemDisappearProperty =
+            DependencyProperty.RegisterAttached(
+                "ItemDisappear",
+                typeof(Transition),
+                typeof(Animate),
+                new PropertyMetadata(null, OnItemSettingChanged));
+
+        /// <summary>
+        /// Gets what the items of a list do when they disappear.
+        /// </summary>
+        public static Transition GetItemDisappear(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Transition)element.GetValue(ItemDisappearProperty);
+        }
+
+        /// <summary>
+        /// Sets what the items of a list do when they disappear, as if each item had this
+        /// <see cref="SetDisappear">Disappear</see>. Set it on a Panel, for its children, or on an
+        /// ItemsControl, for its items. An item's own Disappear wins.
+        /// </summary>
+        public static void SetItemDisappear(UIElement element, Transition value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(ItemDisappearProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the ItemMoveAndResize attached property.
+        /// </summary>
+        public static readonly DependencyProperty ItemMoveAndResizeProperty =
+            DependencyProperty.RegisterAttached(
+                "ItemMoveAndResize",
+                typeof(Movement),
+                typeof(Animate),
+                new PropertyMetadata(null, OnItemSettingChanged));
+
+        /// <summary>
+        /// Gets how the items of a list animate when they move or change size.
+        /// </summary>
+        public static Movement GetItemMoveAndResize(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Movement)element.GetValue(ItemMoveAndResizeProperty);
+        }
+
+        /// <summary>
+        /// Sets how the items of a list animate when they move or change size, as if each item had
+        /// this <see cref="SetMoveAndResize">MoveAndResize</see>, including when the list is sorted,
+        /// filtered or refreshed: <see cref="Smooth"/>, <see cref="Bouncy"/> or
+        /// <see cref="Movement.None"/>. Set it on a Panel, for its children, or on an ItemsControl,
+        /// for its items. <see cref="Movement.ApplyTo"/> is not used. An item's own MoveAndResize wins.
+        /// </summary>
+        public static void SetItemMoveAndResize(UIElement element, Movement value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(ItemMoveAndResizeProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the ItemCascade attached property.
+        /// </summary>
+        public static readonly DependencyProperty ItemCascadeProperty =
+            DependencyProperty.RegisterAttached(
+                "ItemCascade",
+                typeof(AnimationTime),
+                typeof(Animate),
+                new PropertyMetadata(AnimationTime.Zero, OnItemSettingChanged));
+
+        /// <summary>
+        /// Gets the time between the items of a list that appear or disappear together.
+        /// </summary>
+        public static AnimationTime GetItemCascade(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (AnimationTime)element.GetValue(ItemCascadeProperty);
+        }
+
+        /// <summary>
+        /// Sets the time between the items of a list that appear or disappear together, so that
+        /// they play their effects one after the other: from 0 (all together, the default) to
+        /// 0.3 s. The whole cascade lasts at most 0.6 s: with many items, they come closer together.
+        /// Set it on a Panel or an ItemsControl, with <see cref="SetItemAppear">ItemAppear</see> or
+        /// <see cref="SetItemDisappear">ItemDisappear</see>.
+        /// </summary>
+        public static void SetItemCascade(UIElement element, AnimationTime value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(ItemCascadeProperty, value);
+        }
+
+        private static void OnItemSettingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is not UIElement element || e.NewValue is null)
+            {
+                return;
+            }
+
+            LayoutAnimator.AnyItems = true;
+            if (e.NewValue is Transition)
+            {
+                LayoutAnimator.AnyEffects = true;
+            }
+            else if (e.NewValue is Movement movement && movement.IsNone)
+            {
+                LayoutAnimator.AnyAreas = true;
+            }
+
+            LayoutAnimator.EnsureStarted();
+            LayoutAnimator.CheckItemSetting(e.Property, e.NewValue, element);
         }
 
         /// <summary>

@@ -76,7 +76,7 @@ namespace OpenSilver.Animations.Gallery.Shell
             new ChapterInfo(3, "When the others move", "Other elements move while, before or after an element appears or disappears.", true),
             new ChapterInfo(4, "Page intros", "StartAfter and OnPageOpen on a profile, an inbox and an order.", true),
             new ChapterInfo(5, "Smooth moves and resizes", "MoveAndResize on a button, a badge, a sidebar, a dialog, an image card and a search box.", true),
-            new ChapterInfo(6, "Lists", "Items that appear, disappear, move and resize, one after the other.", false),
+            new ChapterInfo(6, "Lists", "ItemAppear, ItemDisappear, ItemMoveAndResize and ItemCascade on a to-do list, toasts, a chat and a long list.", true),
             new ChapterInfo(7, "Everything inside", "ApplyTo=EverythingInside on a form and on a responsive layout.", true),
             new ChapterInfo(8, "When the window or a panel is resized", "Elements that glide while you resize the window, and layouts that switch.", true),
             new ChapterInfo(9, "Text that moves", "Typewriter, Roll, Count up, Scramble and Retype.", false),
