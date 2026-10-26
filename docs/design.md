@@ -100,7 +100,10 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
 
 ## Library API
 
-The NuGet package is `OpenSilver.Animations`, described as "Easy animations for OpenSilver" and tagged `animation` and `transition`. The XML namespace is `xmlns:anim="http://opensilver.net/animations"` (declared with `XmlnsDefinition`; the `clr-namespace:OpenSilver.Animations;assembly=OpenSilver.Animations` form also works). All properties are attached on `Animate` and are not inherited. The value types are `Movement` (the base of `Smooth`, `Bouncy` and `None`) and `AnimationTime` for durations. The curves `Smooth`, `Gentle`, `Linear` and `Bouncy` are on the `Easings` class.
+The NuGet package is `OpenSilver.Animations`, described as "Easy animations for OpenSilver" and tagged `animation` and `transition`. The XML namespace is `xmlns:anim="http://opensilver.net/animations"` (declared with `XmlnsDefinition`; the `clr-namespace:OpenSilver.Animations;assembly=OpenSilver.Animations` form also works). All properties are attached on `Animate` and are not inherited. The value types are `Movement` (the base of `Smooth`, `Bouncy` and `None`), `Transition` (the base of the Appear and Disappear presets, with `Transition.None`), `AnimationTime` for durations and `Distance` for Slide. `From` and `To` take a `Side`, and `OthersMove` is an enum of the same name. The curves `Smooth`, `Gentle`, `Linear` and `Bouncy` are on the `Easings` class.
+
+- The base of the presets is named `Transition`, not `Effect`: every element already has an `Effect` property (`UIElement.Effect`), which would hide the type in code-behind.
+- `Distance` is a struct with a type converter, not a `double` with named values: the OpenSilver XAML compiler only accepts numbers for `double` properties.
 
 ```xml
 <!-- When it appears / disappears -->
@@ -144,7 +147,7 @@ Animate.Skip(() => LoadInitialData());
   - **Parameters**, with the presets that use them:
     - `From` (Appear) / `To` (Disappear): `Top`, `Bottom` (default), `Left`, `Right`. Used by Slide and Wipe.
     - `Distance`: `Short` (10 px), `Medium` (30 px, default), `Long` (100 px), or a number of pixels. Used by Slide.
-    - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.25 s). All presets except Typewriter and Backspace.
+    - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.25 s). All presets except Typewriter and Backspace. Pop, and any preset with `Easing=Bouncy`, default to twice `DefaultDuration`, so that the bounce has time to settle.
     - `StartAfter`: 0 to 10 s, default 0. All presets.
     - `Easing`: `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, or an `IEasingFunction` resource. All presets except the text ones.
     - `Bounciness`: 0.1 to 1, default 0.5. Pop, and any preset with `Easing=Bouncy`.
@@ -160,7 +163,10 @@ Animate.Skip(() => LoadInitialData());
   - **OthersMove**: when the surrounding elements move.
     - Appear: `While`, meaning the others make room while it appears; or `Before`, meaning they make room first and it appears in the empty space.
     - Disappear: `While`, meaning the others move into its place while it disappears; or `After`, meaning it disappears first and they move in afterwards.
+    - When several elements appear or disappear in the same change and the same container, the first one gives the others their timing and its `OthersMove`. Each element still plays its own effect, with its own duration and curve.
+  - **StartAfter at runtime** delays only the effect: the room opens at once, and the element stays invisible until its effect starts. Only `OnPageOpen=PushOthers` holds the element out of the layout (see the hold below).
   - **What the presets do.** `Fade` fades opacity. `Slide` fades while moving `Distance` from the `From` side. `Zoom` fades while zooming from 90%. `Pop` zooms from 50% with a bounce. `Wipe` reveals from the `From` edge without fading. `Blur` fades from an 8 px blur.
+    - Used as a Disappear, Pop zooms out to 90% like Zoom, with a warning.
 - **Animate.MoveAndResize**: `None` (default), `Smooth` or `Bouncy`.
   - **Parameters:**
     - `Duration`.
@@ -171,7 +177,8 @@ Animate.Skip(() => LoadInitialData());
     - `AlsoOnWindowResize`: default false.
   - **ApplyTo=ThisElement.** Whenever this element moves or changes size, it animates. The exceptions are resizing the browser window, scrolling, dragging and typing (see "Never animates"). Everything that moves in the same change animates with it, even if the change started elsewhere.
   - **ApplyTo=EverythingInside.** Exactly as if every element inside, at any depth (including templates and items created later), had `MoveAndResize` with the same settings. Two additions:
-    - Elements inside that appear or disappear without their own effect get an automatic one: Wipe when they push others, Fade otherwise. Only the topmost appearing element gets it, never on page open. (Built for appearing elements; disappearing ones come with phase 3, and vanish at once until then.)
+    - Elements inside that appear or disappear without their own effect get an automatic one: Wipe when they push others or the others fill their place, Fade otherwise. It follows the curve of the sizes, so that the wiped part keeps up with the elements that move. Only the topmost element gets it, never on page open.
+    - `Appear=None` or `Disappear=None` turns it off for an element. An element that becomes Hidden keeps its space, so it gets no automatic effect. At most 40 elements get an automatic Disappear in one change; the others vanish at once.
     - Lists inside track their items by data item, as with `ItemMoveAndResize`.
 
     Nothing is copied to the elements inside: the area is found by a lookup when a change happens (see "Areas").
@@ -645,15 +652,18 @@ Each line is what the developer sets, and what must happen.
 - **Triggers.**
   - Appear: first arrange after attach, and Collapsed/Hidden to Visible.
   - Disappear: detach of a visible element, and Visible to Collapsed/Hidden.
-  - Only the topmost element appearing or disappearing gets automatic effects; explicit effects always run.
+  - Only the topmost element appearing or disappearing gets automatic effects.
+  - Explicit Appear effects always run, also inside an element that appears: they play with their container, without making room.
+  - Explicit Disappear effects run for the topmost element that disappears only. The elements inside it are part of its ghost: the core notifies the detach of the removed element, not of its descendants, and a collapsed parent hides them without changing their own Visibility.
   - The hooks ignore the Visibility changes made by the library's own holds.
+  - **Until the layout pass.** An element that becomes Visible again with an explicit Appear, or inside an area, is kept invisible by the script from the Visibility change to the batch, so that it never shows for a frame before its effect. Hidden to Visible needs no layout pass, so its effect plays at once.
 - **Start delays.** `StartAfter` with the `backwards` fill keeps the element hidden until its effect starts.
-- **The hold (validated against the runtime code).** It is used for `OnPageOpen=PushOthers` always, even with no delay, and for runtime appearances with `StartAfter > 0`.
+- **The hold (validated against the runtime code).** It is used for `OnPageOpen=PushOthers` only, even with no delay. A runtime appearance with `StartAfter` doesn't use it: the room opens at once, and only the effect waits.
   - **Mechanism.** A `Storyboard` with one `ObjectAnimationUsingKeyFrames` (a `DiscreteObjectKeyFrame` at `KeyTime=0`, value `Collapsed`, `Duration=Forever`), targeted with `Storyboard.SetTarget` and `new PropertyPath(UIElement.VisibilityProperty)`.
   - **Apply it synchronously.** `Begin()` followed immediately by `SeekAlignedToLastTick(TimeSpan.Zero)`. A plain `Begin()` is too late for templates created during Measure, changes in `SizeChanged` handlers, and explicit `UpdateLayout()` calls.
-  - **Trigger points.** For page open, the hold starts from the property-changed callback. At runtime, it starts re-entrantly from the `OnVisibilityChanged` hook; this is safe because the store commits the value before notifying, and both DOM class writes land in the same batch.
+  - **Trigger points.** For page open, the hold starts from the property-changed callback. When the container appears at runtime, it starts re-entrantly from the `OnVisibilityChanged` hook; this is safe because the store commits the value before notifying, and both DOM class writes land in the same batch.
   - **Release.** It waits until `StartAfter` has elapsed since `Loaded` and at least one layout pass has completed. It is posted with `Dispatcher.BeginInvoke` and done with `Stop()`. The app's own Visibility value wins at release.
-  - **Side effect to document.** On a runtime show with a delay, `IsVisibleChanged` fires true, then false, then true.
+  - **Side effect to document.** When a hold starts on an element that was just shown, `IsVisibleChanged` fires true, then false, then true.
 - **OthersMove=Before / After.**
   - For Appear, the element's effect gets a delay equal to the others' move duration.
   - For Disappear, the rest of the group (neighbors and containers) gets a delay equal to the ghost's duration.
@@ -664,9 +674,9 @@ Each line is what the developer sets, and what must happen.
     - It removes the `uielement-collapsed` class (`display: none !important`, which no animation can override) and the `uielement-hidden` class.
     - The clone stays in the parent at the element's old DOM position, so its stacking among siblings doesn't change, and at its last arranged rectangle.
   - **Starting look.** The clone starts from the element's computed look at capture time (opacity, translate, scale), so an element that disappears while still appearing doesn't jump.
-  - **Animate.** It animates at `OnLayoutPassCompleted`, then is removed.
+  - **Animate.** It animates at `OnLayoutPassCompleted`, then is removed. An element that becomes Hidden keeps its space, so there is no layout pass: its ghost plays at once. A ghost that no batch plays is removed after 1.5 s.
   - **Toggling back.** If the element appears again while its ghost is animating, the ghost is removed and the appear effect starts from the ghost's current look.
-  - **Fidelity limits.** Video and iframes become an empty box of the same size, with a quick fade.
+  - **Fidelity limits.** Video, audio, iframes and plugins become an empty box of the same size in the clone, so that they don't load or play again, and the ghost fades out in 0.15 s instead of playing its effect. An element that is itself a video or an iframe gets no ghost.
 
 ## Bouncy and Wave
 

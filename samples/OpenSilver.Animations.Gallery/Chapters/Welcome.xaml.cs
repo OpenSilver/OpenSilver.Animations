@@ -11,6 +11,6 @@ namespace OpenSilver.Animations.Gallery.Chapters
             InitializeComponent();
         }
 
-        private void Start_Click(object sender, RoutedEventArgs e) => MainPage.Current?.Navigate(Tour.Get(5));
+        private void Start_Click(object sender, RoutedEventArgs e) => MainPage.Current?.Navigate(Tour.Get(1));
     }
 }

@@ -7,7 +7,7 @@ using System.Windows.Media.Animation;
 namespace OpenSilver.Animations.Engine
 {
     /// <summary>
-    /// The duration and curve shared by all the elements of an animated group.
+    /// The duration and curve shared by all the elements of an animated group, or of an effect.
     /// </summary>
     internal sealed class Timing
     {
@@ -62,6 +62,58 @@ namespace OpenSilver.Animations.Engine
                 timing.Description = Invariant($"{Easings.GetName(easing)}, {Math.Round(timing.DurationMs / 1000, 2)} s");
             }
 
+            return timing;
+        }
+
+        /// <summary>
+        /// The timing of the effect itself.
+        /// </summary>
+        public static Timing FromEffect(Transition effect, AnimationSettings settings)
+        {
+            bool bouncy = effect.IsBouncy;
+            double seconds = effect.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (bouncy ? 2 : 1);
+            var timing = new Timing { DurationMs = Clamp(seconds) * 1000 / settings.Speed };
+
+            if (bouncy)
+            {
+                timing.Samples = Sample(new SpringEasing("Bouncy", effect.Bounciness ?? 0.5), SpringSamples);
+                timing.Description = Invariant($"Bouncy, {Math.Round(timing.DurationMs / 1000, 2)} s");
+            }
+            else
+            {
+                IEasingFunction easing = effect.Easing ?? Easings.Smooth;
+                timing.SetCurve(easing, 0.5);
+                timing.Description = Invariant($"{Easings.GetName(easing)}, {Math.Round(timing.DurationMs / 1000, 2)} s");
+            }
+
+            return timing;
+        }
+
+        /// <summary>
+        /// The timing of the elements that move because of an effect: the same, except that a
+        /// bouncy effect moves them smoothly.
+        /// </summary>
+        public static Timing ForOthers(Timing effectTiming, Transition effect)
+        {
+            if (!effect.IsBouncy)
+            {
+                return effectTiming;
+            }
+
+            var timing = new Timing { DurationMs = effectTiming.DurationMs };
+            timing.SetCurve(Easings.Smooth, 0.5);
+            timing.Description = Invariant($"Smooth, {Math.Round(timing.DurationMs / 1000, 2)} s");
+            return timing;
+        }
+
+        /// <summary>
+        /// The short fade that replaces effects when the device asks for reduced motion.
+        /// </summary>
+        public static Timing QuickFade()
+        {
+            var timing = new Timing { DurationMs = 150 };
+            timing.SetCurve(Easings.Smooth, 0.5);
+            timing.Description = "Smooth, 0.15 s";
             return timing;
         }
 

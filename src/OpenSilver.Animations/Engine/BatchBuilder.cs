@@ -6,7 +6,10 @@ namespace OpenSilver.Animations.Engine
 {
     /// <summary>
     /// Builds the JavaScript object read by <c>osAnimations.run</c>:
-    /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags]], a: [[id, timing, delay, edge]], c: [ids], s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>.
+    /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags]], a: [[id, timing, delay, edge]],
+    /// e: [[id, timing, delay, look..., raise]], g: [[id, timing, delay, look..., sizeCurve]], x: [ids], c: [ids],
+    /// s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>, where a look is
+    /// <c>opacity, x, y, scale, rotate, blur, wipe</c>.
     /// </summary>
     internal sealed class BatchBuilder
     {
@@ -23,12 +26,17 @@ namespace OpenSilver.Animations.Engine
         private readonly List<Timing> _timings = new List<Timing>();
         private readonly StringBuilder _moves = new StringBuilder();
         private readonly StringBuilder _reveals = new StringBuilder();
+        private readonly StringBuilder _effects = new StringBuilder();
+        private readonly StringBuilder _ghosts = new StringBuilder();
+        private readonly StringBuilder _ghostRemovals = new StringBuilder();
         private readonly StringBuilder _cancels = new StringBuilder();
         private readonly StringBuilder _retargets = new StringBuilder();
         private readonly StringBuilder _outlines = new StringBuilder();
         private readonly StringBuilder _releases = new StringBuilder();
 
-        public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _cancels.Length == 0 && _retargets.Length == 0 && _outlines.Length == 0 && _releases.Length == 0;
+        public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _effects.Length == 0 && _ghosts.Length == 0 &&
+                               _ghostRemovals.Length == 0 && _cancels.Length == 0 && _retargets.Length == 0 &&
+                               _outlines.Length == 0 && _releases.Length == 0;
 
         public int AddTiming(Timing timing)
         {
@@ -86,6 +94,66 @@ namespace OpenSilver.Animations.Engine
             sb.Append(',').Append(timing).Append(',');
             BrowserBridge.AppendNumber(sb, delay);
             sb.Append(',').Append(edge).Append(']');
+        }
+
+        /// <summary>
+        /// Plays the effect of an element that appears, from <paramref name="look"/> to the element
+        /// as it is. <paramref name="raise"/> puts it above its siblings while it pushes them.
+        /// </summary>
+        public void AddEffect(string id, int timing, double delay, in EffectLook look, bool raise)
+        {
+            AppendLook(_effects, id, timing, delay, look);
+            _effects.Append(',').Append(raise ? '1' : '0').Append(']');
+        }
+
+        /// <summary>
+        /// Plays the effect of an element that disappears on its ghost, the copy made when it
+        /// disappeared, to <paramref name="look"/>, then removes the ghost. <paramref name="sizeCurve"/>
+        /// uses the curve of the sizes, so that a wipe keeps up with the elements that fill its place.
+        /// </summary>
+        public void AddGhost(string id, int timing, double delay, in EffectLook look, bool sizeCurve)
+        {
+            AppendLook(_ghosts, id, timing, delay, look);
+            _ghosts.Append(',').Append(sizeCurve ? '1' : '0').Append(']');
+        }
+
+        /// <summary>
+        /// Removes the ghost of an element that disappears at once.
+        /// </summary>
+        public void AddGhostRemoval(string id)
+        {
+            if (_ghostRemovals.Length > 0)
+            {
+                _ghostRemovals.Append(',');
+            }
+
+            BrowserBridge.AppendString(_ghostRemovals, id);
+        }
+
+        private static void AppendLook(StringBuilder sb, string id, int timing, double delay, in EffectLook look)
+        {
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append('[');
+            BrowserBridge.AppendString(sb, id);
+            sb.Append(',').Append(timing).Append(',');
+            BrowserBridge.AppendNumber(sb, delay);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.Opacity);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.X);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.Y);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.Scale);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.Rotate);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.Blur);
+            sb.Append(',').Append(look.Wipe);
         }
 
         public void AddCancel(UIElement element) => AddId(_cancels, element);
@@ -162,7 +230,9 @@ namespace OpenSilver.Animations.Engine
                 _timings[i].AppendJson(sb);
             }
 
-            sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],c:[").Append(_cancels).Append("],s:[").Append(_retargets).Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("]}");
+            sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],e:[").Append(_effects).Append("],g:[").Append(_ghosts)
+              .Append("],x:[").Append(_ghostRemovals).Append("],c:[").Append(_cancels).Append("],s:[").Append(_retargets)
+              .Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("]}");
             return sb.ToString();
         }
     }

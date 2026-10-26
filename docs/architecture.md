@@ -1,6 +1,6 @@
 # Architecture: how the built part works
 
-This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the automatic reveal of elements that appear inside an area. The full specification, including the phases not built yet, is in [design.md](design.md).
+This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the first step of phase 3 (Appear and Disappear with their presets and OthersMove, and the automatic effects of elements that appear or disappear inside an area). The full specification, including the phases not built yet, is in [design.md](design.md).
 
 ## The two halves
 
@@ -55,8 +55,8 @@ What each hook guarantees:
   - The rects are relative to the visual parent: `VisualOffset` plus `RenderSize`, before and after.
   - `rendered` is false for elements whose box is not written to the DOM. These are the elements with `BypassLayoutPolicies`: `Window`, `PopupRoot`, `WindowHost` and taskbar items.
   - It is not in a `finally` block, so an exception during an arrange leaves an `OnArranging` without its pair. The pass still ends with `OnLayoutPassCompleted`, which resets the library.
-- `OnVisibilityChanged` is called after the DOM display has changed, before the element's next layout pass. The library uses it to recognize elements shown again (see "Elements that appear"). Phase 3 (Appear and Disappear) will use it for disappearances too.
-- `OnDetaching`: the library only forgets the element's running animation there for now. When it is called, the DOM of the element still exists, and its removal runs after any JavaScript the observer queues, which phase 3 needs for ghosts.
+- `OnVisibilityChanged` is called after the DOM display change is queued, before the element's next layout pass. The library uses it to recognize elements shown again, and to copy the elements that are collapsed or hidden (see "Elements that appear and disappear"). Only the element whose own Visibility changed is reported, not its descendants.
+- `OnDetaching` is called for the element removed from its parent, not for its descendants. The library forgets the element's running animation, and copies it if it has an effect to play. When it is called, the DOM of the element still exists, and its removal runs after any JavaScript the observer queues, so the copy is made from the element on screen.
 - `OnResponsiveValueChanged(element, target, property)` is called when a `{Responsive}` value switches because the width it watches crossed a breakpoint, after the new value is applied. Its first value, and a recomputation that gives the same value, are not reported.
   - `element` is the element the value applies to, or the element that owns its target, for example the Grid of a ColumnDefinition.
   - It runs in the `SizeChanged` handler of the watched element (the Window, or the `ElementName`/`RelativeSource` element). So it is inside `UpdateLayout`, between two layout rounds, when no element is being arranged.
@@ -70,8 +70,9 @@ The library repository gets these changes through locally built OpenSilver packa
 
 | File (under `src/OpenSilver.Animations/`) | Role                                                                                                                                                      |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Animate.cs`                              | The public entry point: the `MoveAndResize` attached property, `Animate.Changes` and `Animate.Skip`.                                                      |
+| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, `Animate.Changes` and `Animate.Skip`.                          |
 | `Movement.cs`                             | `Movement` (abstract, a `MarkupExtension`), `Smooth`, `Bouncy`, `Movement.None`, `MovementConverter`, the `AnimationScope` enum.                          |
+| `Transition.cs`                           | `Transition` (abstract, a `MarkupExtension`), the presets `Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur` and `Custom`, `Transition.None`, `TransitionConverter`, the `Side` and `OthersMove` enums, the `Distance` struct and its converter, and the internal `EffectLook`. |
 | `AnimationTime.cs`                        | A readable duration (`0.3s`, `300ms`, `300`), with its type converter.                                                                                    |
 | `Easings.cs`                              | The curves `Smooth`, `Gentle`, `Linear` and `Bouncy`, and `EasingConverter`. The internal `CubicBezierEasing`, `LinearEasing` and `SpringEasing` classes. |
 | `AnimationSettings.cs`                    | App-wide settings, the `Logged` event and `AnimationLoggedEventArgs`.                                                                                     |
@@ -96,12 +97,18 @@ The library repository gets these changes through locally built OpenSilver packa
     <StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Wave=0.8}" />
     <WrapPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, AlsoOnWindowResize=True}" />
     <Grid anim:Animate.MoveAndResize="None" />  <!-- carved out of an area -->
+    <StackPanel anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+    <TextBlock anim:Animate.Appear="{anim:Slide From=Top, Distance=Short}" />
+    <Border anim:Animate.Appear="{anim:Fade OthersMove=Before}" anim:Animate.Disappear="{anim:Wipe To=Top, Duration=0.4s}" />
+    <Border anim:Animate.Disappear="None" />  <!-- no automatic effect inside an area -->
 </UserControl>
 ```
 
 ```csharp
 Animate.SetMoveAndResize(card, new Smooth { Duration = AnimationTime.FromSeconds(0.4) });
 Animate.SetMoveAndResize(card, "Smooth");                  // implicit conversion from string
+Animate.SetAppear(note, new Slide { From = Side.Left, Distance = 60 });
+Animate.SetDisappear(note, "Fade");
 Animate.Changes(() => Details.Visibility = Visibility.Collapsed);          // animates everything
 Animate.Changes(() => Box.Width = 400, AnimationTime.FromSeconds(0.6));
 Animate.Skip(() => RestoreLayout());                       // nothing animates
@@ -120,6 +127,12 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - `ApplyTo` (`ThisElement` or `EverythingInside`).
   - `AlsoOnWindowResize` (default false).
 - **Value forms.** A `Movement` is a `MarkupExtension` whose `ProvideValue` returns itself. So it works as a string (`"Smooth"`, through `MovementConverter`), as a markup extension with parameters, as an element, and as a resource. `Movement.Parse` accepts `Smooth`, `Bouncy`, `None` and the empty string.
+- `Animate.Appear` and `Animate.Disappear` (attached, type `Transition`, not inherited).
+  - Setting one starts the engine and turns on the effect paths (`LayoutAnimator.AnyEffects`). The value is checked once (`CheckEffect`): a parameter that doesn't apply, like `OthersMove=After` on an Appear, `Pop` as a Disappear, `To` on an Appear or `Bounciness` without a bounce, writes a warning to the console and the `Logged` event, and is ignored.
+  - `Transition` works like `Movement`: a string through `TransitionConverter` (`Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur`, `Custom`, `None`; an unknown name throws), a markup extension, an element or a resource.
+  - **Parameters** on every preset: `Duration`, `Easing`, `Bounciness` and `OthersMove`. `Slide` has `From`, `To` and `Distance`; `Wipe` has `From` and `To`; `Custom` has `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate` and `Blur`.
+  - `Distance` is a struct: `Distance.Short` (10 px), `Medium` (30 px, the default) and `Long` (100 px), or a number of pixels, from XAML (`Distance=Short`, `Distance=60`) or from a `double`.
+  - **Duration.** The default is `AnimationSettings.DefaultDuration`, doubled for `Pop` and for `Easing=Bouncy`. Bouncy effects play a spring sampled with `Bounciness`; the elements around them move Smooth, with the same duration (`Timing.ForOthers`).
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
 - **Nested scopes:** the inner one applies until it exits, then the outer one applies again.
@@ -196,7 +209,8 @@ When the stack is empty, the arrange session is over. `EndArrangeSession` walks 
 2. **Buckets.** For each record that changed or is an origin, except appearing ones:
   - without a group, a change snaps;
   - otherwise it goes into its group's bucket, as an origin and/or a member (a member is a record whose rect changed).
-  - An appearing record goes into the `Appearing` list of its parent's bucket (`AddAppearing`) when the parent is in a Change group inside an `EverythingInside` area, and the element itself doesn't have `None`. See "Elements that appear".
+  - An appearing record goes into the `Appearing` list of its parent's bucket (`AddAppearing`) when it has an `Appear` effect, or when the parent is in a Change group inside an `EverythingInside` area and the element itself doesn't have `None`.
+  - Each disappearance captured since the last pass joins the bucket of its parent's record, in `Ghosts`. See "Elements that appear and disappear".
 3. `ProcessGroup` for each bucket that has members or appearing elements:
   - **A WindowResize group** (no origins) animates with the timing of the element that opted in.
   - **A Change group** goes through `Decide`, described below.
@@ -244,18 +258,29 @@ The origin named in messages, and used for the wave, is the origin whose walk fo
 
 `GetEffectiveMovement(element)` is the element's own setting (null for `None`), or else its area's movement. Members use it, so a change that starts outside an area but moves something inside it animates.
 
-### Elements that appear
+### Elements that appear and disappear
 
-Phase 3 brings effects that the app chooses. Until then, an element that appears inside an `EverythingInside` area takes part in the change that makes room for it, so that it never overlaps the elements it pushes while they move.
+An element that appears or disappears is a change of its parent: the elements around it make room or fill its place, and it plays its effect with them, so that it never overlaps them while they move. Its effect is its own `Appear` or `Disappear`, or, inside an `EverythingInside` area, an automatic wipe or fade.
 
-- **The hold.** The core changes the DOM display as soon as Visibility goes back to Visible, but arranges the element only in the next layout pass, at Render priority. In between, the browser can paint it with the box it had before it was collapsed. So `OnVisibilityChanged` calls `BrowserBridge.Hold` for an element inside an area (`IsInsideArea`, which walks up without memoizing, because it runs outside the passes). `animations.js` keeps it at opacity 0, for at most a second.
-- **The release.** Every held element gets a release entry in the batch of the next pass (`_held`). One that is revealed is released by its reveal. One whose group snaps is simply shown, at its final place. `ReleaseHeld` also runs when the pass has no records, and after an exception.
-- **The reveal.** `Emit` reveals each appearing element of an animated group, with the group's timing and the size curve, so that the revealed part keeps up with the elements it pushes. `GetRevealEdge` picks how:
+- **The hold.** The core changes the DOM display as soon as Visibility goes back to Visible, but arranges the element only in the next layout pass, at Render priority. In between, the browser can paint it with the box it had before it was collapsed. So `OnVisibilityChanged` calls `BrowserBridge.Hold` for an element with an `Appear`, or inside an area without `Appear=None` (`IsInsideArea`, which walks up without memoizing, because it runs outside the passes). `animations.js` keeps it at opacity 0, for at most a second. Hidden to Visible keeps the box, so it needs no hold: the effect plays at once.
+- **The release.** Every held element gets a release entry in the batch of the next pass (`_held`). One that plays an effect or is revealed is released by it. One whose group snaps is simply shown, at its final place. `ReleaseHeld` also runs when the pass has no records, and after an exception.
+- **The timing.** When not `_switchOnly`, a bucket with an effect (the first one found: `Effect`, `EffectElement`, `EffectAppears`) takes its timing from it in `Decide`, before any setting, with `Timing.ForOthers`: a bouncy effect moves the others Smooth. The message names it: "from the Appear of Details".
+- **Explicit appear effects.** `Emit` plays them with their own timing (`PlayAppearEffect`, batch key `e`). With `OthersMove=Before`, and when others move, the effect waits for the others' duration. While others move, the element is raised above its siblings.
+- **Automatic reveals.** `Emit` reveals the other appearing elements of an animated group, with the group's timing and the size curve, so that the revealed part keeps up with the elements it pushes. `GetRevealEdge` picks how:
   - the side it pushes its siblings away from: when the siblings below move down, it wipes from its top;
   - when it pushes no sibling but its container grows, the top edge (or the left edge, when the container grew more in width);
   - otherwise, a fade.
 - **The wave.** A revealed element starts with the element it follows (the sibling or container that `GetRevealEdge` returns), so it doesn't open before the space does.
-- **Outside areas**, nothing changes: the element appears at once in its place and only the others move. It is not held, so the one-frame flash of the old box can happen there.
+- **With the container.** An explicit Appear inside an element that appears, or on an element visible when the page opens, gets the `WithContainer` flag. It plays at once, in its place, and doesn't make room: "2 elements appeared with their container, and play their Appear effects, like Border". Under a scrolled parent, nothing plays.
+- **Disappearances.** `CaptureDisappearing` runs from `OnVisibilityChanged` (Visible to Collapsed or Hidden) and from `OnDetaching` (a visible element). It copies the element in the browser (`BrowserBridge.Ghost`) when it has a `Disappear`, or, inside an area, when it doesn't have `Disappear=None`, isn't Hidden, and fewer than 40 automatic ones were captured in the pass.
+  - A Hidden element keeps its space, so no layout pass comes: its ghost plays at once (`PlayAtOnce`), with the message "X was hidden; …".
+  - The others wait in `_disappearing` and join their parent's bucket at the end of the pass. An explicit ghost plays its own effect (`PlayGhost`, batch key `g`); an automatic one wipes toward the side its neighbors come from (`GetDisappearEdge`), or fades, with the group's timing and the size curve.
+  - With `OthersMove=After`, the rest of the group waits for the ghost's duration.
+  - `_ghostedUntil` remembers the elements whose ghost may still be on screen (3 s). When such an element is shown again without a hold, its ghost is removed (batch key `x`).
+- **Snapped groups** still play their explicit effects (`PlayEffectsAlone`): "X appeared; it fades in (Smooth, 0.25 s, from its Appear), and nothing else animated because …". `PlayRemainingEffects` plays the explicit effects that no group played, and removes the ghosts that have nothing to play.
+- **When effects play** (`_effectsPlay`): when nothing makes every group snap, under reduced motion (as a 0.15 s fade, `_quickFades`), and for the `{Responsive}` switches of a drag. Under reduced motion, the automatic effects snap with the rest.
+- **`{Responsive}` splits.** `_disappearing` is set aside during the pre-switch `CompletePass`, so that the ghosts play with the switch. `EmitSwitches` gives each ghost to the owner that contains its parent.
+- **Outside areas**, an element without an effect appears at once in its place and disappears at once, and only the others move. It is not held, so the one-frame flash of the old box can happen there.
 
 
 
@@ -312,7 +337,11 @@ When the timing has `Wave > 0`, each member gets a delay.
 Messages are produced only when `LogForDebugging` is on or `Logged` has handlers.
 
 - **An animated group:** "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
-  - With elements that appear: "FormFields changed size; 27 elements animate together, and TwoStepDetails wipes in (Smooth, 0.25 s, from the EverythingInside of SettingsForm)." Several give "3 elements wipe in", "fade in" or "wipe or fade in".
+  - With elements that appear: "FormFields changed size; 27 elements animate together, and TwoStepDetails wipes in (Smooth, 0.25 s, from the EverythingInside of SettingsForm)." Several give "3 elements wipe in", "fade in" or "wipe or fade in", and those that disappear "wipe out" or "fade out".
+- **An effect:** "Details appeared; it fades in, and 30 elements animate together (Smooth, 0.25 s, from the Appear of Details)."
+  - With `OthersMove`: "2 elements animate together, then it fades in", "it fades out, then 2 elements animate together".
+  - With another effect in the same change: "Body1 appeared; it wipes in, Body0 wipes out, and 17 elements animate together (…)". More than one give "2 other elements play their effects".
+  - Under reduced motion: "Details appeared; it fades in quickly, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion), and nothing else animated."
 - **A window-resize group:** "The window was resized; FollowingTiles follows it (Smooth, 0.25 s, from the AlsoOnWindowResize of FollowingTiles)." At most one per second.
 - **A switch:** "{Responsive} switched the Orientation of StackPanel; 17 elements animate together (Smooth, 0.25 s, from the EverythingInside of ProfilePanel)." For a target that isn't an element: "{Responsive} switched the Width of a ColumnDefinition in ProfileGrid".
 - **A snap:** "SliderBar changed size; nothing animated because something is being dragged."
@@ -337,6 +366,8 @@ These are at the top of `LayoutAnimator`:
 | `CullMargin`          | 100   | The margin (px) around the window for culling.        |
 | `Tolerance`           | 0.05  | Two lengths closer than this (px) are equal.          |
 | `SettleMs`            | 500   | How long, after appearing, changes count as settling. |
+| `MaxAutomaticGhosts`  | 40    | The automatic Disappear effects per pass.             |
+| `GhostLifetimeMs`     | 3000  | How long a ghost may stay on screen, for `_ghostedUntil`. |
 
 
 
@@ -354,13 +385,16 @@ These are at the top of `LayoutAnimator`:
 { t: [ { d: durationMs, e?: cssEasing, s?: [samples], se?: sizeEasing } ],
   m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags] ],
   a: [ [id, timingIndex, delayMs, edge] ],
+  e: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, raise] ],
+  g: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, sizeCurve] ],
+  x: [ ids whose ghost to remove ],
   c: [ ids to cancel ],
   s: [ [id, newWidth, newHeight] ],
   o: [ [id, durationMs, delayMs, isOrigin] ],
   r: [ ids to release ] }
 ```
 
-They run in this order: cancels, retargets, moves, reveals, outlines, releases. `osAnimations.hold(id)` is called on its own, from `OnVisibilityChanged`.
+They run in this order: cancels, retargets, moves, reveals, effects, ghosts, ghost removals, outlines, releases. `osAnimations.hold(id)` and `osAnimations.ghost(id)` are called on their own, from the hooks.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
@@ -376,6 +410,13 @@ They run in this order: cancels, retargets, moves, reveals, outlines, releases. 
 - **Interruptions.** Running animations are kept per element in a `WeakMap`. A new animation reads the eased progress of the previous one (`getComputedTiming().progress`) and starts from the current offset and size, then cancels the previous one.
 - **Reveals.** The edge is `0` for a fade, then `1` to `4` for a wipe from the top, left, bottom or right. A wipe animates `clip-path: inset(...)` and a fade animates `opacity` up to the element's current opacity, both with the size curve and `fill: 'backwards'`. A reveal first releases the element's hold.
 - **Holds.** `hold` runs an opacity 0 animation of one second on the element, kept in a `WeakMap`; `release` cancels it.
+- **Effects** (`appear`). The look (`e`) is where the element starts: an opacity as a fraction of its own, an offset, a zoom and a rotation around its center (through `translate`, because elements turn around their top left corner), a blur added to its filter, and a wipe edge (`clip-path`, with the same edge numbers as reveals). Rotations are sampled into 12 keyframes. `raise` adds a `z-index` to the keyframes. Effects use `fill: 'backwards'`, so a delayed effect hides the element until it starts.
+- **Ghosts.** `ghost(id)` deep-clones the element and inserts the copy before it, so it stacks the same way, and keeps it for 1.5 s at most.
+  - The copy has no ids, no `uielement-collapsed` or `uielement-hidden` class, `data-os-foreign` (so that the core skips it when it inserts children), and `pointer-events: none`. Canvases and form values are copied.
+  - Media, frames and plugins become empty boxes of the same size, so that they don't load or play again, and that ghost fades out in 0.15 s whatever its effect.
+  - It starts from what was on screen: the progress of a running effect, and the offset and size of a running move.
+  - `vanish` (batch key `g`) animates it from there to the look, with `fill: 'both'`, then removes it. `removeGhost` (key `x`) removes it at once.
+  - When the element appears again while its ghost plays, `appear` and `reveal` start from what the ghost showed (`takeGhost`).
 - **Outlines** (`ShowWhatAnimates`) animate `outline` on the element: orange for the origin, pink for members. They last at least 700 ms.
 
 

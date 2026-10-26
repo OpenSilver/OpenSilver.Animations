@@ -34,8 +34,13 @@
     // Running layout animations, per element.
     const states = new WeakMap();
 
-    // Running wipes and fades of elements that appear, per element.
-    const reveals = new WeakMap();
+    // Running effects, wipes and fades of elements that appear, per element: { animation, curve }.
+    const effects = new WeakMap();
+
+    // Copies of elements that disappear, per id of the element, until their effect ends:
+    // { clone, from, x, y, opacity, animation, curve, timer }, where from is how much of the
+    // element showed (1 unless it was appearing).
+    const ghosts = new Map();
 
     // Elements that just became visible, hidden until their layout pass is done.
     const holds = new WeakMap();
@@ -101,6 +106,19 @@
         for (let i = 0; i <= n; i++) {
             const frame = make(curve.baked[i]);
             frame.offset = i / n;
+            frames.push(frame);
+        }
+        return frames;
+    }
+
+    // Like lerpKeyframes, with at least the given number of steps, for values that don't change
+    // linearly with the progress, like the move that keeps a rotating element on its center.
+    function sampledKeyframes(curve, make, steps) {
+        if (curve.baked || steps <= 1) return lerpKeyframes(curve, make);
+        const frames = [];
+        for (let i = 0; i <= steps; i++) {
+            const frame = make(i / steps);
+            frame.offset = i / steps;
             frames.push(frame);
         }
         return frames;
@@ -258,11 +276,11 @@
     function hold(id) {
         const element = document.getElementById(id);
         if (!element) return;
-        release(element);
+        unhold(element);
         holds.set(element, element.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1000 }));
     }
 
-    function release(element) {
+    function unhold(element) {
         const animation = holds.get(element);
         if (animation) {
             animation.cancel();
@@ -270,28 +288,231 @@
         }
     }
 
+    // Shows an element that was held, and removes the ghost it had if it disappeared just before.
+    function release(element) {
+        unhold(element);
+        removeGhost(element.id);
+    }
+
+    function ownOpacity(element) {
+        const opacity = parseFloat(getComputedStyle(element).opacity);
+        return isNaN(opacity) ? 1 : opacity;
+    }
+
+    function track(element, animation, curve) {
+        effects.set(element, { animation: startAtNextFrame(animation), curve });
+        animation.addEventListener('finish', () => {
+            const running = effects.get(element);
+            if (running && running.animation === animation) effects.delete(element);
+        });
+    }
+
     // Wipes or fades in an element that appears, with the size curve, so that the revealed part
     // keeps up with the elements it pushes.
     function reveal(element, timing, delay, edge) {
+        const from = takeGhost(element);
         release(element);
-        const previous = reveals.get(element);
-        if (previous) previous.cancel();
+        const previous = effects.get(element);
+        if (previous) previous.animation.cancel();
 
         const curve = curveOf(timing, true);
         const options = { duration: Math.max(1, timing.d), delay, fill: 'backwards', easing: curve.easing };
+        const shown = (p) => from + (1 - from) * p;
         let animation;
         if (edge === FADE) {
-            const opacity = parseFloat(getComputedStyle(element).opacity);
-            const target = isNaN(opacity) ? 1 : opacity;
-            animation = element.animate(lerpKeyframes(curve, (p) => ({ opacity: target * p })), options);
+            const target = ownOpacity(element);
+            animation = element.animate(lerpKeyframes(curve, (p) => ({ opacity: target * shown(p) })), options);
         } else {
-            animation = element.animate(lerpKeyframes(curve, (p) => ({ clipPath: wipeAt(edge, p) })), options);
+            animation = element.animate(lerpKeyframes(curve, (p) => ({ clipPath: wipeAt(edge, shown(p)) })), options);
         }
 
-        reveals.set(element, startAtNextFrame(animation));
-        animation.addEventListener('finish', () => {
-            if (reveals.get(element) === animation) reveals.delete(element);
-        });
+        track(element, animation, curve);
+    }
+
+    // Animates an element, or a ghost, between a look and the element as it is. shownAt gives, for
+    // a progress from 0 to 1, how much of the element shows: 0 is the look, 1 is the element.
+    // Zoom and rotation turn around the center, which takes a move, because elements turn around
+    // their top left corner.
+    function animateLook(target, look, curve, shownAt, base, options, raise) {
+        const o = look[0], x = look[1], y = look[2], s = look[3], r = look[4], b = look[5], w = look[6];
+        const style = getComputedStyle(target);
+        const opacity = base.opacity !== undefined ? base.opacity : ownOpacity(target);
+        const filter = style.filter && style.filter !== 'none' ? style.filter + ' ' : '';
+        const width = parseFloat(target.style.width) || target.offsetWidth || 0;
+        const height = parseFloat(target.style.height) || target.offsetHeight || 0;
+        const cx = width / 2, cy = height / 2;
+        const moves = x !== 0 || y !== 0 || s !== 1 || r !== 0;
+        let z = null;
+        if (raise) {
+            const own = parseInt(style.zIndex, 10);
+            z = String(isNaN(own) || own < 1 ? 1 : own);
+        }
+
+        const make = (p) => {
+            const v = shownAt(p), h = 1 - v;
+            const frame = {};
+            if (o !== 1 || base.opacity !== undefined) frame.opacity = opacity * (o + (1 - o) * v);
+            if (moves) {
+                const scale = s + (1 - s) * v, angle = r * h;
+                const rad = angle * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+                frame.translate = px(base.x + x * h + cx - scale * (cos * cx - sin * cy)) + ' ' +
+                                  px(base.y + y * h + cy - scale * (sin * cx + cos * cy));
+                if (s !== 1) frame.scale = String(Math.round(scale * 10000) / 10000);
+                if (r !== 0) frame.rotate = (Math.round(angle * 100) / 100) + 'deg';
+            }
+            if (b > 0) frame.filter = filter + 'blur(' + px(b * h) + ')';
+            if (w > 0) frame.clipPath = wipeAt(w, v);
+            if (z !== null) frame.zIndex = z;
+            return frame;
+        };
+
+        return target.animate(sampledKeyframes(curve, make, r !== 0 ? 12 : 1), options);
+    }
+
+    // Plays the effect of an element that appears. If it disappeared just before and its ghost is
+    // still there, it goes on from what the ghost showed.
+    function appear(element, timing, delay, look, raise) {
+        const from = takeGhost(element);
+        release(element);
+        const previous = effects.get(element);
+        if (previous) previous.animation.cancel();
+
+        const curve = curveOf(timing, false);
+        const options = { duration: Math.max(1, timing.d), delay, fill: 'backwards', easing: curve.easing };
+        const animation = animateLook(element, look, curve, (p) => from + (1 - from) * p, { x: 0, y: 0 }, options, raise);
+        track(element, animation, curve);
+    }
+
+    function copyFormState(from, to) {
+        const canvases = from.getElementsByTagName('canvas');
+        if (canvases.length > 0) {
+            const copies = to.getElementsByTagName('canvas');
+            for (let i = 0; i < canvases.length && i < copies.length; i++) {
+                try { copies[i].getContext('2d').drawImage(canvases[i], 0, 0); } catch { }
+            }
+        }
+        const inputs = from.querySelectorAll('input, textarea');
+        if (inputs.length > 0) {
+            const copies = to.querySelectorAll('input, textarea');
+            for (let i = 0; i < inputs.length && i < copies.length; i++) copies[i].value = inputs[i].value;
+        }
+    }
+
+    // In a copy, media and frames would load again, and could play sound. They become an empty
+    // box of the same size, and the copy fades out quickly instead of playing its effect.
+    const MEDIA = 'video, audio, iframe, object, embed';
+    const QUICK_FADE = { d: 150, e: 'linear' };
+    const FADE_LOOK = [0, 0, 0, 1, 0, 0, 0];
+
+    function replaceMedia(from, to) {
+        const originals = from.querySelectorAll(MEDIA);
+        if (originals.length === 0) return false;
+        const copies = to.querySelectorAll(MEDIA);
+        for (let i = 0; i < originals.length && i < copies.length; i++) {
+            const box = document.createElement('div');
+            box.style.cssText = copies[i].style.cssText;
+            // A collapsed element is already display: none, and measures 0.
+            const width = originals[i].offsetWidth, height = originals[i].offsetHeight;
+            if (width > 0 || height > 0) {
+                box.style.width = px(width);
+                box.style.height = px(height);
+            }
+            copies[i].replaceWith(box);
+        }
+        return true;
+    }
+
+    // Copies an element that disappears, before the browser hides or removes it, at the same place
+    // among its siblings, so that it stacks the same way. The copy starts from where the element is
+    // on screen, so that an element that disappears while it appears or moves doesn't jump. It
+    // stays until a batch plays its effect or removes it, for at most 1.5 seconds.
+    function ghost(id) {
+        const element = document.getElementById(id);
+        const parent = element && element.parentNode;
+        if (!parent || holds.has(element) || element.matches(MEDIA)) return;
+        removeGhost(id);
+
+        let from = 1;
+        const running = effects.get(element);
+        if (running) {
+            from = Math.max(0, Math.min(1, progressOf(running.animation, running.curve)));
+            running.animation.cancel();
+            effects.delete(element);
+        }
+        const opacity = ownOpacity(element);
+
+        const clone = element.cloneNode(true);
+        let x = 0, y = 0;
+        const state = states.get(element);
+        if (state) {
+            const pm = progressOf(state.move, state.moveCurve);
+            x = state.fromX * (1 - pm);
+            y = state.fromY * (1 - pm);
+            if (state.size) {
+                const ps = progressOf(state.size, state.sizeCurve);
+                clone.style.width = px(state.fromW + (state.toW - state.fromW) * ps);
+                clone.style.height = px(state.fromH + (state.toH - state.fromH) * ps);
+            }
+            cancelState(element, state);
+        }
+
+        clone.removeAttribute('id');
+        for (const e of clone.querySelectorAll('[id]')) e.removeAttribute('id');
+        clone.classList.remove('uielement-collapsed', 'uielement-hidden');
+        clone.setAttribute('data-os-foreign', '');
+        clone.style.pointerEvents = 'none';
+        if (x !== 0 || y !== 0) clone.style.translate = px(x) + ' ' + px(y);
+        if (from < 1) clone.style.opacity = String(opacity * from);
+        copyFormState(element, clone);
+        const media = replaceMedia(element, clone);
+        parent.insertBefore(clone, element);
+
+        const entry = { clone, from, x, y, opacity, media, animation: null, curve: null, timer: 0 };
+        entry.timer = setTimeout(() => removeGhost(id, entry), 1500);
+        ghosts.set(id, entry);
+    }
+
+    function removeGhost(id, entry) {
+        const ghost = ghosts.get(id);
+        if (!ghost || (entry && ghost !== entry)) return;
+        ghosts.delete(id);
+        clearTimeout(ghost.timer);
+        if (ghost.animation) ghost.animation.cancel();
+        ghost.clone.remove();
+    }
+
+    // Removes the ghost of an element that appears again, and returns how much of it showed.
+    function takeGhost(element) {
+        const ghost = ghosts.get(element.id);
+        if (!ghost) return 0;
+        const shown = ghost.animation
+            ? ghost.from * (1 - Math.max(0, Math.min(1, progressOf(ghost.animation, ghost.curve))))
+            : ghost.from;
+        removeGhost(element.id);
+        return shown;
+    }
+
+    // Plays the effect of an element that disappeared on its ghost, then removes the ghost.
+    function vanish(id, timing, delay, look, sizeCurve) {
+        const ghost = ghosts.get(id);
+        if (!ghost) return;
+        clearTimeout(ghost.timer);
+        if (ghost.media) {
+            timing = QUICK_FADE;
+            look = FADE_LOOK;
+            sizeCurve = false;
+        }
+
+        const curve = curveOf(timing, sizeCurve);
+        const from = ghost.from;
+        const options = { duration: Math.max(1, timing.d), delay, fill: 'both', easing: curve.easing };
+        const animation = animateLook(ghost.clone, look, curve, (p) => from * (1 - p), { x: ghost.x, y: ghost.y, opacity: ghost.opacity }, options, false);
+        ghost.animation = startAtNextFrame(animation);
+        ghost.curve = curve;
+        animation.addEventListener('finish', () => removeGhost(id, ghost));
+
+        // In case it never finishes, like in a tab in the background.
+        ghost.timer = setTimeout(() => removeGhost(id, ghost), delay + timing.d + 1000);
     }
 
     function outline(element, duration, delay, isOrigin) {
@@ -333,6 +554,21 @@
                 const element = document.getElementById(a[0]);
                 if (element) reveal(element, batch.t[a[1]], a[2], a[3]);
             }
+        }
+
+        if (batch.e) {
+            for (const e of batch.e) {
+                const element = document.getElementById(e[0]);
+                if (element) appear(element, batch.t[e[1]], e[2], e.slice(3, 10), e[10] === 1);
+            }
+        }
+
+        if (batch.g) {
+            for (const g of batch.g) vanish(g[0], batch.t[g[1]], g[2], g.slice(3, 10), g[10] === 1);
+        }
+
+        if (batch.x) {
+            for (const id of batch.x) removeGhost(id);
         }
 
         if (batch.o) {
@@ -391,5 +627,5 @@
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run, hold });
+    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost });
 })();

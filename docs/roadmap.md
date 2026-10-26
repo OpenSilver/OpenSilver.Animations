@@ -1,6 +1,6 @@
 # Status and roadmap
 
-Last updated: October 26, 2026, after the `{Responsive}` switches.
+Last updated: October 26, 2026, after the first step of phase 3 (Appear and Disappear).
 
 ## Phases
 
@@ -10,7 +10,7 @@ Last updated: October 26, 2026, after the `{Responsive}` switches.
 | 0     | Spike: validate the risky parts                                                                    | Partly done (see below).                                                                                                        |
 | 1     | OpenSilver core changes: `LayoutObserver` and the insertion fix                                    | Done: commit `547adac2` on branch `feat/layout-observer`, then the `{Responsive}` hook (`OnResponsiveValueChanged`). No PR yet. |
 | 2     | `MoveAndResize` (Smooth), grouping, exclusions, performance guards, diagnostics; the gallery shell | Done. The product owner tested it; the first round of feedback is addressed and verified in Chromium (see "Verified").          |
-| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties; then the Showcase port | Not started.                                                                                                                    |
+| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties; then the Showcase port | In progress, in four steps. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Next: `StartAfter` and `OnPageOpen` (chapter 4), the items (chapter 6), then the Showcase port. |
 | 4     | `AnimationCatalog` and `AnimationDesign`, and the gallery playgrounds built on them                | Not started.                                                                                                                    |
 | 5     | Text effects (`TextChange`, Typewriter, ...)                                                       | Not started.                                                                                                                    |
 | 6     | Bouncy and Wave                                                                                    | Done early, with phase 2.                                                                                                       |
@@ -45,10 +45,10 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | spike             | See above                                                              | In progress                                                                                                                                                                                                                                                                                                         |
 | core-observer     | `LayoutObserver` and its call sites, including `{Responsive}` switches | Done                                                                                                                                                                                                                                                                                                                |
 | core-js           | `createVisual` skips `data-os-foreign` children                        | Done                                                                                                                                                                                                                                                                                                                |
-| lib-api           | Public API                                                             | `MoveAndResize`, `Changes`, `Skip`, `AnimationSettings` and the curves are done. `Appear`, `Disappear`, the `Item...` properties, `TextChange` and `MagicMove` are pending.                                                                                                                                         |
+| lib-api           | Public API                                                             | `MoveAndResize`, `Appear`, `Disappear` (presets, `From`/`To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `OthersMove`), `Changes`, `Skip`, `AnimationSettings` and the curves are done. `StartAfter`, `OnPageOpen`, the `Item...` properties, `TextChange` and `MagicMove` are pending.                      |
 | lib-causality     | Origins, groups, areas, decisions, exclusions, guards                  | Done for `MoveAndResize`, including the rule that changes never cross `None`, and `{Responsive}` switches that animate during a resize. Pending: the drag-to-reorder exception, effects on virtualized items, and the rule that the element holding the mouse capture snaps (today everything snaps during a drag). |
-| lib-render        | Web Animations rendering                                               | Moves, sizes, clips, shapes, interruptions, and the automatic wipe or fade of elements appearing inside an area are done. Effects with center compensation are pending (phase 3).                                                                                                                                   |
-| lib-appear        | Appear, Disappear, ghosts, holds, items                                | Pending. Done early: the automatic reveal inside areas, and a hold that hides an element shown again inside an area until its layout pass.                                                                                                                                                                          |
+| lib-render        | Web Animations rendering                                               | Moves, sizes, clips, shapes, interruptions, effects with center compensation, ghosts, and the automatic wipe or fade of elements appearing or disappearing inside an area are done.                                                                                                                                 |
+| lib-appear        | Appear, Disappear, ghosts, holds, items                                | Done: effects, ghosts, `OthersMove`, the automatic disappear inside areas, and the hold until the layout pass. Pending: `StartAfter`, `OnPageOpen` and its hold (a Storyboard on `Visibility`), and the items.                                                                                                   |
 | lib-diagnostics   | `ShowWhatAnimates`, `Logged`                                           | Done                                                                                                                                                                                                                                                                                                                |
 | designer-metadata | `AnimationCatalog`, `AnimationDesign`                                  | Pending                                                                                                                                                                                                                                                                                                             |
 | gallery-app       | The guided tour                                                        | In progress (see below)                                                                                                                                                                                                                                                                                             |
@@ -66,14 +66,14 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 
 | Chapter                                  | Status                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Welcome                                  | Built: the options explained, "Start with chapter 5".                                                                                                                                                                                                                                                                                                                    |
-| 1. Your first animation                  | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
-| 2. Pick an effect                        | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
-| 3. When the others move                  | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
+| Welcome                                  | Built: the options explained, "Start with chapter 1".                                                                                                                                                                                                                                                                                                                    |
+| 1. Your first animation                  | Built: an order card whose details fade in while the rows below slide down, and notes added and removed, which fade in and out.                                                                                                                                                                                                                                         |
+| 2. Pick an effect                        | Built: every preset, with Side, Duration and Easing, on a card that is hidden and shown; a validation message under an email field (`{anim:Slide From=Top, Distance=Short}`).                                                                                                                                                                                            |
+| 3. When the others move                  | Built: While, Before and After side by side; an accordion whose sections wipe in from the top and roll up toward their header.                                                                                                                                                                                                                                          |
 | 4. Page intros                           | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
 | 5. Smooth moves and resizes              | Built: Save button, badge, sidebar, ChildWindow (`ResizableDialog`, which stays centered), photo card, search box.                                                                                                                                                                                                                                                       |
 | 6. Lists                                 | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
-| 7. Everything inside                     | Built: grid from 2 columns to 1, settings form whose details wipe in, dashboard with the chart carved out by `None`.                                                                                                                                                                                                                                                     |
+| 7. Everything inside                     | Built: grid from 2 columns to 1, settings form whose details wipe in and out, dashboard with the chart carved out by `None`.                                                                                                                                                                                                                                             |
 | 8. When the window or a panel is resized | Built: tiles with and without `AlsoOnWindowResize` (they use `ApplyTo=EverythingInside` on the WrapPanel until `ItemMoveAndResize` exists); a profile panel resized with a GridSplitter, whose content switches at 220 px with `{Responsive ElementName=ProfilePanel}`, also from code; three step cards that switch from a row to a column with the window, at 1100 px. |
 | 9. Text that moves                       | Coming soon (phase 5)                                                                                                                                                                                                                                                                                                                                                    |
 | 10. Bouncy and Wave                      | Built: bouncy tab underline with Bounciness and Duration sliders, a growing card with a Wave slider.                                                                                                                                                                                                                                                                     |
@@ -162,8 +162,31 @@ Checked in the Debug build, at 1300 × 800 unless stated otherwise:
 
 
 
+### Appear and Disappear (phase 3, step 1)
+
+Checked in the Debug build, at 1050 × 900 and 390 × 844. The agent's browser was painting one frame per second during these tests, because its panel was not on screen. So the checks read the batches sent to `animations.js` (timings, delays, looks) and the final state, rather than timing the frames.
+
+- **Chapter 1.**
+  - The details fade in over 0.25 s while the payment and delivery rows slide down 89 px with the same timing; hiding them fades out a ghost while the rows slide back. Five quick clicks hand over each time: a fade-out starts from where the fade-in was (0.72), and the next fade-in from where the ghost was. It ends visible, with no ghost left.
+  - A new note fades in and the counter and button slide down 60 px; a removed note's ghost fades out while the notes after it slide up. The two first notes fade in when the page opens.
+  - Under reduced motion, the details fade in and out in 0.15 s and the rows snap, with "it fades in quickly, because reduced motion is simulated".
+- **Chapter 2.**
+  - Every preset, both ways: Fade, Slide (30 px from each side), Zoom (from 90 %, around the center), Pop (from 50 %, 0.5 s spring; it disappears with Zoom), Wipe (edges 1 to 4), Blur (8 px) and Custom (12 rotation keyframes). The card always ends at opacity 1 with no ghost left.
+  - Duration 0.5 s and 1 s, Gentle, Linear, and Bouncy (a 0.5 s spring for the card, Smooth 0.5 s for the text below).
+  - The Side row fades in and out with the rows below moving: "SideLabel appeared; it fades in, SideChoices fades in, and 21 elements animate together".
+  - The validation message slides in from 10 px above while the button moves down 24 px, and fades out when the address is completed.
+- **Chapter 3.**
+  - While: the message and the rows move together. Before: the rows move, then the message fades in after 0.25 s. After: on hide, the ghost fades, then the rows move after 0.25 s. The log says "then" in the right order.
+  - The accordion: the new section wipes in from its top while the headers below slide, and the old one rolls up toward its header in the same change ("Body1 appeared; it wipes in, Body0 wipes out, and 17 elements animate together"). Quick clicks end with one section open and no ghost.
+- **Chapter 7.** The settings form's details wipe in from the top and wipe out toward the top with the size curve ("…and EmailDetails wipes out"). Quick toggles of the three options end right, with nothing running. Under reduced motion, everything snaps and the ghost is removed at once.
+- **Media in a ghost.** With an iframe added by script to chapter 1's details, hiding them makes a ghost with an empty 50 × 20 box in its place, which fades out in 0.15 s and is then removed. The real iframe stays where it was.
+- **Regressions.** Chapters 5 (Save, badge, sidebar), 7 (columns), 8 (switch from code) and 13 (rows, word, width, shapes) animate and log as before.
+- **At 390 px**, chapters 1, 2 and 3 fit the window.
+
 ## Not verified yet
 
+- Phase 3, step 1, in a browser that paints normally: the agent's checks read the batches, not the frames.
+- `Visibility.Hidden` (no gallery demo uses it), the warnings of `CheckEffect`, and ghosts of a real `MediaElement` or `WebBrowser` (only an iframe added by script was tried).
 - The GridSplitter drag in chapter 13, and drags by hand in general. Synthetic pointer events start a GridSplitter's capture only with `setPointerCapture` patched, as in development.md.
 - The Simulator, by hand.
 - Safari and Firefox: SVG geometry properties, the `linear()` fallback, `composite: 'add'`.
@@ -187,8 +210,10 @@ Checked in the Debug build, at 1300 × 800 unless stated otherwise:
 - **App code** that positions elements from `ActualWidth` or `SizeChanged` jumps, because those report final values at once.
 - **The** `RenderTransformOrigin` **offset** snaps.
 - **Storyboards** that animate layout properties of animated elements are smoothed twice.
-- **Elements that appear.** Inside an area with `ApplyTo=EverythingInside`, they wipe in from the side they push the others away from, or fade in when they push nothing. Elsewhere they appear in their place at once, and only the others move. Elements that disappear vanish at once. Effects of the app's own choosing, for appearing and disappearing, come with phase 3.
-- **One frame at the old size.** When a click makes an element Visible again, the core shows it in the DOM during the click itself (releasing the mouse capture runs the queued JavaScript), but arranges it only in the next layout pass, one dispatcher tick later. The browser often paints a frame in between, where the element has the box it had before it was collapsed and the elements around it haven't moved yet. Inside an area, the library hides it until that pass. Elsewhere, it needs a fix in the core: a pending layout pass should always run before the browser paints.
+- **Elements that appear or disappear without an effect.** Inside an area with `ApplyTo=EverythingInside`, they wipe in from the side they push the others away from, or fade in when they push nothing, and wipe or fade out the same way. Elsewhere they appear and disappear at once, and only the others move.
+- **Ghosts are copies.** What disappears is a copy of the element as it was: nothing inside it changes while it fades out. Explicit Disappear effects inside it don't play on their own. Media and frames in it are empty, and it fades out in 0.15 s.
+- **One effect gives the timing.** When several elements appear or disappear in the same change and container, the others move with the timing and the `OthersMove` of the first one found.
+- **One frame at the old size.** When a click makes an element Visible again, the core shows it in the DOM during the click itself (releasing the mouse capture runs the queued JavaScript), but arranges it only in the next layout pass, one dispatcher tick later. The browser often paints a frame in between, where the element has the box it had before it was collapsed and the elements around it haven't moved yet. The library hides it until that pass when it has an Appear or is inside an area. Elsewhere, it needs a fix in the core: a pending layout pass should always run before the browser paints.
 - **The Simulator:** JavaScript batches can arrive a frame apart.
 
 
@@ -211,22 +236,22 @@ Checked in the Debug build, at 1300 × 800 unless stated otherwise:
 - **Changes never cross** `None`**.** A change inside an element with `MoveAndResize=None` doesn't go up to the elements around it, and a change outside doesn't go into it. So what the carved-out element pushes snaps with it, even when another change animates in the same pass.
 - **Automatic reveals inside areas.** In an `EverythingInside` area, an element that appears takes part in the change: a wipe that keeps up with the elements it pushes reads better than an element that overlaps them until they have moved.
 - **Show what animates is off by default**, in every chapter, as the product owner asked. The reader turns the outlines on when they want them; chapter 5 suggests it.
+- **The presets derive from** `Transition`**, not** `Effect`, chosen by the product owner. Every element has a `UIElement.Effect` property, so a type named `Effect` didn't compile in code-behind without its namespace.
+- `Distance` **is a struct**, with `Short`, `Medium` and `Long` and a converter. As a `double`, `Distance=Short` didn't compile: the OpenSilver XAML compiler only accepts numbers for `double` properties.
+- **Pop and Bouncy effects last twice the default duration**, like `Bouncy` moves, so that the bounce settles. The elements around them move Smooth.
+- `StartAfter` **at runtime delays only the effect**, chosen by the product owner: the room opens at once, and the element appears in it later. Only `OnPageOpen=PushOthers` holds the element out of the layout.
+- **Hover and press effects** will be proposed to the product owner before the Showcase port, which needs them.
 
 
 
 ## Next steps
 
-1. **The product owner tests the fixes of the first round of feedback**, the "nearest setting wins" rule, and the `{Responsive}` switches of chapters 8 and 13, by dragging the panel and resizing the window by hand.
+1. **The product owner tests phase 3, step 1**: chapters 1 to 3, and the settings form of chapter 7.
 2. **The OpenSilver PR.** Open the PR from `feat/layout-observer`, and get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
-3. **Phase 3: Appear and Disappear**, specified in design.md under "Library API", "Appear and disappear mechanics" and "Items".
-  - The core hooks it needs already exist: `OnVisibilityChanged`, `OnDetaching`, and the `data-os-foreign` insertion fix for ghosts.
-  - New pieces:
-    - effect presets (Fade, Slide, Zoom, Pop, Wipe, Blur, Custom) with center compensation;
-    - ghosts cloned at detach or collapse;
-    - the hold (a Storyboard on `Visibility`, applied synchronously). A simpler hold exists already, for elements shown again inside an area: `animations.js` keeps them at opacity 0 until the batch of their layout pass;
-    - `OnPageOpen` and `OthersMove`;
-    - the item properties, with containers paired by data item.
-  - Gallery chapters 1 to 4 and 6. After that, the Showcase port and chapter 14.
+3. **The rest of phase 3**, specified in design.md under "Library API", "Appear and disappear mechanics" and "Items". The core hooks it needs already exist.
+  - Step 2: `StartAfter` (only the effect waits), and `OnPageOpen` (`InPlace`, `PushOthers` with the hold, a Storyboard on `Visibility` applied synchronously, and `Skip`). Chapter 4.
+  - Step 3: the item properties, with containers paired by data item. Chapter 6.
+  - Step 4: propose a hover and press API, then port the Showcase, and build chapter 14.
 4. **Phase 4:** `AnimationCatalog` and `AnimationDesign`, then the playgrounds, the live XAML and the summaries in every chapter.
 5. **Phase 5** (text, chapter 9), then **phase 7** (Magic move, chapter 11).
 

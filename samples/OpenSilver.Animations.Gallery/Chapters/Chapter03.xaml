@@ -1,0 +1,174 @@
+<sdk:Page x:Class="OpenSilver.Animations.Gallery.Chapters.Chapter03"
+          xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
+          xmlns:anim="http://opensilver.net/animations"
+          xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
+          Title="When the others move">
+
+    <sdk:Page.Resources>
+        <Style x:Key="Row" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="NewRow" TargetType="Border" BasedOn="{StaticResource Row}">
+            <Setter Property="Background" Value="{StaticResource AccentLightBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style x:Key="RowText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <!-- Each column keeps its height, so that it animates on its own -->
+        <Style x:Key="Column" TargetType="StackPanel">
+            <Setter Property="Height" Value="{Responsive Mobile=300, Tablet=220}" />
+        </Style>
+        <Style x:Key="SectionHeader" TargetType="Button" BasedOn="{StaticResource ChapterButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+    </sdk:Page.Resources>
+
+    <StackPanel Style="{StaticResource ChapterRoot}">
+        <TextBlock Text="CHAPTER 3" Style="{StaticResource OverlineText}" />
+        <TextBlock Text="When the others move" Style="{StaticResource ChapterTitleText}" />
+        <TextBlock Style="{StaticResource IntroText}"
+                   Text="By default, the elements around an element move while it appears or disappears. OthersMove changes that: with Before, they make room first, and then it appears in the empty space. With After, it disappears first, and then they fill its place." />
+        <TextBlock Style="{StaticResource IntroText}"
+                   Text="Before and After make the change take twice as long. Keep them for what needs attention, like a new message that should not appear on top of something moving." />
+
+        <!-- 1. Side by side -->
+        <controls:DemoCard Title="While, Before and After, side by side"
+                           Description="The button shows or hides the new message in the three columns at once. Turn on Slow motion to see the difference better."
+                           Xaml='&lt;!-- While (the default) --&gt;&#10;&lt;Border anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" /&gt;&#10;&lt;!-- Before --&gt;&#10;&lt;Border anim:Animate.Appear="{anim:Fade OthersMove=Before}" anim:Animate.Disappear="Fade" /&gt;&#10;&lt;!-- After --&gt;&#10;&lt;Border anim:Animate.Appear="Fade" anim:Animate.Disappear="{anim:Fade OthersMove=After}" /&gt;'
+                           Expectations="• While: the message fades in while the rows below slide down, and fades out while they slide back up.&#10;• Before: the rows slide down first, then the message fades in the space they left. It disappears like in While.&#10;• After: it appears like in While. When it is hidden, it fades out first, then the rows slide up.">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{Responsive Mobile=8, Tablet=16}" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{Responsive Mobile=8, Tablet=16}" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Style="{StaticResource Column}">
+                        <TextBlock Text="While" FontWeight="SemiBold" />
+                        <TextBlock Text="the default" Style="{StaticResource CaptionText}" Margin="0,0,0,8" />
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Lunch on Friday?" Style="{StaticResource RowText}" /></Border>
+                        <Border x:Name="WhileMessage" Style="{StaticResource NewRow}" Visibility="Collapsed"
+                                anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                            <TextBlock Text="New: the slides" FontWeight="SemiBold" Style="{StaticResource RowText}" />
+                        </Border>
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Your invoice" Style="{StaticResource RowText}" /></Border>
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Welcome!" Style="{StaticResource RowText}" /></Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Style="{StaticResource Column}">
+                        <TextBlock Text="Before" FontWeight="SemiBold" />
+                        <TextBlock Text="room first" Style="{StaticResource CaptionText}" Margin="0,0,0,8" />
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Lunch on Friday?" Style="{StaticResource RowText}" /></Border>
+                        <Border x:Name="BeforeMessage" Style="{StaticResource NewRow}" Visibility="Collapsed"
+                                anim:Animate.Appear="{anim:Fade OthersMove=Before}" anim:Animate.Disappear="Fade">
+                            <TextBlock Text="New: the slides" FontWeight="SemiBold" Style="{StaticResource RowText}" />
+                        </Border>
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Your invoice" Style="{StaticResource RowText}" /></Border>
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Welcome!" Style="{StaticResource RowText}" /></Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4" Style="{StaticResource Column}">
+                        <TextBlock Text="After" FontWeight="SemiBold" />
+                        <TextBlock Text="gone first" Style="{StaticResource CaptionText}" Margin="0,0,0,8" />
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Lunch on Friday?" Style="{StaticResource RowText}" /></Border>
+                        <Border x:Name="AfterMessage" Style="{StaticResource NewRow}" Visibility="Collapsed"
+                                anim:Animate.Appear="Fade" anim:Animate.Disappear="{anim:Fade OthersMove=After}">
+                            <TextBlock Text="New: the slides" FontWeight="SemiBold" Style="{StaticResource RowText}" />
+                        </Border>
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Your invoice" Style="{StaticResource RowText}" /></Border>
+                        <Border Style="{StaticResource Row}"><TextBlock Text="Welcome!" Style="{StaticResource RowText}" /></Border>
+                    </StackPanel>
+                </Grid>
+                <Button x:Name="MessagesButton" Content="Show the new message" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                        Click="MessagesButton_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 2. Accordion -->
+        <controls:DemoCard Title="An accordion"
+                           Description="Open a section. The one that was open closes, and the headers below slide to their new places while the contents are wiped in and out."
+                           Xaml='&lt;StackPanel x:Name="PaymentBody" Visibility="Collapsed"&#10;            anim:Animate.Appear="{anim:Wipe From=Top}"&#10;            anim:Animate.Disappear="{anim:Wipe To=Top}"&gt;'
+                           Expectations="• The new section is revealed from its top, as if it unrolled, while the headers below slide down.&#10;• The section that closes rolls up toward its header at the same time, and the headers never overlap the contents.&#10;• Click the headers quickly one after the other: nothing jumps.">
+            <Border Style="{StaticResource Card}" Padding="0" Width="{Responsive Mobile=NaN, Tablet=400}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
+                <StackPanel x:Name="Accordion">
+                    <Button Style="{StaticResource SectionHeader}" Tag="0" Click="Section_Click">
+                        <Grid>
+                            <TextBlock Text="Shipping address" />
+                            <TextBlock x:Name="Chevron0" Text="+" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" />
+                        </Grid>
+                    </Button>
+                    <StackPanel x:Name="Body0" Margin="16,0,16,14" Visibility="Collapsed"
+                                anim:Animate.Appear="{anim:Wipe From=Top}" anim:Animate.Disappear="{anim:Wipe To=Top}">
+                        <TextBlock Text="Alex Martin" Style="{StaticResource BodyText}" />
+                        <TextBlock Text="12 Harbour Street" Style="{StaticResource BodyText}" />
+                        <TextBlock Text="Bristol BS1 4RN" Style="{StaticResource BodyText}" />
+                        <Button Content="Change the address" Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Margin="-8,6,0,0" />
+                    </StackPanel>
+                    <Border Height="1" Background="{StaticResource LineBrush}" />
+
+                    <Button Style="{StaticResource SectionHeader}" Tag="1" Click="Section_Click">
+                        <Grid>
+                            <TextBlock Text="Payment" />
+                            <TextBlock x:Name="Chevron1" Text="+" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" />
+                        </Grid>
+                    </Button>
+                    <StackPanel x:Name="Body1" Margin="16,0,16,14" Visibility="Collapsed"
+                                anim:Animate.Appear="{anim:Wipe From=Top}" anim:Animate.Disappear="{anim:Wipe To=Top}">
+                        <TextBlock Text="Card ending in 4242, expires 08/28" Style="{StaticResource BodyText}" />
+                        <CheckBox Content="Use the shipping address for billing" IsChecked="True" Margin="0,8,0,0" />
+                    </StackPanel>
+                    <Border Height="1" Background="{StaticResource LineBrush}" />
+
+                    <Button Style="{StaticResource SectionHeader}" Tag="2" Click="Section_Click">
+                        <Grid>
+                            <TextBlock Text="Review" />
+                            <TextBlock x:Name="Chevron2" Text="+" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" />
+                        </Grid>
+                    </Button>
+                    <StackPanel x:Name="Body2" Margin="16,0,16,14" Visibility="Collapsed"
+                                anim:Animate.Appear="{anim:Wipe From=Top}" anim:Animate.Disappear="{anim:Wipe To=Top}">
+                        <TextBlock Text="3 items, delivered tomorrow before noon." Style="{StaticResource BodyText}" TextWrapping="Wrap" />
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Total" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="$86.40" FontWeight="SemiBold" Margin="24,0,0,0" />
+                        </Grid>
+                        <Button Content="Place the order" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:DemoCard>
+
+        <Border Style="{StaticResource TipBox}">
+            <StackPanel>
+                <TextBlock Text="Good to know" FontWeight="SemiBold" />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• OthersMove=Before is for Appear, and OthersMove=After for Disappear. The other way around, they are ignored, with a message in the log." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• While an element disappears, what you see is a copy of it: the elements that move can slide over it, as in the accordion, and it never gets clicks." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• When an element appears while another one disappears in the same change, like in the accordion, the elements around them move once, with the timing of the one that appears." />
+            </StackPanel>
+        </Border>
+
+        <controls:ChapterNavigation Chapter="3" />
+    </StackPanel>
+</sdk:Page>

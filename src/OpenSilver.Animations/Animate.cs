@@ -5,16 +5,103 @@ using OpenSilver.Animations.Engine;
 namespace OpenSilver.Animations
 {
     /// <summary>
-    /// Makes elements animate when they move or change size.
+    /// Makes elements animate when they appear, disappear, move or change size.
     /// </summary>
     /// <example>
     /// <code>
+    /// &lt;StackPanel x:Name="Details" anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" /&gt;
     /// &lt;Button Content="Save" anim:Animate.MoveAndResize="Smooth" /&gt;
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
     /// </code>
     /// </example>
     public static class Animate
     {
+        /// <summary>
+        /// Identifies the Appear attached property.
+        /// </summary>
+        public static readonly DependencyProperty AppearProperty =
+            DependencyProperty.RegisterAttached(
+                "Appear",
+                typeof(Transition),
+                typeof(Animate),
+                new PropertyMetadata(null, OnEffectChanged));
+
+        /// <summary>
+        /// Gets what the element does when it appears.
+        /// </summary>
+        public static Transition GetAppear(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Transition)element.GetValue(AppearProperty);
+        }
+
+        /// <summary>
+        /// Sets what the element does when it appears: when it is added to the page, or when its
+        /// Visibility becomes Visible. The elements around it move smoothly to make room, with the
+        /// same duration.
+        /// </summary>
+        public static void SetAppear(UIElement element, Transition value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(AppearProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the Disappear attached property.
+        /// </summary>
+        public static readonly DependencyProperty DisappearProperty =
+            DependencyProperty.RegisterAttached(
+                "Disappear",
+                typeof(Transition),
+                typeof(Animate),
+                new PropertyMetadata(null, OnEffectChanged));
+
+        /// <summary>
+        /// Gets what the element does when it disappears.
+        /// </summary>
+        public static Transition GetDisappear(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Transition)element.GetValue(DisappearProperty);
+        }
+
+        /// <summary>
+        /// Sets what the element does when it disappears: when it is removed from the page, or when
+        /// its Visibility becomes Collapsed or Hidden. The elements around it move smoothly into its
+        /// place, with the same duration.
+        /// </summary>
+        public static void SetDisappear(UIElement element, Transition value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(DisappearProperty, value);
+        }
+
+        private static void OnEffectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue is Transition effect && d is UIElement element)
+            {
+                LayoutAnimator.AnyEffects = true;
+                LayoutAnimator.EnsureStarted();
+                LayoutAnimator.CheckEffect(effect, appear: e.Property == AppearProperty, element);
+            }
+        }
+
         /// <summary>
         /// Identifies the MoveAndResize attached property.
         /// </summary>

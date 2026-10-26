@@ -92,9 +92,9 @@
 
         <!-- 2. Settings form -->
         <controls:DemoCard Title="A settings form"
-                           Description="Turn the options on and off. Each one shows or hides a few more settings. Everything below them makes room, and the new settings are revealed as the room opens up, although only the form has a setting."
+                           Description="Turn the options on and off. Each one shows or hides a few more settings. Everything below them makes room, and the new settings are revealed as the room opens up, or hidden as it closes, although only the form has a setting."
                            Xaml='&lt;Border anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;!-- The options, their extra settings, and the Save button --&gt;&#10;&lt;/Border&gt;'
-                           Expectations="• The options and the Save button below slide down to make room, and the extra settings are revealed from the top at the same pace, without overlapping them.&#10;• When they are hidden, they disappear at once, and everything below slides back up.&#10;• Turning several options on and off quickly never makes anything jump.">
+                           Expectations="• The options and the Save button below slide down to make room, and the extra settings are revealed from the top at the same pace, without overlapping them.&#10;• When they are hidden, they are wiped out from the bottom up while everything below slides back up, without overlapping them.&#10;• Turning several options on and off quickly never makes anything jump.">
             <Border x:Name="SettingsForm" Style="{StaticResource Card}" Padding="{Responsive Mobile=14, Tablet=20}" MaxWidth="520" HorizontalAlignment="Left"
                     anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
                 <StackPanel x:Name="FormFields">

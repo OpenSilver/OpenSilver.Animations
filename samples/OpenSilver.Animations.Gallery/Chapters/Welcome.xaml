@@ -54,10 +54,10 @@
             <StackPanel>
                 <TextBlock Text="Where to start" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="This version of the library animates moves and size changes. The chapters about appearing, disappearing, lists, text and Magic move arrive with the next versions, and are marked 'soon' in the list of chapters." />
+                           Text="This version of the library animates elements that appear and disappear, moves and size changes. The chapters about page intros, lists, text and Magic move arrive with the next versions, and are marked 'soon' in the list of chapters." />
             </StackPanel>
         </Border>
 
-        <Button Content="Start with chapter 5" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="Start_Click" />
+        <Button Content="Start with chapter 1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="Start_Click" />
     </StackPanel>
 </sdk:Page>

@@ -68,6 +68,17 @@ namespace OpenSilver.Animations.Engine
             Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
         }
 
+        /// <summary>
+        /// Copies an element that disappears, before the browser hides or removes it, and leaves the
+        /// copy in its place until a batch plays its effect or removes it.
+        /// </summary>
+        public static void Ghost(string id)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.ghost(");
+            AppendString(sb, id);
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
         public static void WriteToConsole(string message)
         {
             Interop.ExecuteJavaScriptVoidAsync("console.log($0)", "[OpenSilver.Animations] " + message);

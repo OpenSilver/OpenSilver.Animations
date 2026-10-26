@@ -37,6 +37,13 @@ namespace OpenSilver.Animations.Engine
     /// setting found going up from a switch animates what is inside it, with its own timing.
     /// While the resize continues, these animations go on instead of being cancelled, and their
     /// sizes are retargeted.
+    ///
+    /// An element that appears with an effect (Animate.Appear) is a change of its parent, and the
+    /// effect gives its timing to the group, which makes room for it. An element that disappears is
+    /// copied in the browser when it is collapsed or removed (a ghost), and the ghost plays its
+    /// effect while the group fills its place. Inside an area, the topmost element that appears or
+    /// disappears without an effect of its own gets an automatic wipe or fade. Elements that appear
+    /// with their container play their own effects, without making room.
     /// </remarks>
     internal sealed class LayoutAnimator : LayoutObserver
     {
@@ -49,7 +56,15 @@ namespace OpenSilver.Animations.Engine
         private const string ScrollBarReason = "the change happened in a scroll bar";
         private const string SettlingReason = "the element had just appeared";
         private const string DraggingReason = "something is being dragged";
+        private const string ReducedMotionReason = "the device asks for reduced motion";
+        private const string SimulatedReducedMotionReason = "reduced motion is simulated (AnimationSettings.SimulateReducedMotion)";
         private static readonly string TooManyReason = "more than " + MaxAnimatedElements + " elements would animate at once";
+
+        // Automatic effects of elements that disappear at once, like a page full of elements removed.
+        private const int MaxAutomaticGhosts = 40;
+        private const long GhostLifetimeMs = 3000;
+        private static readonly Timing QuickFadeTiming = Timing.QuickFade();
+        private static readonly EffectLook FadeLook = new EffectLook { Opacity = 0 };
 
         private static LayoutAnimator _instance;
 
@@ -58,6 +73,12 @@ namespace OpenSilver.Animations.Engine
         /// ancestors are never searched for an area.
         /// </summary>
         internal static bool AnyAreas;
+
+        /// <summary>
+        /// Set once an element has an Appear or a Disappear. Until then, elements that appear or
+        /// disappear are never checked for effects.
+        /// </summary>
+        internal static bool AnyEffects;
 
         private Record[] _records = new Record[64];
         private int _recordCount;
@@ -98,6 +119,16 @@ namespace OpenSilver.Animations.Engine
         private readonly Dictionary<UIElement, Owner> _ownerOf = new Dictionary<UIElement, Owner>();
         private bool _switchOnly;
         private bool _keepRunning;
+
+        // The elements collapsed or removed since the last pass, copied in the browser.
+        private readonly List<Disappearance> _disappearing = new List<Disappearance>();
+        // The records of the elements that appear in this pass with an Appear of their own.
+        private readonly List<int> _effectAppears = new List<int>();
+        private readonly Dictionary<Transition, Timing> _effectTimings = new Dictionary<Transition, Timing>();
+        // The elements that may still have a ghost in the browser, until when.
+        private readonly Dictionary<UIElement, long> _ghostedUntil = new Dictionary<UIElement, long>();
+        private bool _effectsPlay;
+        private bool _quickFades;
 
         private Point[] _absOld = new Point[64];
         private Point[] _absNew = new Point[64];
@@ -157,6 +188,61 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
+        /// <summary>
+        /// Warns about the parameters of an effect that don't apply where it is used. They are ignored.
+        /// </summary>
+        public static void CheckEffect(Transition effect, bool appear, UIElement element)
+        {
+            if (_instance == null || effect.IsNone)
+            {
+                return;
+            }
+
+            string problem = null;
+            if (appear && effect.OthersMove == OthersMove.After)
+            {
+                problem = "OthersMove=After is for Disappear, so the elements around it move while it appears";
+            }
+            else if (!appear && effect.OthersMove == OthersMove.Before)
+            {
+                problem = "OthersMove=Before is for Appear, so the elements around it move while it disappears";
+            }
+            else if (!appear && effect is Pop)
+            {
+                problem = "Pop is for Appear only, so it zooms out";
+            }
+            else if (appear && effect.HasTo && !effect.HasFrom)
+            {
+                problem = "To is for Disappear, so it comes from the bottom. Use From to choose the side it comes from";
+            }
+            else if (!appear && effect.HasFrom && !effect.HasTo)
+            {
+                problem = "From is for Appear, so it goes to the bottom. Use To to choose the side it goes to";
+            }
+            else if (effect.Bounciness != null && !effect.IsBouncy)
+            {
+                problem = "Bounciness is only used by Pop and by Easing=Bouncy";
+            }
+
+            // Later, so that the element has its name, and the app had time to turn on the log.
+            if (problem != null)
+            {
+                Deployment.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    string message = $"The {(appear ? "Appear" : "Disappear")} of {ElementNames.Of(element)}: {problem}.";
+                    if (AnimationSettings.Current.LogForDebugging)
+                    {
+                        BrowserBridge.WriteToConsole(message);
+                    }
+
+                    if (AnimationSettings.HasLoggedHandlers)
+                    {
+                        AnimationSettings.RaiseLogged(message);
+                    }
+                });
+            }
+        }
+
         #region Layout hooks
 
         protected override void OnMeasured(UIElement element, Size availableSize, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure)
@@ -196,9 +282,17 @@ namespace OpenSilver.Animations.Engine
         {
             int parent = _stack.Count > 0 ? _stack[_stack.Count - 1] : -1;
 
-            // Everything inside an element that appears appears with it.
+            // Everything inside an element that appears appears with it. Only the elements that have
+            // an Appear of their own are recorded, to play it, unless it appears by scrolling.
             if (parent >= 0 && (_records[parent].Flags & RecordFlags.Appears) != 0)
             {
+                if (AnyEffects && (_records[parent].Flags & RecordFlags.Scrolled) == 0 && GetAppearEffect(element) != null)
+                {
+                    int nested = GetOrAddRecord(element);
+                    _records[nested].Parent = parent;
+                    _records[nested].Flags |= RecordFlags.Appears | RecordFlags.WithContainer;
+                    _stack.Add(nested);
+                }
                 return;
             }
 
@@ -213,6 +307,12 @@ namespace OpenSilver.Animations.Engine
             {
                 record.Flags |= RecordFlags.Appears;
                 _appeared[element] = _clock.ElapsedMilliseconds;
+
+                // Realized by a scrolling list, like a virtualizing panel: no effects.
+                if (parent >= 0 && (_records[parent].Flags & RecordFlags.Scrolled) != 0)
+                {
+                    record.Flags |= RecordFlags.Scrolled;
+                }
 
                 if (shown && parent >= 0 && !_switchOnly && _measureOrigins.Contains(element) && !IsWindowResizePass() &&
                     (_records[parent].Flags & RecordFlags.Scrolled) == 0)
@@ -299,19 +399,44 @@ namespace OpenSilver.Animations.Engine
                 {
                     _shown.Remove(element);
                 }
+
+                if (oldValue == Visibility.Visible && (AnyEffects || AnyAreas))
+                {
+                    CaptureDisappearing(element, VisualTreeHelper.GetParent(element) as UIElement, newValue == Visibility.Hidden);
+                }
+                return;
+            }
+
+            // A hidden element keeps its space, so nothing moves and there is no layout pass: its
+            // effect plays at once.
+            if (oldValue == Visibility.Hidden)
+            {
+                if (AnyEffects && GetAppearEffect(element) is Transition effect && IsAnimatable(element, out string hiddenId))
+                {
+                    PlayAtOnce(element, effect, appear: true, hiddenId);
+                }
                 return;
             }
 
             _shown.Add(element);
 
             // The browser shows the element at once, but it is only arranged in the next layout
-            // pass. Inside an area, it stays hidden until then, so that it never shows where it
-            // was before it was collapsed, nor before it is wiped in.
-            if (AnyAreas && !_held.Contains(element) && IsInsideArea(element) &&
+            // pass. With an effect of its own, or inside an area, it stays hidden until then, so that
+            // it never shows where it was before it was collapsed, nor before its effect starts.
+            if (!_held.Contains(element) &&
+                ((AnyEffects && GetAppearEffect(element) != null) || (AnyAreas && !HasNoEffect(element, appear: true) && IsInsideArea(element))) &&
                 Interop.GetDiv(element).Uid is string id && id.Length > 0)
             {
                 _held.Add(element);
                 BrowserBridge.Hold(id);
+            }
+            else if (_ghostedUntil.Count > 0 && _ghostedUntil.Remove(element) && !_held.Contains(element) &&
+                     Interop.GetDiv(element).Uid is string ghostId && ghostId.Length > 0)
+            {
+                // It disappeared just before, without an effect to play now: its ghost goes away.
+                var batch = new BatchBuilder();
+                batch.AddGhostRemoval(ghostId);
+                BrowserBridge.Run(batch.ToJson());
             }
         }
 
@@ -321,6 +446,118 @@ namespace OpenSilver.Animations.Engine
             {
                 _runningUntil.Remove(child);
             }
+
+            if ((AnyEffects || AnyAreas) && child.Visibility == Visibility.Visible)
+            {
+                CaptureDisappearing(child, parent, hidden: false);
+            }
+        }
+
+        /// <summary>
+        /// Copies an element that is being collapsed, hidden or removed, if it has an effect to play:
+        /// its own Disappear, or an automatic one inside an area. A hidden element keeps its space,
+        /// so its effect plays at once; the others play theirs at the end of the next layout pass.
+        /// </summary>
+        private void CaptureDisappearing(UIElement element, UIElement parent, bool hidden)
+        {
+            if (parent == null || !parent.IsVisible || _skip || _held.Contains(element) || !AnimationSettings.Current.IsEnabled)
+            {
+                return;
+            }
+
+            Transition effect = AnyEffects ? GetDisappearEffect(element) : null;
+            if (effect == null &&
+                (hidden || !AnyAreas || HasNoEffect(element, appear: false) || CountAutomaticGhosts() >= MaxAutomaticGhosts || !IsInsideArea(element)))
+            {
+                return;
+            }
+
+            Size size = element.RenderSize;
+            if (size.Width <= 0 || size.Height <= 0 || !IsAnimatable(element, out string id))
+            {
+                return;
+            }
+
+            BrowserBridge.Ghost(id);
+            _ghostedUntil[element] = _clock.ElapsedMilliseconds + GhostLifetimeMs;
+
+            if (hidden)
+            {
+                PlayAtOnce(element, effect, appear: false, id);
+                return;
+            }
+
+            _disappearing.Add(new Disappearance { Element = element, Parent = parent, Id = id, Effect = effect, ParentIndex = -1 });
+        }
+
+        private int CountAutomaticGhosts()
+        {
+            int count = 0;
+            foreach (Disappearance disappearance in _disappearing)
+            {
+                if (disappearance.Effect == null)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Plays the effect of an element that becomes hidden or visible again, which doesn't need
+        /// a layout pass.
+        /// </summary>
+        private void PlayAtOnce(UIElement element, Transition effect, bool appear, string id)
+        {
+            AnimationSettings settings = AnimationSettings.Current;
+            string reason = GetGlobalSnapReason(settings);
+            bool quick = IsReducedMotion(reason);
+            var batch = new BatchBuilder();
+
+            if (reason != null && !quick)
+            {
+                if (!appear)
+                {
+                    batch.AddGhostRemoval(id);
+                    BrowserBridge.Run(batch.ToJson());
+                }
+                return;
+            }
+
+            Timing timing = quick ? QuickFadeTiming : Timing.FromEffect(effect, settings);
+            EffectLook look = quick ? FadeLook : effect.GetLook(appear);
+            if (appear)
+            {
+                batch.AddEffect(id, batch.AddTiming(timing), 0, look, raise: false);
+            }
+            else
+            {
+                batch.AddGhost(id, batch.AddTiming(timing), 0, look, sizeCurve: false);
+            }
+            BrowserBridge.Run(batch.ToJson());
+
+            if (settings.LogForDebugging || AnimationSettings.HasLoggedHandlers)
+            {
+                string what = appear ? "became visible again" : "was hidden";
+                _messages.Add($"{ElementNames.Of(element)} {what}; {DescribeOwnEffect(effect, appear, quick, timing, reason)}.");
+                Publish(settings);
+            }
+        }
+
+        /// <summary>
+        /// "it fades in (Smooth, 0.25 s, from its Appear)", or "it fades in quickly, because the device
+        /// asks for reduced motion".
+        /// </summary>
+        private static string DescribeOwnEffect(Transition effect, bool appear, bool quick, Timing timing, string reason)
+            => quick
+                ? $"it {(appear ? "fades in" : "fades out")} quickly, because {reason}"
+                : $"it {effect.Describe(appear)} ({timing.Description}, from its {(appear ? "Appear" : "Disappear")})";
+
+        private static bool IsAnimatable(UIElement element, out string id)
+        {
+            id = Interop.GetDiv(element).Uid;
+            return !string.IsNullOrEmpty(id);
         }
 
         protected override void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property)
@@ -333,6 +570,14 @@ namespace OpenSilver.Animations.Engine
             {
                 if (_recordCount > 0)
                 {
+                    // The elements that disappear, like one that a switch collapses, belong to the switches.
+                    Disappearance[] disappearing = null;
+                    if (_disappearing.Count > 0)
+                    {
+                        disappearing = _disappearing.ToArray();
+                        _disappearing.Clear();
+                    }
+
                     try
                     {
                         CompletePass(releaseHeld: false);
@@ -344,6 +589,11 @@ namespace OpenSilver.Animations.Engine
                     finally
                     {
                         ResetRecords();
+                        _disappearing.Clear();
+                        if (disappearing != null)
+                        {
+                            _disappearing.AddRange(disappearing);
+                        }
                     }
                 }
 
@@ -389,7 +639,7 @@ namespace OpenSilver.Animations.Engine
                 PruneAppeared();
             }
 
-            if (_recordCount == 0 && !_forced && !_skip)
+            if (_recordCount == 0 && _disappearing.Count == 0 && !_forced && !_skip)
             {
                 ReleaseHeld();
                 ClearMeasureState();
@@ -536,12 +786,26 @@ namespace OpenSilver.Animations.Engine
             _keepRunning = (BrowserBridge.IsDragging || IsWindowResizePass()) &&
                            (snapReason == null || ReferenceEquals(snapReason, DraggingReason));
 
+            // With reduced motion, effects become quick fades, and everything else snaps.
+            _quickFades = IsReducedMotion(snapReason);
+            _effectsPlay = snapReason == null || _quickFades || (_switchOnly && ReferenceEquals(snapReason, DraggingReason));
+
             for (int i = 0; i < _recordCount; i++)
             {
                 ref Record record = ref _records[i];
                 if ((record.Flags & RecordFlags.Appears) != 0)
                 {
-                    if (AnyAreas && record.Parent >= 0)
+                    if ((record.Flags & RecordFlags.Scrolled) != 0)
+                    {
+                        continue;
+                    }
+
+                    if (AnyEffects && GetAppearEffect(record.Element) != null)
+                    {
+                        _effectAppears.Add(i);
+                    }
+
+                    if ((record.Flags & RecordFlags.WithContainer) == 0 && record.Parent >= 0 && (AnyEffects || AnyAreas))
                     {
                         AddAppearing(i);
                     }
@@ -576,11 +840,34 @@ namespace OpenSilver.Animations.Engine
                 }
             }
 
+            // An element that disappears is a change of its parent, like one that appears.
+            foreach (Disappearance disappearance in _disappearing)
+            {
+                if (_recordIndex.TryGetValue(disappearance.Parent, out int parentIndex) && _records[parentIndex].Group != 0)
+                {
+                    int group = Find(_records[parentIndex].Group);
+                    if (_groups[group].Kind == GroupKind.Change)
+                    {
+                        disappearance.ParentIndex = parentIndex;
+                        Bucket bucket = GetBucket(group);
+                        bucket.Ghosts.Add(disappearance);
+                        if (disappearance.Effect != null && bucket.Effect == null)
+                        {
+                            bucket.Effect = disappearance.Effect;
+                            bucket.EffectElement = disappearance.Element;
+                            bucket.EffectAppears = false;
+                        }
+                    }
+                }
+            }
+
             var batch = new BatchBuilder();
             foreach (KeyValuePair<int, Bucket> pair in _buckets)
             {
                 ProcessGroup(pair.Key, pair.Value, settings, snapReason, logging, now, batch);
             }
+
+            PlayRemainingEffects(settings, snapReason, logging, batch);
 
             foreach (UIElement element in _toCancel)
             {
@@ -616,7 +903,7 @@ namespace OpenSilver.Animations.Engine
                 Publish(settings);
             }
 
-            if (now >= _nextSweep && _runningUntil.Count > 0)
+            if (now >= _nextSweep && (_runningUntil.Count > 0 || _ghostedUntil.Count > 0))
             {
                 SweepRunning(now);
             }
@@ -642,8 +929,8 @@ namespace OpenSilver.Animations.Engine
             if (settings.RespectReducedMotion && (BrowserBridge.PrefersReducedMotion || settings.SimulateReducedMotion))
             {
                 return settings.SimulateReducedMotion && !BrowserBridge.PrefersReducedMotion
-                    ? "reduced motion is simulated (AnimationSettings.SimulateReducedMotion)"
-                    : "the device asks for reduced motion";
+                    ? SimulatedReducedMotionReason
+                    : ReducedMotionReason;
             }
 
             if (BrowserBridge.IsDragging)
@@ -654,9 +941,14 @@ namespace OpenSilver.Animations.Engine
             return null;
         }
 
+        private static bool IsReducedMotion(string reason)
+            => ReferenceEquals(reason, ReducedMotionReason) || ReferenceEquals(reason, SimulatedReducedMotionReason);
+
         /// <summary>
-        /// An element that appears inside an area, without a MoveAndResize=None of its own, is
-        /// revealed with the change that makes room for it, if that change animates.
+        /// An element that appears with an Appear of its own, or inside an area without a
+        /// MoveAndResize=None or an Appear=None of its own, plays its effect with the change that
+        /// makes room for it. Inside an area, without an effect of its own, it is wiped or faded in,
+        /// if that change animates.
         /// </summary>
         private void AddAppearing(int index)
         {
@@ -667,19 +959,32 @@ namespace OpenSilver.Animations.Engine
             }
 
             int group = Find(parent.Group);
-            if (_groups[group].Kind != GroupKind.Change ||
-                GetArea(parent.Element).Movement == null ||
-                HasNone(_records[index].Element))
+            if (_groups[group].Kind != GroupKind.Change)
             {
                 return;
             }
 
-            GetBucket(group).Appearing.Add(index);
+            UIElement element = _records[index].Element;
+            Transition effect = AnyEffects ? GetAppearEffect(element) : null;
+            if (effect == null &&
+                (GetArea(parent.Element).Movement == null || HasNone(element) || HasNoEffect(element, appear: true)))
+            {
+                return;
+            }
+
+            Bucket bucket = GetBucket(group);
+            bucket.Appearing.Add(index);
+            if (effect != null && bucket.Effect == null)
+            {
+                bucket.Effect = effect;
+                bucket.EffectElement = element;
+                bucket.EffectAppears = true;
+            }
         }
 
         private void ProcessGroup(int group, Bucket bucket, AnimationSettings settings, string snapReason, bool logging, long now, BatchBuilder batch)
         {
-            if (bucket.Members.Count == 0 && bucket.Appearing.Count == 0)
+            if (bucket.Members.Count == 0 && bucket.Appearing.Count == 0 && bucket.Ghosts.Count == 0)
             {
                 return;
             }
@@ -731,7 +1036,7 @@ namespace OpenSilver.Animations.Engine
                     reason = TooManyReason;
                     timing = null;
                 }
-                else if (visible == 0)
+                else if (visible == 0 && bucket.Ghosts.Count == 0)
                 {
                     return;
                 }
@@ -744,6 +1049,9 @@ namespace OpenSilver.Animations.Engine
                     Snap(index, now);
                 }
 
+                // The effects of the elements that appear or disappear still play, on their own.
+                Transition played = PlayEffectsAlone(bucket, settings, batch);
+
                 if (logging && reason != null && !IsSilent(reason) && (_forced || InvolvesSettings(bucket)))
                 {
                     if (!windowResize || now - _lastWindowResizeLog > 1000)
@@ -753,7 +1061,24 @@ namespace OpenSilver.Animations.Engine
                             _lastWindowResizeLog = now;
                         }
 
-                        LogSnap(Describe(bucket, firstOrigin, windowResize) + "; nothing animated because " + reason + ".", now);
+                        if (bucket.Effect != null)
+                        {
+                            firstOrigin = bucket.EffectElement;
+                        }
+
+                        string what;
+                        if (played == null)
+                        {
+                            what = "nothing animated because " + reason;
+                        }
+                        else
+                        {
+                            Timing effectTiming = _quickFades ? QuickFadeTiming : GetEffectTiming(played, settings);
+                            what = DescribeOwnEffect(played, bucket.EffectAppears, _quickFades, effectTiming, reason) +
+                                   (_quickFades ? ", and nothing else animated" : ", and nothing else animated because " + reason);
+                        }
+
+                        LogSnap(Describe(bucket, firstOrigin, windowResize) + "; " + what + ".", now);
                     }
                 }
                 return;
@@ -882,6 +1207,20 @@ namespace OpenSilver.Animations.Engine
             {
                 timing = Timing.FromDuration(_forcedDuration, settings);
                 source = "Animate.Changes";
+                if (bucket.Effect != null)
+                {
+                    firstOrigin = bucket.EffectElement;
+                }
+                return null;
+            }
+
+            // An element that appears or disappears with an effect: the change starts in its parent,
+            // and the effect is the nearest setting.
+            if (bucket.Effect != null && !_switchOnly)
+            {
+                timing = Timing.ForOthers(GetEffectTiming(bucket.Effect, settings), bucket.Effect);
+                source = (bucket.EffectAppears ? "the Appear of " : "the Disappear of ") + ElementNames.Of(bucket.EffectElement);
+                firstOrigin = bucket.EffectElement;
                 return null;
             }
 
@@ -933,17 +1272,22 @@ namespace OpenSilver.Animations.Engine
                 FindOwner(_records[index].Element)?.Part.Appearing.Add(index);
             }
 
+            foreach (Disappearance disappearance in bucket.Ghosts)
+            {
+                FindOwner(disappearance.Parent)?.Part.Ghosts.Add(disappearance);
+            }
+
             foreach (Owner owner in _owners)
             {
                 Bucket part = owner.Part;
-                if (part.Members.Count == 0 && part.Appearing.Count == 0)
+                if (part.Members.Count == 0 && part.Appearing.Count == 0 && part.Ghosts.Count == 0)
                 {
                     continue;
                 }
 
                 UIElement origin = GetDescribedOrigin(part);
                 int visible = CullAndCount(part);
-                if (visible == 0)
+                if (visible == 0 && part.Ghosts.Count == 0)
                 {
                     continue;
                 }
@@ -1107,6 +1451,11 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         private bool InvolvesSettings(Bucket bucket)
         {
+            if (bucket.Effect != null)
+            {
+                return true;
+            }
+
             if (!_switchOnly)
             {
                 foreach (int index in bucket.Members)
@@ -1159,7 +1508,17 @@ namespace OpenSilver.Animations.Engine
                 return others == 0 ? switched : switched + ", and " + ElementNames.Count(others, "other value", "other values");
             }
 
-            ref Record record = ref _records[_recordIndex[origin]];
+            if (origin == bucket.EffectElement)
+            {
+                return ElementNames.Of(origin) + (bucket.EffectAppears ? " appeared" : " disappeared");
+            }
+
+            if (!_recordIndex.TryGetValue(origin, out int originIndex))
+            {
+                return ElementNames.Of(origin) + " changed";
+            }
+
+            ref Record record = ref _records[originIndex];
             string what;
             if (!IsChanged(ref record))
             {
@@ -1191,21 +1550,70 @@ namespace OpenSilver.Animations.Engine
             return others?.Count ?? 0;
         }
 
-        private string DescribeAnimated(Bucket bucket)
+        /// <summary>
+        /// "it fades in, and 5 elements animate together", "it wipes in, Body0 wipes out, and 5
+        /// elements animate together", "3 elements animate together, and Notes wipes out".
+        /// </summary>
+        private static string DescribeAnimated(Bucket bucket)
         {
-            string moved = ElementNames.Count(bucket.Animated.Count, "element animates", "elements animate together");
-            int revealed = bucket.Wipes + bucket.Fades;
-            if (revealed == 0)
+            string moved = bucket.Animated.Count == 0 ? null : ElementNames.Count(bucket.Animated.Count, "element animates", "elements animate together");
+            string others = bucket.OtherEffects == 0 ? null
+                : bucket.OtherEffects == 1 ? bucket.OtherEffect
+                : bucket.OtherEffects + " other elements play their effects";
+            var parts = new List<string>(5);
+
+            if (bucket.EffectPlayed)
             {
-                return moved;
+                Transition effect = bucket.Effect;
+                string own = "it " + effect.Describe(bucket.EffectAppears);
+                if (moved != null && bucket.EffectAppears && effect.OthersMove == OthersMove.Before)
+                {
+                    own = moved + ", then " + own;
+                    moved = null;
+                }
+                else if (moved != null && !bucket.EffectAppears && effect.OthersMove == OthersMove.After)
+                {
+                    own = own + ", then " + moved;
+                    moved = null;
+                }
+
+                parts.Add(own);
             }
 
-            string how = bucket.Fades == 0 ? "wipe" : bucket.Wipes == 0 ? "fade" : "wipe or fade";
-            string appeared = revealed == 1
-                ? ElementNames.Of(_records[bucket.Revealed[0]].Element) + " " + how + "s in"
-                : revealed + " elements " + how + " in";
+            parts.Add(others);
+            parts.Add(moved);
+            parts.Add(DescribeAutomatic(bucket.Wipes, bucket.Fades, bucket.RevealedElement, "in"));
+            parts.Add(DescribeAutomatic(bucket.GhostWipes, bucket.GhostFades, bucket.VanishedElement, "out"));
+            return JoinAll(parts) ?? "nothing moved";
+        }
 
-            return bucket.Animated.Count == 0 ? appeared : moved + ", and " + appeared;
+        private static string DescribeAutomatic(int wipes, int fades, UIElement single, string direction)
+        {
+            int count = wipes + fades;
+            if (count == 0)
+            {
+                return null;
+            }
+
+            string how = fades == 0 ? "wipe" : wipes == 0 ? "fade" : "wipe or fade";
+            return count == 1
+                ? ElementNames.Of(single) + " " + how + "s " + direction
+                : count + " elements " + how + " " + direction;
+        }
+
+        /// <summary>
+        /// "a", "a, and b", "a, b, and c", skipping the parts that are null.
+        /// </summary>
+        private static string JoinAll(List<string> parts)
+        {
+            parts.RemoveAll(part => part == null);
+            if (parts.Count == 0)
+            {
+                return null;
+            }
+
+            string last = parts[parts.Count - 1];
+            return parts.Count == 1 ? last : string.Join(", ", parts.GetRange(0, parts.Count - 1)) + ", and " + last;
         }
 
         #endregion
@@ -1481,6 +1889,11 @@ namespace OpenSilver.Animations.Engine
             bool fromSwitch = _switchOnly && bucket.Origins.Count > 0;
             int originIndex = origin != null && _recordIndex.TryGetValue(origin, out int oi) ? oi : -1;
 
+            // OthersMove=After: the group waits for the element that disappears.
+            double othersDelay = bucket.Effect != null && !bucket.EffectAppears && bucket.Effect.OthersMove == OthersMove.After
+                ? GetEffectTiming(bucket.Effect, settings).DurationMs
+                : 0;
+
             if (wave)
             {
                 EnsureCapacity(ref _delays, _recordCount);
@@ -1513,7 +1926,7 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
-                double delay = wave ? GetWaveDelay(index, originIndex, timing.Wave) / settings.Speed : 0;
+                double delay = (wave ? GetWaveDelay(index, originIndex, timing.Wave) / settings.Speed : 0) + othersDelay;
                 int flags = GetFlags(element, ref record);
 
                 batch.AddMove(id, timingIndex, delay,
@@ -1531,21 +1944,35 @@ namespace OpenSilver.Animations.Engine
                 }
             }
 
-            bucket.Wipes = bucket.Fades = 0;
+            bucket.Wipes = bucket.Fades = bucket.GhostWipes = bucket.GhostFades = bucket.OtherEffects = 0;
+            bucket.OtherEffect = null;
+            bucket.EffectPlayed = false;
+            bool othersMove = bucket.Animated.Count > 0;
             foreach (int index in bucket.Revealed)
             {
-                string id = Interop.GetDiv(_records[index].Element).Uid;
+                UIElement element = _records[index].Element;
+                string id = Interop.GetDiv(element).Uid;
                 if (string.IsNullOrEmpty(id))
                 {
                     continue;
                 }
 
+                // OthersMove=Before: the element waits for the room to be made.
+                if (AnyEffects && GetAppearEffect(element) is Transition effect)
+                {
+                    double effectDelay = effect.OthersMove == OthersMove.Before && othersMove ? timing.DurationMs : 0;
+                    PlayAppearEffect(index, effect, effectDelay, raise: othersMove, settings, batch);
+                    CountEffect(bucket, element, effect, appears: true);
+                    continue;
+                }
+
                 int edge = GetRevealEdge(index, out int pusher);
-                double delay = wave && pusher >= 0 && _memberStamp[pusher] == _waveStamp
+                double delay = (wave && pusher >= 0 && _memberStamp[pusher] == _waveStamp
                     ? GetWaveDelay(pusher, originIndex, timing.Wave) / settings.Speed
-                    : 0;
+                    : 0) + othersDelay;
 
                 batch.AddReveal(id, timingIndex, delay, edge);
+                bucket.RevealedElement = element;
                 if (edge == BatchBuilder.Fade)
                 {
                     bucket.Fades++;
@@ -1558,6 +1985,31 @@ namespace OpenSilver.Animations.Engine
                 if (settings.ShowWhatAnimates)
                 {
                     batch.AddOutline(id, timing.DurationMs, delay, false);
+                }
+            }
+
+            // The elements that disappear: with their own effect, or wiped or faded out with the
+            // curve of the sizes, toward the side the elements next to them come from.
+            foreach (Disappearance disappearance in bucket.Ghosts)
+            {
+                if (disappearance.Effect != null)
+                {
+                    PlayGhost(disappearance, settings, batch);
+                    CountEffect(bucket, disappearance.Element, disappearance.Effect, appears: false);
+                    continue;
+                }
+
+                int edge = disappearance.ParentIndex >= 0 ? GetDisappearEdge(disappearance.ParentIndex) : BatchBuilder.Fade;
+                batch.AddGhost(disappearance.Id, timingIndex, 0, edge == BatchBuilder.Fade ? FadeLook : new EffectLook { Wipe = edge }, sizeCurve: true);
+                disappearance.Handled = true;
+                bucket.VanishedElement = disappearance.Element;
+                if (edge == BatchBuilder.Fade)
+                {
+                    bucket.GhostFades++;
+                }
+                else
+                {
+                    bucket.GhostWipes++;
                 }
             }
 
@@ -1666,6 +2118,242 @@ namespace OpenSilver.Animations.Engine
             return edge;
         }
 
+        /// <summary>
+        /// The edge an element that disappears is hidden toward, the opposite of
+        /// <see cref="GetRevealEdge"/>: the elements next to it come from the other side into its
+        /// place, or its container shrinks. When nothing fills its place, it fades out.
+        /// </summary>
+        private int GetDisappearEdge(int parent)
+        {
+            int edge = BatchBuilder.Fade;
+            double farthest = 0.5;
+
+            for (int i = 0; i < _recordCount; i++)
+            {
+                ref Record sibling = ref _records[i];
+                if (sibling.Parent != parent || (sibling.Flags & RecordFlags.Appears) != 0 || !IsChanged(ref sibling))
+                {
+                    continue;
+                }
+
+                double dx = sibling.NewRect.X - sibling.OldRect.X;
+                double dy = sibling.NewRect.Y - sibling.OldRect.Y;
+                if (Math.Abs(dy) > farthest)
+                {
+                    farthest = Math.Abs(dy);
+                    edge = dy < 0 ? BatchBuilder.RevealFromTop : BatchBuilder.RevealFromBottom;
+                }
+                if (Math.Abs(dx) > farthest)
+                {
+                    farthest = Math.Abs(dx);
+                    edge = dx < 0 ? BatchBuilder.RevealFromLeft : BatchBuilder.RevealFromRight;
+                }
+            }
+
+            if (edge == BatchBuilder.Fade && IsChanged(ref _records[parent]))
+            {
+                ref Record container = ref _records[parent];
+                double shrankHeight = container.OldRect.Height - container.NewRect.Height;
+                double shrankWidth = container.OldRect.Width - container.NewRect.Width;
+                if (shrankHeight > 0.5 && shrankHeight >= shrankWidth)
+                {
+                    edge = BatchBuilder.RevealFromTop;
+                }
+                else if (shrankWidth > 0.5)
+                {
+                    edge = BatchBuilder.RevealFromLeft;
+                }
+            }
+
+            return edge;
+        }
+
+        private void PlayAppearEffect(int index, Transition effect, double delay, bool raise, AnimationSettings settings, BatchBuilder batch)
+        {
+            ref Record record = ref _records[index];
+            record.Flags |= RecordFlags.Played;
+            if (!IsAnimatable(record.Element, out string id))
+            {
+                return;
+            }
+
+            if (_quickFades)
+            {
+                batch.AddEffect(id, batch.AddTiming(QuickFadeTiming), 0, FadeLook, raise: false);
+            }
+            else
+            {
+                Timing timing = GetEffectTiming(effect, settings);
+                batch.AddEffect(id, batch.AddTiming(timing), delay, effect.GetLook(appear: true), raise);
+                if (settings.ShowWhatAnimates)
+                {
+                    batch.AddOutline(id, timing.DurationMs, delay, false);
+                }
+            }
+        }
+
+        private void PlayGhost(Disappearance disappearance, AnimationSettings settings, BatchBuilder batch)
+        {
+            disappearance.Handled = true;
+            if (_quickFades)
+            {
+                batch.AddGhost(disappearance.Id, batch.AddTiming(QuickFadeTiming), 0, FadeLook, sizeCurve: false);
+            }
+            else
+            {
+                batch.AddGhost(disappearance.Id, batch.AddTiming(GetEffectTiming(disappearance.Effect, settings)), 0,
+                    disappearance.Effect.GetLook(appear: false), sizeCurve: false);
+            }
+        }
+
+        private static void CountEffect(Bucket bucket, UIElement element, Transition effect, bool appears)
+        {
+            if (element == bucket.EffectElement)
+            {
+                bucket.EffectPlayed = true;
+            }
+            else if (bucket.OtherEffects++ == 0)
+            {
+                bucket.OtherEffect = ElementNames.Of(element) + " " + effect.Describe(appears);
+            }
+        }
+
+        /// <summary>
+        /// Plays the effects of the elements that appear or disappear in a group that snaps.
+        /// Returns the effect of the element the message names, if it played.
+        /// </summary>
+        private Transition PlayEffectsAlone(Bucket bucket, AnimationSettings settings, BatchBuilder batch)
+        {
+            if (!_effectsPlay || (!AnyEffects && bucket.Ghosts.Count == 0))
+            {
+                return null;
+            }
+
+            Transition played = null;
+            foreach (int index in bucket.Appearing)
+            {
+                if ((_records[index].Flags & RecordFlags.Played) == 0 && GetAppearEffect(_records[index].Element) is Transition effect)
+                {
+                    PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
+                    if (_records[index].Element == bucket.EffectElement)
+                    {
+                        played = effect;
+                    }
+                }
+            }
+
+            foreach (Disappearance disappearance in bucket.Ghosts)
+            {
+                if (!disappearance.Handled && disappearance.Effect != null)
+                {
+                    PlayGhost(disappearance, settings, batch);
+                    if (disappearance.Element == bucket.EffectElement)
+                    {
+                        played = disappearance.Effect;
+                    }
+                }
+            }
+
+            return played;
+        }
+
+        /// <summary>
+        /// Plays the effects that no group played: the elements that appear with their container,
+        /// and those whose parent didn't change. Removes the ghosts that have nothing to play.
+        /// </summary>
+        private void PlayRemainingEffects(AnimationSettings settings, string snapReason, bool logging, BatchBuilder batch)
+        {
+            int withContainer = 0;
+            UIElement firstWithContainer = null;
+            Transition firstEffect = null;
+
+            foreach (int index in _effectAppears)
+            {
+                ref Record record = ref _records[index];
+                if ((record.Flags & RecordFlags.Played) != 0 || !_effectsPlay)
+                {
+                    continue;
+                }
+
+                UIElement element = record.Element;
+                Transition effect = GetAppearEffect(element);
+                PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
+
+                if (logging)
+                {
+                    if ((record.Flags & RecordFlags.WithContainer) != 0)
+                    {
+                        if (withContainer++ == 0)
+                        {
+                            firstWithContainer = element;
+                            firstEffect = effect;
+                        }
+                    }
+                    else
+                    {
+                        Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(effect, settings);
+                        _messages.Add($"{ElementNames.Of(element)} appeared; {DescribeOwnEffect(effect, true, _quickFades, timing, snapReason)}.");
+                    }
+                }
+            }
+
+            if (withContainer == 1)
+            {
+                Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(firstEffect, settings);
+                _messages.Add($"{ElementNames.Of(firstWithContainer)} appeared with its container; {DescribeOwnEffect(firstEffect, true, _quickFades, timing, snapReason)}.");
+            }
+            else if (withContainer > 1)
+            {
+                _messages.Add($"{withContainer} elements appeared with their container, and play their Appear effects, like {ElementNames.Of(firstWithContainer)}.");
+            }
+
+            foreach (Disappearance disappearance in _disappearing)
+            {
+                if (disappearance.Handled)
+                {
+                    continue;
+                }
+
+                if (disappearance.Effect != null && _effectsPlay)
+                {
+                    PlayGhost(disappearance, settings, batch);
+                    if (logging)
+                    {
+                        Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(disappearance.Effect, settings);
+                        _messages.Add($"{ElementNames.Of(disappearance.Element)} disappeared; {DescribeOwnEffect(disappearance.Effect, false, _quickFades, timing, snapReason)}.");
+                    }
+                }
+                else
+                {
+                    batch.AddGhostRemoval(disappearance.Id);
+                    disappearance.Handled = true;
+                }
+            }
+        }
+
+        private Timing GetEffectTiming(Transition effect, AnimationSettings settings)
+        {
+            if (!_effectTimings.TryGetValue(effect, out Timing timing))
+            {
+                timing = Timing.FromEffect(effect, settings);
+                _effectTimings.Add(effect, timing);
+            }
+
+            return timing;
+        }
+
+        private static Transition GetAppearEffect(UIElement element)
+            => Animate.GetAppear(element) is Transition effect && !effect.IsNone ? effect : null;
+
+        private static Transition GetDisappearEffect(UIElement element)
+            => Animate.GetDisappear(element) is Transition effect && !effect.IsNone ? effect : null;
+
+        /// <summary>
+        /// Says whether the element turned off its automatic effect with Appear=None or Disappear=None.
+        /// </summary>
+        private static bool HasNoEffect(UIElement element, bool appear)
+            => (appear ? Animate.GetAppear(element) : Animate.GetDisappear(element)) is Transition effect && effect.IsNone;
+
         private static int GetFlags(UIElement element, ref Record record)
         {
             bool resized = !AreClose(record.OldRect.Width, record.NewRect.Width) || !AreClose(record.OldRect.Height, record.NewRect.Height);
@@ -1736,6 +2424,23 @@ namespace OpenSilver.Animations.Engine
                 foreach (UIElement element in finished)
                 {
                     _runningUntil.Remove(element);
+                }
+                finished.Clear();
+            }
+
+            foreach (KeyValuePair<UIElement, long> pair in _ghostedUntil)
+            {
+                if (pair.Value <= now)
+                {
+                    (finished ??= new List<UIElement>()).Add(pair.Key);
+                }
+            }
+
+            if (finished != null)
+            {
+                foreach (UIElement element in finished)
+                {
+                    _ghostedUntil.Remove(element);
                 }
             }
         }
@@ -1934,6 +2639,7 @@ namespace OpenSilver.Animations.Engine
             ResetRecords();
             ClearMeasureState();
             _messages.Clear();
+            _disappearing.Clear();
         }
 
         /// <summary>
@@ -1950,6 +2656,8 @@ namespace OpenSilver.Animations.Engine
             _toCancel.Clear();
             _toRetarget.Clear();
             _keepRunning = false;
+            _effectAppears.Clear();
+            _effectTimings.Clear();
 
             _groupParents.Clear();
             _groupParents.Add(0);
@@ -1977,6 +2685,10 @@ namespace OpenSilver.Animations.Engine
             Origin = 4,
             Scrolled = 8,
             NotRendered = 16,
+            // Appears inside an element that appears too, with an Appear of its own.
+            WithContainer = 32,
+            // Its Appear was played in this pass.
+            Played = 64,
         }
 
         private struct Record
@@ -2035,8 +2747,24 @@ namespace OpenSilver.Animations.Engine
             public readonly List<int> Animated = new List<int>();
             public readonly List<int> Appearing = new List<int>();
             public readonly List<int> Revealed = new List<int>();
+            public readonly List<Disappearance> Ghosts = new List<Disappearance>();
+
+            // The first effect of an element that appears or disappears in the group, which gives
+            // the group its timing.
+            public Transition Effect;
+            public UIElement EffectElement;
+            public bool EffectAppears;
+
+            // What Emit played, for the message.
+            public bool EffectPlayed;
+            public int OtherEffects;
+            public string OtherEffect;
             public int Wipes;
             public int Fades;
+            public int GhostWipes;
+            public int GhostFades;
+            public UIElement RevealedElement;
+            public UIElement VanishedElement;
 
             public void Clear()
             {
@@ -2045,8 +2773,29 @@ namespace OpenSilver.Animations.Engine
                 Animated.Clear();
                 Appearing.Clear();
                 Revealed.Clear();
-                Wipes = Fades = 0;
+                Ghosts.Clear();
+                Effect = null;
+                EffectElement = null;
+                EffectAppears = false;
+                EffectPlayed = false;
+                OtherEffects = Wipes = Fades = GhostWipes = GhostFades = 0;
+                OtherEffect = null;
+                RevealedElement = VanishedElement = null;
             }
+        }
+
+        /// <summary>
+        /// An element collapsed or removed since the last pass, copied in the browser with the id
+        /// it had.
+        /// </summary>
+        private sealed class Disappearance
+        {
+            public UIElement Element;
+            public UIElement Parent;
+            public string Id;
+            public Transition Effect;
+            public int ParentIndex;
+            public bool Handled;
         }
 
         #endregion
