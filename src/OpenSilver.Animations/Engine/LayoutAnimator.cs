@@ -33,9 +33,10 @@ namespace OpenSilver.Animations.Engine
     /// A {Responsive} value that switches is also an origin: the element it applies to and its
     /// parent. When it switches while the window or a panel is being resized, what was arranged
     /// before is completed as a pass of its own, which follows the resize, and the rest of the
-    /// pass only has the switches as origins, animates even while something is dragged, and only
-    /// inside the settings found going up from the switches. While the resize continues, these
-    /// animations go on instead of being cancelled, and their sizes are retargeted.
+    /// pass only has the switches as origins, and animates even while something is dragged: each
+    /// setting found going up from a switch animates what is inside it, with its own timing.
+    /// While the resize continues, these animations go on instead of being cancelled, and their
+    /// sizes are retargeted.
     /// </remarks>
     internal sealed class LayoutAnimator : LayoutObserver
     {
@@ -48,6 +49,7 @@ namespace OpenSilver.Animations.Engine
         private const string ScrollBarReason = "the change happened in a scroll bar";
         private const string SettlingReason = "the element had just appeared";
         private const string DraggingReason = "something is being dragged";
+        private static readonly string TooManyReason = "more than " + MaxAnimatedElements + " elements would animate at once";
 
         private static LayoutAnimator _instance;
 
@@ -92,7 +94,8 @@ namespace OpenSilver.Animations.Engine
         // The {Responsive} values that switched in this pass: the elements where the change starts,
         // and what to say about it.
         private readonly Dictionary<UIElement, string> _switches = new Dictionary<UIElement, string>();
-        private readonly List<UIElement> _owners = new List<UIElement>();
+        private readonly List<Owner> _owners = new List<Owner>();
+        private readonly Dictionary<UIElement, Owner> _ownerOf = new Dictionary<UIElement, Owner>();
         private bool _switchOnly;
         private bool _keepRunning;
 
@@ -689,6 +692,7 @@ namespace OpenSilver.Animations.Engine
             string reason = snapReason;
             UIElement firstOrigin = null;
             _owners.Clear();
+            _ownerOf.Clear();
 
             // A {Responsive} value that switches is a change, even while an edge is being dragged.
             if (_switchOnly && ReferenceEquals(reason, DraggingReason) && bucket.Origins.Count > 0)
@@ -713,13 +717,10 @@ namespace OpenSilver.Animations.Engine
                 firstOrigin = GetDescribedOrigin(bucket);
             }
 
-            // During a resize, a switch only animates what is inside the settings found going up
-            // from where it applies. The rest of the page follows the resize, and may also have been
-            // arranged again because of something else, like a container that changes its own
-            // layout at the same width.
             if (timing != null && _switchOnly && _owners.Count > 0)
             {
-                KeepInsideOwners(bucket, now);
+                EmitSwitches(bucket, _forced ? timing : null, settings, logging, now, batch);
+                return;
             }
 
             if (timing != null)
@@ -727,7 +728,7 @@ namespace OpenSilver.Animations.Engine
                 int visible = CullAndCount(bucket);
                 if (visible > MaxAnimatedElements)
                 {
-                    reason = "more than " + MaxAnimatedElements + " elements would animate at once";
+                    reason = TooManyReason;
                     timing = null;
                 }
                 else if (visible == 0)
@@ -786,7 +787,7 @@ namespace OpenSilver.Animations.Engine
         /// of an element that moves or changes size in this change; the nearest member, except for
         /// a {Responsive} switch during a resize, where the members also follow the resize. For
         /// such a switch, the elements whose settings are found going up from each origin are
-        /// collected in <see cref="_owners"/>.
+        /// collected in <see cref="_owners"/>, each with its origins.
         /// </remarks>
         private string Decide(int group, Bucket bucket, AnimationSettings settings, out Timing timing, out string source, out UIElement firstOrigin)
         {
@@ -848,9 +849,15 @@ namespace OpenSilver.Animations.Engine
                 }
 
                 int levels = FindNearestMovement(origin, group, _switchOnly ? int.MaxValue : nearestLevels, out Movement movement, out UIElement movementOwner);
-                if (_switchOnly && movement != null && !_owners.Contains(movementOwner))
+                if (_switchOnly && movement != null)
                 {
-                    _owners.Add(movementOwner);
+                    if (!_ownerOf.TryGetValue(movementOwner, out Owner owner))
+                    {
+                        owner = new Owner { Element = movementOwner, Movement = movement };
+                        _owners.Add(owner);
+                        _ownerOf.Add(movementOwner, owner);
+                    }
+                    owner.Part.Origins.Add(index);
                 }
 
                 if (movement != null &&
@@ -881,9 +888,7 @@ namespace OpenSilver.Animations.Engine
             if (nearest != null)
             {
                 timing = Timing.FromMovement(nearest, settings);
-                source = (nearest.ApplyTo == AnimationScope.EverythingInside && nearestOwner != nearestOrigin
-                    ? "the EverythingInside of "
-                    : "the MoveAndResize of ") + ElementNames.Of(nearestOwner);
+                source = DescribeSource(nearest, nearestOwner, nearestOrigin);
                 return null;
             }
 
@@ -903,50 +908,91 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// Snaps the members and leaves out the elements that appear outside the <see cref="_owners"/>.
+        /// During a resize, each setting found going up from the {Responsive} switches animates
+        /// what is inside it, with its own timing and message, and the switches that found it as
+        /// origins. The rest of the page follows the resize, and may also have been arranged again
+        /// because of something else, like a container that changes its own layout at the same width.
+        /// Inside Animate.Changes, every setting uses its timing (<paramref name="forcedTiming"/>).
         /// </summary>
-        private void KeepInsideOwners(Bucket bucket, long now)
+        private void EmitSwitches(Bucket bucket, Timing forcedTiming, AnimationSettings settings, bool logging, long now, BatchBuilder batch)
         {
-            List<int> members = bucket.Members;
-            int kept = 0;
-            for (int i = 0; i < members.Count; i++)
+            foreach (int index in bucket.Members)
             {
-                int index = members[i];
-                if (IsInsideOwner(_records[index].Element))
+                if (FindOwner(_records[index].Element) is Owner owner)
                 {
-                    members[kept++] = index;
+                    owner.Part.Members.Add(index);
                 }
                 else
                 {
                     Snap(index, now);
                 }
             }
-            members.RemoveRange(kept, members.Count - kept);
 
-            List<int> appearing = bucket.Appearing;
-            kept = 0;
-            for (int i = 0; i < appearing.Count; i++)
+            foreach (int index in bucket.Appearing)
             {
-                if (IsInsideOwner(_records[appearing[i]].Element))
+                FindOwner(_records[index].Element)?.Part.Appearing.Add(index);
+            }
+
+            foreach (Owner owner in _owners)
+            {
+                Bucket part = owner.Part;
+                if (part.Members.Count == 0 && part.Appearing.Count == 0)
                 {
-                    appearing[kept++] = appearing[i];
+                    continue;
+                }
+
+                UIElement origin = GetDescribedOrigin(part);
+                int visible = CullAndCount(part);
+                if (visible == 0)
+                {
+                    continue;
+                }
+
+                if (visible > MaxAnimatedElements)
+                {
+                    foreach (int index in part.Members)
+                    {
+                        Snap(index, now);
+                    }
+
+                    if (logging)
+                    {
+                        LogSnap(Describe(part, origin, false) + "; nothing animated because " + TooManyReason + ".", now);
+                    }
+                    continue;
+                }
+
+                Timing timing = forcedTiming ?? Timing.FromMovement(owner.Movement, settings);
+                Emit(part, timing, origin, settings, now, batch);
+
+                if (logging)
+                {
+                    string source = forcedTiming != null ? "Animate.Changes" : DescribeSource(owner.Movement, owner.Element, origin);
+                    _messages.Add($"{Describe(part, origin, false)}; {DescribeAnimated(part)} ({timing.Description}, from {source}).");
                 }
             }
-            appearing.RemoveRange(kept, appearing.Count - kept);
         }
 
-        private bool IsInsideOwner(UIElement element)
+        /// <summary>
+        /// The nearest of the <see cref="_owners"/> that is the element or contains it, or null.
+        /// </summary>
+        private Owner FindOwner(UIElement element)
         {
             for (DependencyObject e = element; e != null; e = VisualTreeHelper.GetParent(e))
             {
-                if (e is UIElement u && _owners.Contains(u))
+                if (e is UIElement u && _ownerOf.TryGetValue(u, out Owner owner))
                 {
-                    return true;
+                    return owner;
                 }
             }
 
-            return false;
+            return null;
         }
+
+        private static string DescribeSource(Movement movement, UIElement owner, UIElement origin)
+            => (movement.ApplyTo == AnimationScope.EverythingInside && owner != origin
+                ? "the EverythingInside of "
+                : "the MoveAndResize of ") + ElementNames.Of(owner);
 
         /// <summary>
         /// The setting that gives its timing to a change that starts at the origin: its own, even
@@ -1109,7 +1155,8 @@ namespace OpenSilver.Animations.Engine
 
             if (_switches.Count > 0 && _switches.TryGetValue(origin, out string switched))
             {
-                return switched;
+                int others = CountOtherSwitches(bucket, switched);
+                return others == 0 ? switched : switched + ", and " + ElementNames.Count(others, "other value", "other values");
             }
 
             ref Record record = ref _records[_recordIndex[origin]];
@@ -1128,6 +1175,20 @@ namespace OpenSilver.Animations.Engine
             }
 
             return ElementNames.Of(origin) + " " + what;
+        }
+
+        private int CountOtherSwitches(Bucket bucket, string described)
+        {
+            HashSet<string> others = null;
+            foreach (int index in bucket.Origins)
+            {
+                if (_switches.TryGetValue(_records[index].Element, out string switched) && switched != described)
+                {
+                    (others ??= new HashSet<string>()).Add(switched);
+                }
+            }
+
+            return others?.Count ?? 0;
         }
 
         private string DescribeAnimated(Bucket bucket)
@@ -1947,6 +2008,17 @@ namespace OpenSilver.Animations.Engine
             public Movement Movement;
             public UIElement Element;
             public bool IsCarvedOut;
+        }
+
+        /// <summary>
+        /// A setting found going up from a {Responsive} switch during a resize, and the part of
+        /// the group it animates.
+        /// </summary>
+        private sealed class Owner
+        {
+            public UIElement Element;
+            public Movement Movement;
+            public readonly Bucket Part = new Bucket();
         }
 
         private sealed class ScrollOffset
