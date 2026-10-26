@@ -296,6 +296,7 @@ Then dispatch every event on the splitter's div (`[class*="GridSplitter"]`, Debu
 
 - **Frames.** A `requestAnimationFrame` loop that pushes `[time, rects..., animation count]` into a `window` array, stopped by time rather than by a number of frames, so that it's still running when the next tool call resizes the window. Keep only the frames that differ from the previous one before returning them.
 - **Batches.** `globalThis.osAnimations` is frozen, but the global itself can be replaced by a wrapper whose `run` records the batch, then calls the real one. That's how the shapes of chapter 13 turned out to be animated, but ended before they were painted (see "Start time" in [architecture.md](architecture.md)).
+- **Batches from the first frame**, for page intros. Register an init script (`Page.addScriptToEvaluateOnNewDocument`) that defines `globalThis.osAnimations` as an accessor: its setter receives the real object from `animations.js` and stores a frozen wrapper whose `run` and `hold` push copies of their arguments into `window` arrays before calling the real ones. When the page opens, changes below the fold are culled: emulate a tall window (1600 × 2600) to see their moves.
 - **Messages below 1280 px.** The log is then a closed drawer, and new entries only show in the DOM once it is opened. Open it with the Log button, or test messages at 1280 px or more.
 
 ### Testing pitfalls

@@ -15,7 +15,10 @@ namespace OpenSilver.Animations
     [TypeConverter(typeof(TransitionConverter))]
     public abstract class Transition : MarkupExtension
     {
+        private static readonly AnimationTime MaxStartAfter = AnimationTime.FromSeconds(10);
+
         private double? _bounciness;
+        private AnimationTime _startAfter;
 
         private protected Transition() { }
 
@@ -56,6 +59,25 @@ namespace OpenSilver.Animations
         /// <see cref="Animations.OthersMove.After"/> it disappears.
         /// </summary>
         public OthersMove OthersMove { get; set; }
+
+        /// <summary>
+        /// How long it waits before its effect starts, from 0 (the default) to 10 seconds. It stays
+        /// invisible until then. When it appears at runtime, the elements around it make room at
+        /// once; when it appears with its page, the time counts from when the page opens, which
+        /// makes elements appear one after the other.
+        /// </summary>
+        public AnimationTime StartAfter
+        {
+            get => _startAfter;
+            set => _startAfter = value.Value > MaxStartAfter.Value ? MaxStartAfter : value;
+        }
+
+        /// <summary>
+        /// What it does when it appears together with its page or its container, like a page that
+        /// opens, a dialog, or a card that appears: <see cref="PageOpen.InPlace"/> (the default),
+        /// <see cref="PageOpen.PushOthers"/> or <see cref="PageOpen.Skip"/>. For Appear only.
+        /// </summary>
+        public PageOpen OnPageOpen { get; set; }
 
         internal abstract string PresetName { get; }
 
@@ -396,6 +418,30 @@ namespace OpenSilver.Animations
         /// After it disappears: it disappears first, then they move into its place. For Disappear only.
         /// </summary>
         After,
+    }
+
+    /// <summary>
+    /// What an element with an Appear does when it appears together with its page or its container.
+    /// </summary>
+    public enum PageOpen
+    {
+        /// <summary>
+        /// It plays its effect in the space kept for it, after its StartAfter. Nothing else moves.
+        /// This is the default.
+        /// </summary>
+        InPlace,
+
+        /// <summary>
+        /// The page opens without it. After its StartAfter, it appears, and the elements around it
+        /// move to make room.
+        /// </summary>
+        PushOthers,
+
+        /// <summary>
+        /// It is there when the page opens, without its effect. It still plays its effect when it
+        /// appears later on its own.
+        /// </summary>
+        Skip,
     }
 
     /// <summary>

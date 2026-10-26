@@ -42,7 +42,7 @@ namespace OpenSilver.Animations
         /// <summary>
         /// Sets what the element does when it appears: when it is added to the page, or when its
         /// Visibility becomes Visible. The elements around it move smoothly to make room, with the
-        /// same duration.
+        /// same duration. When it appears with its page, see <see cref="Transition.OnPageOpen"/>.
         /// </summary>
         public static void SetAppear(UIElement element, Transition value)
         {
@@ -96,9 +96,16 @@ namespace OpenSilver.Animations
         {
             if (e.NewValue is Transition effect && d is UIElement element)
             {
+                bool appear = e.Property == AppearProperty;
                 LayoutAnimator.AnyEffects = true;
                 LayoutAnimator.EnsureStarted();
-                LayoutAnimator.CheckEffect(effect, appear: e.Property == AppearProperty, element);
+                LayoutAnimator.CheckEffect(effect, appear, element);
+
+                // The page opens without it: it is held out of the layout before it is ever shown.
+                if (appear && effect.OnPageOpen == PageOpen.PushOthers)
+                {
+                    LayoutAnimator.HoldForPageOpen(element, effect);
+                }
             }
         }
 

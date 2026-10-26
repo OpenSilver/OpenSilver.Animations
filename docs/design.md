@@ -156,15 +156,20 @@ Animate.Skip(() => LoadInitialData());
     - `OnPageOpen` (Appear only): `InPlace` (default), `PushOthers`, `Skip`.
     - `OthersMove`: `While` (default); `Before` for Appear only; `After` for Disappear only.
   - **At runtime, surrounding elements always move smoothly** to make room or to fill the space. They use the effect's `Duration` and `Easing`, except that a bouncy effect moves the others smoothly.
-  - **OnPageOpen**: what happens when it appears together with its page or container (page load, a dialog opening, or inside a card that is itself appearing).
-    - `InPlace`: it animates in the space already reserved for it.
-    - `PushOthers`: the page opens without it, then it pushes the others aside after `StartAfter`.
-    - `Skip`: it simply shows.
+  - **OnPageOpen**: what happens when it appears together with its page or container (page load, a dialog opening, or inside a card that is itself appearing). `StartAfter` counts from the end of the layout pass that opened the page, when the effects of the rest of the page start.
+    - `InPlace`: it animates in the space already reserved for it, after `StartAfter`.
+    - `PushOthers`: the page opens without it, then it pushes the others aside after `StartAfter`. Its effect then plays at once. Under reduced motion, or when nothing animates, it acts like `InPlace`.
+    - `Skip`: it simply shows, without its effect.
+    - An element that appears on its own, after its page has opened, ignores `OnPageOpen`.
+    - On a Disappear, `OnPageOpen` is ignored, with a warning.
   - **OthersMove**: when the surrounding elements move.
     - Appear: `While`, meaning the others make room while it appears; or `Before`, meaning they make room first and it appears in the empty space.
     - Disappear: `While`, meaning the others move into its place while it disappears; or `After`, meaning it disappears first and they move in afterwards.
     - When several elements appear or disappear in the same change and the same container, the first one gives the others their timing and its `OthersMove`. Each element still plays its own effect, with its own duration and curve.
   - **StartAfter at runtime** delays only the effect: the room opens at once, and the element stays invisible until its effect starts. Only `OnPageOpen=PushOthers` holds the element out of the layout (see the hold below).
+    - On a Disappear, the others fill its place at once, and its copy waits before its effect.
+    - With `OthersMove=Before`, the effect waits for the others' move, then for `StartAfter`. With `OthersMove=After`, the others wait for `StartAfter` and the effect.
+    - It's divided by `AnimationSettings.Speed`, like durations, and it's clamped to 10 s.
   - **What the presets do.** `Fade` fades opacity. `Slide` fades while moving `Distance` from the `From` side. `Zoom` fades while zooming from 90%. `Pop` zooms from 50% with a bounce. `Wipe` reveals from the `From` edge without fading. `Blur` fades from an 8 px blur.
     - Used as a Disappear, Pop zooms out to 90% like Zoom, with a warning.
 - **Animate.MoveAndResize**: `None` (default), `Smooth` or `Bouncy`.
@@ -599,7 +604,7 @@ Each line is what the developer sets, and what must happen.
   - an ancestor with another setting that moved or changed size in the same change. An ancestor that stays in place doesn't count: its setting is about its own box.
 
   When several changes start in the same group, the setting found the fewest levels up wins. Otherwise the timing comes from the nearest affected element with a setting (fewest tree hops, then document order), and otherwise from the defaults.
-- **Page open.** An element appears together with its container when it isn't the topmost element appearing in that pass. Such appearances follow `OnPageOpen` and never push others unless it's `PushOthers`.
+- **Page open.** An element appears together with its container when it isn't the topmost element appearing in that pass. Such appearances follow `OnPageOpen` and never push others unless it's `PushOthers`. A container that is shown at runtime is a page that opens, for the elements inside it.
 - **Items re-sorted, filtered or refreshed.** The library keeps, for lists with item animations, a map from each data item to its rectangle from the previous completed pass. It records each container's item when it's first arranged, using `ItemContainerGenerator.ItemFromContainer` (public).
   - Containers that are removed, created or recycled in the same pass glide from their item's old rectangle to its new one, instead of running the item disappear and appear effects.
   - Collection changes are observed on `ItemsControl.Items` (`INotifyCollectionChanged`).
@@ -608,7 +613,7 @@ Each line is what the developer sets, and what must happen.
     - A pass is a window-resize pass when `Application.Current.Host.Content` has a different size than at the previous pass. Such a pass has no origins at all: scroll bar parts and other elements that measure again would otherwise look like changes, and their group would climb to the root and take the whole page with it.
     - Groups that follow the window never join their containers, even when an element is arranged again later in the same pass.
     - **`{Responsive}` switches** are the exception, in a window resize and during a drag. A switch is a change, like a click: what was arranged before it follows the resize, and the rest of the pass only has the switches as origins. Each setting found going up from a switch animates what is inside it, with its own timing and its own message; the rest snaps with the resize. While the resize goes on, their animations go on too, and follow the new sizes.
-  - **Settling after appearing.** For 0.5 s after an element is first arranged (a page, a dialog, new items), changes that start inside it snap silently: scroll bars showing up, fonts and images loading.
+  - **Settling after appearing.** For 0.5 s after an element is first arranged (a page, a dialog, new items), changes that start inside it snap silently: scroll bars showing up, fonts and images loading. An element released by `OnPageOpen=PushOthers` is the exception: it pushes the others even with a short `StartAfter`.
   - **Scroll chrome.** Changes that start in a scroll bar or in a part of a scroll viewer's template snap silently; they're consequences of a content change.
   - **Scrolling.** An arrange-only change of an `IScrollInfo` whose offset changed (OpenSilver scrolls by arranging, through `ScrollContentPresenter`). Items that virtualization realizes or removes in that pass get no effects either.
   - **Dragging.** A dragging state is on while a pointer button is held and the pointer has moved more than 4 px. A small JS pointer tracker notifies C# only when a drag starts and ends. During a drag, everything snaps except list items that move because the list order changed (drag-to-reorder), and `{Responsive}` switches. The element holding the mouse capture, and everything inside it, always snaps.
@@ -659,14 +664,15 @@ Each line is what the developer sets, and what must happen.
   - **Until the layout pass.** An element that becomes Visible again with an explicit Appear, or inside an area, is kept invisible by the script from the Visibility change to the batch, so that it never shows for a frame before its effect. Hidden to Visible needs no layout pass, so its effect plays at once.
 - **Start delays.** `StartAfter` with the `backwards` fill keeps the element hidden until its effect starts.
 - **The hold (validated against the runtime code).** It is used for `OnPageOpen=PushOthers` only, even with no delay. A runtime appearance with `StartAfter` doesn't use it: the room opens at once, and only the effect waits.
-  - **Mechanism.** A `Storyboard` with one `ObjectAnimationUsingKeyFrames` (a `DiscreteObjectKeyFrame` at `KeyTime=0`, value `Collapsed`, `Duration=Forever`), targeted with `Storyboard.SetTarget` and `new PropertyPath(UIElement.VisibilityProperty)`.
+  - **Mechanism.** A `Storyboard` with one `ObjectAnimationUsingKeyFrames` (a `DiscreteObjectKeyFrame` at `KeyTime=0`, value `Collapsed`), targeted with `Storyboard.SetTarget` and `new PropertyPath(UIElement.VisibilityProperty)`. Its `Duration` is zero, not `Forever`: it holds its value at the end (`HoldEnd`), and its clock is completed, so it asks for no frames, and an element that is never added doesn't keep a clock running.
   - **Apply it synchronously.** `Begin()` followed immediately by `SeekAlignedToLastTick(TimeSpan.Zero)`. A plain `Begin()` is too late for templates created during Measure, changes in `SizeChanged` handlers, and explicit `UpdateLayout()` calls.
-  - **Trigger points.** For page open, the hold starts from the property-changed callback. When the container appears at runtime, it starts re-entrantly from the `OnVisibilityChanged` hook; this is safe because the store commits the value before notifying, and both DOM class writes land in the same batch.
-  - **Release.** It waits until `StartAfter` has elapsed since `Loaded` and at least one layout pass has completed. It is posted with `Dispatcher.BeginInvoke` and done with `Stop()`. The app's own Visibility value wins at release.
+  - **Trigger points.** For page open, the hold starts from the property-changed callback, when the element isn't loaded yet; an Appear set on an element already on the page is for its next appearance. When the container appears at runtime, it starts re-entrantly from the `OnVisibilityChanged` hook; this is safe because the store commits the value before notifying, and both DOM class writes land in the same batch. There's no hold when a global snap reason applies, except dragging.
+  - **Page open or not.** At the end of the first layout pass after `Loaded`, the nearest ancestor arranged in that pass decides: if it appeared, the element opened with its page. Otherwise it was added on its own: it's released at once, and appears like any element added at runtime.
+  - **Release.** `StartAfter` after the end of that pass. Releases less than 20 ms apart happen together, in the same layout pass. It is posted with `Dispatcher.BeginInvoke`, or a `DispatcherTimer`, and done with `Stop()`. The app's own Visibility value wins at release. A container hidden and shown again before the release starts the wait again.
   - **Side effect to document.** When a hold starts on an element that was just shown, `IsVisibleChanged` fires true, then false, then true.
 - **OthersMove=Before / After.**
-  - For Appear, the element's effect gets a delay equal to the others' move duration.
-  - For Disappear, the rest of the group (neighbors and containers) gets a delay equal to the ghost's duration.
+  - For Appear, the element's effect gets a delay equal to the others' move duration, plus its `StartAfter`.
+  - For Disappear, the rest of the group (neighbors and containers) gets a delay equal to the ghost's `StartAfter` and duration.
 - **Stacking.** While an appear effect pushes others, the element is raised above its siblings by a `z-index` inside the animation.
 - **Ghosts.**
   - **Capture.** At `OnDetaching`, or in the `OnVisibilityChanged` hook, the library deep-clones the element's DOM.

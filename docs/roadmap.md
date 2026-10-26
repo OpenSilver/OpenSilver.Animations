@@ -1,6 +1,6 @@
 # Status and roadmap
 
-Last updated: October 26, 2026, after the first step of phase 3 (Appear and Disappear).
+Last updated: October 26, 2026, after the second step of phase 3 (StartAfter and OnPageOpen).
 
 ## Phases
 
@@ -10,7 +10,7 @@ Last updated: October 26, 2026, after the first step of phase 3 (Appear and Disa
 | 0     | Spike: validate the risky parts                                                                    | Partly done (see below).                                                                                                        |
 | 1     | OpenSilver core changes: `LayoutObserver` and the insertion fix                                    | Done: commit `547adac2` on branch `feat/layout-observer`, then the `{Responsive}` hook (`OnResponsiveValueChanged`). No PR yet. |
 | 2     | `MoveAndResize` (Smooth), grouping, exclusions, performance guards, diagnostics; the gallery shell | Done. The product owner tested it; the first round of feedback is addressed and verified in Chromium (see "Verified").          |
-| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties; then the Showcase port | In progress, in four steps. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Next: `StartAfter` and `OnPageOpen` (chapter 4), the items (chapter 6), then the Showcase port. |
+| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties; then the Showcase port | In progress, in four steps. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Step 2 is done: `StartAfter` and `OnPageOpen`, and chapter 4. Next: the items (chapter 6), then the Showcase port. |
 | 4     | `AnimationCatalog` and `AnimationDesign`, and the gallery playgrounds built on them                | Not started.                                                                                                                    |
 | 5     | Text effects (`TextChange`, Typewriter, ...)                                                       | Not started.                                                                                                                    |
 | 6     | Bouncy and Wave                                                                                    | Done early, with phase 2.                                                                                                       |
@@ -45,10 +45,10 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | spike             | See above                                                              | In progress                                                                                                                                                                                                                                                                                                         |
 | core-observer     | `LayoutObserver` and its call sites, including `{Responsive}` switches | Done                                                                                                                                                                                                                                                                                                                |
 | core-js           | `createVisual` skips `data-os-foreign` children                        | Done                                                                                                                                                                                                                                                                                                                |
-| lib-api           | Public API                                                             | `MoveAndResize`, `Appear`, `Disappear` (presets, `From`/`To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `OthersMove`), `Changes`, `Skip`, `AnimationSettings` and the curves are done. `StartAfter`, `OnPageOpen`, the `Item...` properties, `TextChange` and `MagicMove` are pending.                      |
+| lib-api           | Public API                                                             | `MoveAndResize`, `Appear`, `Disappear` (presets, `From`/`To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter`, `OnPageOpen`), `Changes`, `Skip`, `AnimationSettings` and the curves are done. The `Item...` properties, `TextChange` and `MagicMove` are pending.                      |
 | lib-causality     | Origins, groups, areas, decisions, exclusions, guards                  | Done for `MoveAndResize`, including the rule that changes never cross `None`, and `{Responsive}` switches that animate during a resize. Pending: the drag-to-reorder exception, effects on virtualized items, and the rule that the element holding the mouse capture snaps (today everything snaps during a drag). |
 | lib-render        | Web Animations rendering                                               | Moves, sizes, clips, shapes, interruptions, effects with center compensation, ghosts, and the automatic wipe or fade of elements appearing or disappearing inside an area are done.                                                                                                                                 |
-| lib-appear        | Appear, Disappear, ghosts, holds, items                                | Done: effects, ghosts, `OthersMove`, the automatic disappear inside areas, and the hold until the layout pass. Pending: `StartAfter`, `OnPageOpen` and its hold (a Storyboard on `Visibility`), and the items.                                                                                                   |
+| lib-appear        | Appear, Disappear, ghosts, holds, items                                | Done: effects, ghosts, `OthersMove`, `StartAfter`, `OnPageOpen` and its hold (a Storyboard on `Visibility`), the automatic disappear inside areas, and the hold until the layout pass. Pending: the items.                                                                                                   |
 | lib-diagnostics   | `ShowWhatAnimates`, `Logged`                                           | Done                                                                                                                                                                                                                                                                                                                |
 | designer-metadata | `AnimationCatalog`, `AnimationDesign`                                  | Pending                                                                                                                                                                                                                                                                                                             |
 | gallery-app       | The guided tour                                                        | In progress (see below)                                                                                                                                                                                                                                                                                             |
@@ -70,7 +70,7 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | 1. Your first animation                  | Built: an order card whose details fade in while the rows below slide down, and notes added and removed, which fade in and out.                                                                                                                                                                                                                                         |
 | 2. Pick an effect                        | Built: every preset, with Side, Duration and Easing, on a card that is hidden and shown; a validation message under an email field (`{anim:Slide From=Top, Distance=Short}`).                                                                                                                                                                                            |
 | 3. When the others move                  | Built: While, Before and After side by side; an accordion whose sections wipe in from the top and roll up toward their header.                                                                                                                                                                                                                                          |
-| 4. Page intros                           | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
+| 4. Page intros                           | Built: its own title is a page intro, which Replay page plays again; a profile that opens in steps of 0.1 s; InPlace, PushOthers and Skip side by side on three inboxes; an order whose details panel opens like a page, and a gift message whose effect waits 0.3 s while the room opens at once. The title will use Typewriter in phase 5.                         |
 | 5. Smooth moves and resizes              | Built: Save button, badge, sidebar, ChildWindow (`ResizableDialog`, which stays centered), photo card, search box.                                                                                                                                                                                                                                                       |
 | 6. Lists                                 | Coming soon (phase 3)                                                                                                                                                                                                                                                                                                                                                    |
 | 7. Everything inside                     | Built: grid from 2 columns to 1, settings form whose details wipe in and out, dashboard with the chart carved out by `None`.                                                                                                                                                                                                                                             |
@@ -183,10 +183,27 @@ Checked in the Debug build, at 1050 × 900 and 390 × 844. The agent's browser w
 - **Regressions.** Chapters 5 (Save, badge, sidebar), 7 (columns), 8 (switch from code) and 13 (rows, word, width, shapes) animate and log as before.
 - **At 390 px**, chapters 1, 2 and 3 fit the window.
 
+### StartAfter and OnPageOpen (phase 3, step 2)
+
+Checked in the Debug build, at 1600 × 950, at 1600 × 2600 (to have the inboxes on screen when the page opens) and at 390 × 844, by reading the batches and the final state. Some checks used temporary values, reverted afterwards.
+
+- **Chapter 4, page open.** One batch has the 12 effects of the page, each delayed by its `StartAfter` (0 to 600 ms). The Skip banner plays nothing. The PushOthers banner is held, then a second batch, 632 ms later, has its effect with no delay, raised, and the three messages sliding down. Before the fix, the wait counted from `Loaded`, which comes about 300 ms before the end of the first pass in the Debug build, so it was released too early.
+- **Off screen**, when the page opens with the inboxes below the fold, the messages snap and only the banner's effect plays: the group is culled like any other.
+- **Open the inboxes again** gives the same two batches (600 and 603 ms apart). With a temporary `StartAfter=0.2s`, the release came 233 ms after the inboxes opened, inside the 500 ms settling window, and the messages still slid down.
+- **Reduce motion**: no hold; the InPlace and PushOthers banners both fade in quickly (0.15 s) after their `StartAfter`. **Slow motion** (speed 0.25): the waits and durations are four times longer (the InPlace banner waits 2.4 s).
+- **The order.** The details panel wipes in and its lines slide in at 100, 200 and 300 ms. The gift message waits 300 ms while 15 elements move at once, and fades out at once while they move back.
+- **Temporary values.**
+  - `Disappear="{anim:Fade StartAfter=0.3s}"` on the gift message: the ghost waits 300 ms while the others move at once ("it fades out after 0.3 s"). Shown again while its ghost waited, it ends visible.
+  - In chapter 3, `StartAfter=0.2s`: with Before, the effect starts at 450 ms (the 250 ms move, then the wait); with After, the rows wait 450 ms.
+  - A PushOthers line in the details panel, shown at runtime: it is held, then released 322 ms later, pushing 17 elements. Shown, hidden and shown again quickly, it was first released 77 ms after the last opening, because the held line was skipped as collapsed; after the fix, 334 ms. Hidden before its release, it stays hidden, and appears normally the next time.
+- **Regressions.** Chapters 1 (Add a note), 2 (the card, Sign up), 3 (the columns, the accordion), 5 (Save: 10 elements) and 7 (columns) animate and log as before, with no console errors.
+- **At 390 px**, chapter 4 fits the window.
+
 ## Not verified yet
 
-- Phase 3, step 1, in a browser that paints normally: the agent's checks read the batches, not the frames.
-- `Visibility.Hidden` (no gallery demo uses it), the warnings of `CheckEffect`, and ghosts of a real `MediaElement` or `WebBrowser` (only an iframe added by script was tried).
+- Phase 3, steps 1 and 2, in a browser that paints normally: the agent's checks read the batches, not the frames.
+- `Visibility.Hidden` (no gallery demo uses it, also with `StartAfter`), the warnings of `CheckEffect`, and ghosts of a real `MediaElement` or `WebBrowser` (only an iframe added by script was tried).
+- `OnPageOpen=PushOthers` in a template created during Measure, in a `ChildWindow`, and on an element whose Appear is set in a Style.
 - The GridSplitter drag in chapter 13, and drags by hand in general. Synthetic pointer events start a GridSplitter's capture only with `setPointerCapture` patched, as in development.md.
 - The Simulator, by hand.
 - Safari and Firefox: SVG geometry properties, the `linear()` fallback, `composite: 'add'`.
@@ -240,16 +257,19 @@ Checked in the Debug build, at 1050 × 900 and 390 × 844. The agent's browser w
 - `Distance` **is a struct**, with `Short`, `Medium` and `Long` and a converter. As a `double`, `Distance=Short` didn't compile: the OpenSilver XAML compiler only accepts numbers for `double` properties.
 - **Pop and Bouncy effects last twice the default duration**, like `Bouncy` moves, so that the bounce settles. The elements around them move Smooth.
 - `StartAfter` **at runtime delays only the effect**, chosen by the product owner: the room opens at once, and the element appears in it later. Only `OnPageOpen=PushOthers` holds the element out of the layout.
+- `StartAfter` **counts from the end of the layout pass that opened the page**, for every `OnPageOpen` value. That's when the effects of the page start, so an InPlace and a PushOthers element with the same `StartAfter` start together.
+- **A container shown at runtime is a page that opens** for the elements inside it, as design.md says: their `StartAfter` and `OnPageOpen` apply, as in the details panel of chapter 4.
+- **The PushOthers hold lasts no time** (`Duration` zero instead of `Forever`): it keeps its value without asking for frames, and an element that is never added keeps no clock running.
+- **A released PushOthers element is not settling**: it pushes the others even with a `StartAfter` shorter than the 500 ms settling time.
 - **Hover and press effects** will be proposed to the product owner before the Showcase port, which needs them.
 
 
 
 ## Next steps
 
-1. **The product owner tests phase 3, step 1**: chapters 1 to 3, and the settings form of chapter 7.
+1. **The product owner tests phase 3, step 2**: chapter 4, with Replay page, Slow motion and Reduce motion.
 2. **The OpenSilver PR.** Open the PR from `feat/layout-observer`, and get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
 3. **The rest of phase 3**, specified in design.md under "Library API", "Appear and disappear mechanics" and "Items". The core hooks it needs already exist.
-  - Step 2: `StartAfter` (only the effect waits), and `OnPageOpen` (`InPlace`, `PushOthers` with the hold, a Storyboard on `Visibility` applied synchronously, and `Skip`). Chapter 4.
   - Step 3: the item properties, with containers paired by data item. Chapter 6.
   - Step 4: propose a hover and press API, then port the Showcase, and build chapter 14.
 4. **Phase 4:** `AnimationCatalog` and `AnimationDesign`, then the playgrounds, the live XAML and the summaries in every chapter.

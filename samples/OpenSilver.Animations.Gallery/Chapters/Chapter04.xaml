@@ -1,0 +1,236 @@
+<sdk:Page x:Class="OpenSilver.Animations.Gallery.Chapters.Chapter04"
+          xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
+          xmlns:anim="http://opensilver.net/animations"
+          xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
+          Title="Page intros">
+
+    <sdk:Page.Resources>
+        <Style x:Key="Row" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="Banner" TargetType="Border" BasedOn="{StaticResource Row}">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style x:Key="RowText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="BannerText" TargetType="TextBlock" BasedOn="{StaticResource RowText}">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="Stat" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StageBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <!-- Each inbox keeps its height, so that it animates on its own -->
+        <Style x:Key="InboxHost" TargetType="Border">
+            <Setter Property="Height" Value="{Responsive Mobile=230, Tablet=190}" />
+        </Style>
+
+        <!-- The demos build these again, as if the page opened again -->
+        <DataTemplate x:Key="ProfilePage">
+            <Border Style="{StaticResource Card}" Padding="18">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Photo" Width="52" Height="52" CornerRadius="26" Background="{StaticResource AccentBrush}" anim:Animate.Appear="Pop">
+                            <TextBlock Text="AM" Foreground="White" FontWeight="Bold" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Alex Martin" FontSize="17" FontWeight="SemiBold"
+                                       anim:Animate.Appear="{anim:Slide From=Left, Distance=Short, StartAfter=0.1s}" />
+                            <TextBlock Text="Product designer, Bristol" Style="{StaticResource CaptionText}"
+                                       anim:Animate.Appear="{anim:Fade StartAfter=0.2s}" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource Stat}" anim:Animate.Appear="{anim:Slide Distance=Short, StartAfter=0.3s}">
+                            <StackPanel>
+                                <TextBlock Text="128" FontWeight="SemiBold" />
+                                <TextBlock Text="projects" Style="{StaticResource CaptionText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Style="{StaticResource Stat}" anim:Animate.Appear="{anim:Slide Distance=Short, StartAfter=0.4s}">
+                            <StackPanel>
+                                <TextBlock Text="2.4k" FontWeight="SemiBold" />
+                                <TextBlock Text="followers" Style="{StaticResource CaptionText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="4" Style="{StaticResource Stat}" anim:Animate.Appear="{anim:Slide Distance=Short, StartAfter=0.5s}">
+                            <StackPanel>
+                                <TextBlock Text="5 years" FontWeight="SemiBold" />
+                                <TextBlock Text="on the team" Style="{StaticResource CaptionText}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Button Content="Follow" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
+                            anim:Animate.Appear="{anim:Fade StartAfter=0.6s}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="InPlaceInbox">
+            <StackPanel>
+                <Border x:Name="InPlaceBanner" Style="{StaticResource Banner}" anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.6s}">
+                    <TextBlock Text="3 new messages" Style="{StaticResource BannerText}" />
+                </Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Lunch on Friday?" Style="{StaticResource RowText}" /></Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Your invoice" Style="{StaticResource RowText}" /></Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Welcome!" Style="{StaticResource RowText}" /></Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="PushOthersInbox">
+            <StackPanel>
+                <Border x:Name="PushOthersBanner" Style="{StaticResource Banner}" anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.6s, OnPageOpen=PushOthers}">
+                    <TextBlock Text="3 new messages" Style="{StaticResource BannerText}" />
+                </Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Lunch on Friday?" Style="{StaticResource RowText}" /></Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Your invoice" Style="{StaticResource RowText}" /></Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Welcome!" Style="{StaticResource RowText}" /></Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SkipInbox">
+            <StackPanel>
+                <Border x:Name="SkipBanner" Style="{StaticResource Banner}" anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.6s, OnPageOpen=Skip}">
+                    <TextBlock Text="3 new messages" Style="{StaticResource BannerText}" />
+                </Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Lunch on Friday?" Style="{StaticResource RowText}" /></Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Your invoice" Style="{StaticResource RowText}" /></Border>
+                <Border Style="{StaticResource Row}"><TextBlock Text="Welcome!" Style="{StaticResource RowText}" /></Border>
+            </StackPanel>
+        </DataTemplate>
+    </sdk:Page.Resources>
+
+    <StackPanel Style="{StaticResource ChapterRoot}">
+        <!-- This page has an intro of its own: Replay page shows it again -->
+        <TextBlock Text="CHAPTER 4" Style="{StaticResource OverlineText}" anim:Animate.Appear="Fade" />
+        <TextBlock Text="Page intros" Style="{StaticResource ChapterTitleText}"
+                   anim:Animate.Appear="{anim:Slide Distance=Short, StartAfter=0.1s}" />
+        <TextBlock Style="{StaticResource IntroText}" anim:Animate.Appear="{anim:Fade StartAfter=0.2s}"
+                   Text="When a page opens, its elements can appear one after the other, instead of all at once. StartAfter makes the effect of an element wait. The title of this page does it: click Replay page at the top to see it again." />
+        <TextBlock Style="{StaticResource IntroText}" anim:Animate.Appear="{anim:Fade StartAfter=0.3s}"
+                   Text="OnPageOpen decides what an element does when its page opens: it plays its Appear in its place (InPlace, the default), it appears a moment later and pushes the others (PushOthers), or it is simply there (Skip)." />
+
+        <!-- 1. Steps -->
+        <controls:DemoCard Title="A page that opens in steps"
+                           Description="Each part of this profile waits a tenth of a second more than the one before. The button builds the page again, as if you opened it."
+                           Xaml='&lt;Border x:Name="Photo" anim:Animate.Appear="Pop" /&gt;&#10;&lt;TextBlock Text="Alex Martin" anim:Animate.Appear="{anim:Slide From=Left, Distance=Short, StartAfter=0.1s}" /&gt;&#10;&lt;TextBlock Text="Product designer" anim:Animate.Appear="{anim:Fade StartAfter=0.2s}" /&gt;&#10;&lt;Border anim:Animate.Appear="{anim:Slide Distance=Short, StartAfter=0.3s}" /&gt;&#10;...&#10;&lt;Button Content="Follow" anim:Animate.Appear="{anim:Fade StartAfter=0.6s}" /&gt;'
+                           Expectations="• The photo pops in first. Then the name slides in, the job fades in, the three numbers slide up one after the other, and the button fades in last.&#10;• Nothing moves around them: each part waits in its place, hidden, until its turn.&#10;• With Slow motion, the effects and the waits are all four times longer.">
+            <StackPanel>
+                <Border x:Name="ProfileHost" Width="{Responsive Mobile=NaN, Tablet=400}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}" />
+                <Button Content="Open the page again" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0"
+                        Click="OpenProfile_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 2. Side by side -->
+        <controls:DemoCard Title="InPlace, PushOthers and Skip, side by side"
+                           Description="Three copies of an inbox whose banner waits 0.6 s. The button opens the three of them again. Turn on Slow motion to see the difference better."
+                           Xaml='&lt;!-- InPlace (the default) --&gt;&#10;&lt;Border anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.6s}" /&gt;&#10;&lt;!-- PushOthers --&gt;&#10;&lt;Border anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.6s, OnPageOpen=PushOthers}" /&gt;&#10;&lt;!-- Skip --&gt;&#10;&lt;Border anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.6s, OnPageOpen=Skip}" /&gt;'
+                           Expectations="• InPlace: the messages are in their places at once, below an empty space. The banner slides into that space after 0.6 s.&#10;• PushOthers: the inbox opens without the banner. After 0.6 s, the banner slides in at the top and pushes the messages down.&#10;• Skip: the banner is there from the start, without its effect.">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{Responsive Mobile=8, Tablet=16}" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{Responsive Mobile=8, Tablet=16}" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="InPlace" FontWeight="SemiBold" />
+                        <TextBlock Text="the default" Style="{StaticResource CaptionText}" Margin="0,0,0,8" />
+                        <Border x:Name="InPlaceHost" Style="{StaticResource InboxHost}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="PushOthers" FontWeight="SemiBold" />
+                        <TextBlock Text="pushes in later" Style="{StaticResource CaptionText}" Margin="0,0,0,8" />
+                        <Border x:Name="PushOthersHost" Style="{StaticResource InboxHost}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Skip" FontWeight="SemiBold" />
+                        <TextBlock Text="simply there" Style="{StaticResource CaptionText}" Margin="0,0,0,8" />
+                        <Border x:Name="SkipHost" Style="{StaticResource InboxHost}" />
+                    </StackPanel>
+                </Grid>
+                <Button Content="Open the inboxes again" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                        Click="OpenInboxes_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 3. After the page has opened -->
+        <controls:DemoCard Title="After the page has opened"
+                           Description="A panel that appears is a page that opens, for the elements inside it. An element that appears on its own also waits for its StartAfter, but the elements around it make room at once."
+                           Xaml='&lt;StackPanel x:Name="Details" anim:Animate.Appear="{anim:Wipe From=Top}" anim:Animate.Disappear="{anim:Wipe To=Top}"&gt;&#10;    &lt;TextBlock anim:Animate.Appear="{anim:Slide From=Left, Distance=Short, StartAfter=0.1s}" /&gt;&#10;    ...&#10;&lt;/StackPanel&gt;&#10;&#10;&lt;TextBox x:Name="GiftMessage" anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.3s}"&#10;         anim:Animate.Disappear="Fade" /&gt;'
+                           Expectations="• Show the details: the panel unrolls, and its three lines slide in one after the other, like on a page that opens.&#10;• Check Add a gift message: the total and the button slide down at once, and the message box slides into the space they left 0.3 s later.&#10;• Uncheck it: the box fades out at once while the elements below slide back up, as StartAfter is only on its Appear.">
+            <Border Style="{StaticResource Card}" Padding="18" Width="{Responsive Mobile=NaN, Tablet=400}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="Your order" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button x:Name="DetailsButton" Content="Show the details" Style="{StaticResource LinkButton}" HorizontalAlignment="Right"
+                                Click="DetailsButton_Click" />
+                    </Grid>
+                    <StackPanel x:Name="Details" Margin="0,8,0,0" Visibility="Collapsed"
+                                anim:Animate.Appear="{anim:Wipe From=Top}" anim:Animate.Disappear="{anim:Wipe To=Top}">
+                        <TextBlock Text="Linen shirt, size M" Style="{StaticResource BodyText}"
+                                   anim:Animate.Appear="{anim:Slide From=Left, Distance=Short, StartAfter=0.1s}" />
+                        <TextBlock Text="Canvas tote bag" Style="{StaticResource BodyText}"
+                                   anim:Animate.Appear="{anim:Slide From=Left, Distance=Short, StartAfter=0.2s}" />
+                        <TextBlock Text="Delivery tomorrow before noon" Style="{StaticResource BodyText}"
+                                   anim:Animate.Appear="{anim:Slide From=Left, Distance=Short, StartAfter=0.3s}" />
+                    </StackPanel>
+                    <CheckBox x:Name="GiftSwitch" Content="Add a gift message" Margin="0,12,0,0"
+                              Checked="GiftSwitch_Changed" Unchecked="GiftSwitch_Changed" />
+                    <TextBox x:Name="GiftMessage" Text="Happy birthday!" Margin="0,8,0,0" Visibility="Collapsed"
+                             anim:Animate.Appear="{anim:Slide From=Top, Distance=Short, StartAfter=0.3s}" anim:Animate.Disappear="Fade" />
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="Total" FontWeight="SemiBold" />
+                        <TextBlock Text="$64.00" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                    </Grid>
+                    <Button Content="Place the order" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+                </StackPanel>
+            </Border>
+        </controls:DemoCard>
+
+        <Border Style="{StaticResource TipBox}">
+            <StackPanel>
+                <TextBlock Text="Good to know" FontWeight="SemiBold" />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• An element opens with its page when it appears together with one of its containers: the page itself, or a panel that is shown. StartAfter counts from that moment." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• Keep intros short: steps of a tenth of a second, and the whole page in under a second. StartAfter can be up to 10 s." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• OnPageOpen is for Appear. When an element appears on its own, after its page has opened, it plays its Appear as usual." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• With Reduce motion, PushOthers acts like InPlace, and the effects become quick fades." />
+            </StackPanel>
+        </Border>
+
+        <controls:ChapterNavigation Chapter="4" />
+    </StackPanel>
+</sdk:Page>

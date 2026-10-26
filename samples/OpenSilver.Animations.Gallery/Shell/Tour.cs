@@ -74,7 +74,7 @@ namespace OpenSilver.Animations.Gallery.Shell
             new ChapterInfo(1, "Your first animation", "Appear and Disappear set to Fade on a details panel: nothing jumps, and the elements below slide by themselves.", true),
             new ChapterInfo(2, "Pick an effect", "Every Appear and Disappear effect, with From, Distance, Duration and Easing.", true),
             new ChapterInfo(3, "When the others move", "Other elements move while, before or after an element appears or disappears.", true),
-            new ChapterInfo(4, "Page intros", "Start after, and what happens when the page opens.", false),
+            new ChapterInfo(4, "Page intros", "StartAfter and OnPageOpen on a profile, an inbox and an order.", true),
             new ChapterInfo(5, "Smooth moves and resizes", "MoveAndResize on a button, a badge, a sidebar, a dialog, an image card and a search box.", true),
             new ChapterInfo(6, "Lists", "Items that appear, disappear, move and resize, one after the other.", false),
             new ChapterInfo(7, "Everything inside", "ApplyTo=EverythingInside on a form and on a responsive layout.", true),

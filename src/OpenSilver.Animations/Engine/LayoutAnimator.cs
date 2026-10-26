@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -80,6 +81,12 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         internal static bool AnyEffects;
 
+        /// <summary>
+        /// Set once an Appear has OnPageOpen=PushOthers. Until then, the elements inside a
+        /// container that is shown again are never searched for one.
+        /// </summary>
+        internal static bool AnyPushOthers;
+
         private Record[] _records = new Record[64];
         private int _recordCount;
         private readonly Dictionary<UIElement, int> _recordIndex = new Dictionary<UIElement, int>();
@@ -130,6 +137,11 @@ namespace OpenSilver.Animations.Engine
         private bool _effectsPlay;
         private bool _quickFades;
 
+        // OnPageOpen=PushOthers: the elements held out of the layout while their page opens, and
+        // those shown again since the last pass, which appear in the next one.
+        private readonly PageOpenHolds _pageOpenHolds;
+        private readonly HashSet<UIElement> _released = new HashSet<UIElement>();
+
         private Point[] _absOld = new Point[64];
         private Point[] _absNew = new Point[64];
         private int[] _absStamp = new int[64];
@@ -150,7 +162,10 @@ namespace OpenSilver.Animations.Engine
         private bool _windowChecked;
         private bool _windowResized;
 
-        private LayoutAnimator() { }
+        private LayoutAnimator()
+        {
+            _pageOpenHolds = new PageOpenHolds(element => _released.Add(element));
+        }
 
         public static void EnsureStarted()
         {
@@ -189,6 +204,73 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
+        /// Holds an element with OnPageOpen=PushOthers out of the layout until its page has opened
+        /// and its StartAfter has elapsed. Only before it is loaded: an Appear set on an element
+        /// that is already on the page is for its next appearance.
+        /// </summary>
+        public static void HoldForPageOpen(UIElement element, Transition effect)
+        {
+            AnyPushOthers = true;
+            if (_instance is LayoutAnimator animator && element is FrameworkElement fe && !fe.IsLoaded)
+            {
+                animator.StartHold(fe, effect);
+            }
+        }
+
+        private void StartHold(FrameworkElement element, Transition effect)
+        {
+            // Without animations, or with reduced motion, it simply appears in its place.
+            AnimationSettings settings = AnimationSettings.Current;
+            string reason = GetGlobalSnapReason(settings);
+            if (reason == null || ReferenceEquals(reason, DraggingReason))
+            {
+                _pageOpenHolds.Start(element, GetWaitMs(effect, settings));
+            }
+        }
+
+        /// <summary>
+        /// The elements with OnPageOpen=PushOthers inside a container that is shown again appear
+        /// with it: they are held too. Those inside a held element are held when it is released.
+        /// </summary>
+        private void HoldDescendants(UIElement container)
+        {
+            int count = VisualTreeHelper.GetChildrenCount(container);
+            for (int i = 0; i < count; i++)
+            {
+                if (VisualTreeHelper.GetChild(container, i) is UIElement child &&
+                    (child.Visibility == Visibility.Visible || _pageOpenHolds.IsHolding(child)))
+                {
+                    if (child is FrameworkElement fe && GetAppearEffect(child) is Transition effect && effect.OnPageOpen == PageOpen.PushOthers)
+                    {
+                        StartHold(fe, effect);
+                    }
+                    else
+                    {
+                        HoldDescendants(child);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Says whether an element held while its page opened appeared with its page or container,
+        /// rather than on its own: whether the nearest element arranged in this pass around it
+        /// appeared.
+        /// </summary>
+        private bool AppearsWithContainer(UIElement element)
+        {
+            for (DependencyObject e = VisualTreeHelper.GetParent(element); e != null; e = VisualTreeHelper.GetParent(e))
+            {
+                if (e is UIElement ancestor && _recordIndex.TryGetValue(ancestor, out int index))
+                {
+                    return (_records[index].Flags & RecordFlags.Appears) != 0;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Warns about the parameters of an effect that don't apply where it is used. They are ignored.
         /// </summary>
         public static void CheckEffect(Transition effect, bool appear, UIElement element)
@@ -210,6 +292,10 @@ namespace OpenSilver.Animations.Engine
             else if (!appear && effect is Pop)
             {
                 problem = "Pop is for Appear only, so it zooms out";
+            }
+            else if (!appear && effect.OnPageOpen != PageOpen.InPlace)
+            {
+                problem = "OnPageOpen is for Appear, so it is ignored";
             }
             else if (appear && effect.HasTo && !effect.HasFrom)
             {
@@ -319,6 +405,17 @@ namespace OpenSilver.Animations.Engine
                 {
                     _records[parent].Flags |= RecordFlags.Origin;
                 }
+
+                // Held while its page opened (OnPageOpen=PushOthers): it pushes the others now, even
+                // though the page has just appeared, and it has already waited its StartAfter.
+                if (_released.Count > 0 && _released.Remove(element))
+                {
+                    record.Flags |= RecordFlags.Released;
+                    if (parent >= 0 && !_switchOnly && (_records[parent].Flags & RecordFlags.Scrolled) == 0)
+                    {
+                        _records[parent].Flags |= RecordFlags.Origin | RecordFlags.Released;
+                    }
+                }
             }
             else if (element is IScrollInfo scrollInfo && IsScrolled(element, scrollInfo))
             {
@@ -393,6 +490,11 @@ namespace OpenSilver.Animations.Engine
 
         protected override void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue)
         {
+            if (_pageOpenHolds.IsHolding(element))
+            {
+                return;
+            }
+
             if (newValue != Visibility.Visible)
             {
                 if (_shown.Count > 0)
@@ -419,6 +521,11 @@ namespace OpenSilver.Animations.Engine
             }
 
             _shown.Add(element);
+
+            if (AnyPushOthers)
+            {
+                HoldDescendants(element);
+            }
 
             // The browser shows the element at once, but it is only arranged in the next layout
             // pass. With an effect of its own, or inside an area, it stays hidden until then, so that
@@ -527,32 +634,59 @@ namespace OpenSilver.Animations.Engine
 
             Timing timing = quick ? QuickFadeTiming : Timing.FromEffect(effect, settings);
             EffectLook look = quick ? FadeLook : effect.GetLook(appear);
+            double wait = GetWaitMs(effect, settings);
             if (appear)
             {
-                batch.AddEffect(id, batch.AddTiming(timing), 0, look, raise: false);
+                batch.AddEffect(id, batch.AddTiming(timing), wait, look, raise: false);
             }
             else
             {
-                batch.AddGhost(id, batch.AddTiming(timing), 0, look, sizeCurve: false);
+                batch.AddGhost(id, batch.AddTiming(timing), wait, look, sizeCurve: false);
+                KeepGhosted(element, wait + timing.DurationMs);
             }
             BrowserBridge.Run(batch.ToJson());
 
             if (settings.LogForDebugging || AnimationSettings.HasLoggedHandlers)
             {
                 string what = appear ? "became visible again" : "was hidden";
-                _messages.Add($"{ElementNames.Of(element)} {what}; {DescribeOwnEffect(effect, appear, quick, timing, reason)}.");
+                _messages.Add($"{ElementNames.Of(element)} {what}; {DescribeOwnEffect(effect, appear, quick, timing, reason, wait)}.");
                 Publish(settings);
             }
         }
 
         /// <summary>
-        /// "it fades in (Smooth, 0.25 s, from its Appear)", or "it fades in quickly, because the device
-        /// asks for reduced motion".
+        /// "it fades in (Smooth, 0.25 s, from its Appear)", "it fades in after 0.5 s (...)", or "it
+        /// fades in quickly, because the device asks for reduced motion".
         /// </summary>
-        private static string DescribeOwnEffect(Transition effect, bool appear, bool quick, Timing timing, string reason)
+        private static string DescribeOwnEffect(Transition effect, bool appear, bool quick, Timing timing, string reason, double waitMs)
             => quick
-                ? $"it {(appear ? "fades in" : "fades out")} quickly, because {reason}"
-                : $"it {effect.Describe(appear)} ({timing.Description}, from its {(appear ? "Appear" : "Disappear")})";
+                ? $"it {(appear ? "fades in" : "fades out")} quickly{After(waitMs)}, because {reason}"
+                : $"it {effect.Describe(appear)}{After(waitMs)} ({timing.Description}, from its {(appear ? "Appear" : "Disappear")})";
+
+        /// <summary>
+        /// " after 0.5 s", or nothing when the effect doesn't wait.
+        /// </summary>
+        private static string After(double waitMs) => waitMs > 0 ? " after " + Seconds(waitMs) : string.Empty;
+
+        private static string Seconds(double ms) => Math.Round(ms / 1000, 2).ToString(CultureInfo.InvariantCulture) + " s";
+
+        /// <summary>
+        /// StartAfter, in milliseconds at the current speed.
+        /// </summary>
+        private static double GetWaitMs(Transition effect, AnimationSettings settings) => effect.StartAfter.Seconds * 1000 / settings.Speed;
+
+        /// <summary>
+        /// A ghost that waits for its StartAfter stays on screen longer than usual: it is still
+        /// removed if the element appears again before it is gone.
+        /// </summary>
+        private void KeepGhosted(UIElement element, double ms)
+        {
+            long until = _clock.ElapsedMilliseconds + (long)ms + 500;
+            if (!_ghostedUntil.TryGetValue(element, out long current) || current < until)
+            {
+                _ghostedUntil[element] = until;
+            }
+        }
 
         private static bool IsAnimatable(UIElement element, out string id)
         {
@@ -637,6 +771,11 @@ namespace OpenSilver.Animations.Engine
             if (_appeared.Count > 0)
             {
                 PruneAppeared();
+            }
+
+            if (_pageOpenHolds.IsWaitingForPass)
+            {
+                _pageOpenHolds.OnLayoutPassCompleted(AppearsWithContainer);
             }
 
             if (_recordCount == 0 && _disappearing.Count == 0 && !_forced && !_skip)
@@ -1050,7 +1189,7 @@ namespace OpenSilver.Animations.Engine
                 }
 
                 // The effects of the elements that appear or disappear still play, on their own.
-                Transition played = PlayEffectsAlone(bucket, settings, batch);
+                Transition played = PlayEffectsAlone(bucket, settings, batch, out double playedWait);
 
                 if (logging && reason != null && !IsSilent(reason) && (_forced || InvolvesSettings(bucket)))
                 {
@@ -1074,7 +1213,7 @@ namespace OpenSilver.Animations.Engine
                         else
                         {
                             Timing effectTiming = _quickFades ? QuickFadeTiming : GetEffectTiming(played, settings);
-                            what = DescribeOwnEffect(played, bucket.EffectAppears, _quickFades, effectTiming, reason) +
+                            what = DescribeOwnEffect(played, bucket.EffectAppears, _quickFades, effectTiming, reason, playedWait) +
                                    (_quickFades ? ", and nothing else animated" : ", and nothing else animated because " + reason);
                         }
 
@@ -1153,7 +1292,7 @@ namespace OpenSilver.Animations.Engine
                         continue;
                     }
 
-                    if (IsSettling(origin))
+                    if ((_records[index].Flags & RecordFlags.Released) == 0 && IsSettling(origin))
                     {
                         exclusion = SettlingReason;
                         continue;
@@ -1510,7 +1649,10 @@ namespace OpenSilver.Animations.Engine
 
             if (origin == bucket.EffectElement)
             {
-                return ElementNames.Of(origin) + (bucket.EffectAppears ? " appeared" : " disappeared");
+                return bucket.EffectAppears
+                    ? DescribeAppeared(origin, _recordIndex.TryGetValue(origin, out int effectIndex) && (_records[effectIndex].Flags & RecordFlags.Released) != 0,
+                                       bucket.Effect, AnimationSettings.Current)
+                    : ElementNames.Of(origin) + " disappeared";
             }
 
             if (!_recordIndex.TryGetValue(origin, out int originIndex))
@@ -1534,6 +1676,22 @@ namespace OpenSilver.Animations.Engine
             }
 
             return ElementNames.Of(origin) + " " + what;
+        }
+
+        /// <summary>
+        /// "Banner appeared", or, for an element held while its page opened, "Banner appeared 0.6 s
+        /// after its page opened, as OnPageOpen=PushOthers asks".
+        /// </summary>
+        private static string DescribeAppeared(UIElement element, bool released, Transition effect, AnimationSettings settings)
+        {
+            if (!released)
+            {
+                return ElementNames.Of(element) + " appeared";
+            }
+
+            double wait = GetWaitMs(effect, settings);
+            return ElementNames.Of(element) + (wait > 0 ? " appeared " + Seconds(wait) : " appeared right") +
+                   " after its page opened, as OnPageOpen=PushOthers asks";
         }
 
         private int CountOtherSwitches(Bucket bucket, string described)
@@ -1565,7 +1723,7 @@ namespace OpenSilver.Animations.Engine
             if (bucket.EffectPlayed)
             {
                 Transition effect = bucket.Effect;
-                string own = "it " + effect.Describe(bucket.EffectAppears);
+                string own = "it " + effect.Describe(bucket.EffectAppears) + After(bucket.EffectWait);
                 if (moved != null && bucket.EffectAppears && effect.OthersMove == OthersMove.Before)
                 {
                     own = moved + ", then " + own;
@@ -1889,9 +2047,9 @@ namespace OpenSilver.Animations.Engine
             bool fromSwitch = _switchOnly && bucket.Origins.Count > 0;
             int originIndex = origin != null && _recordIndex.TryGetValue(origin, out int oi) ? oi : -1;
 
-            // OthersMove=After: the group waits for the element that disappears.
+            // OthersMove=After: the group waits for the element that disappears, StartAfter included.
             double othersDelay = bucket.Effect != null && !bucket.EffectAppears && bucket.Effect.OthersMove == OthersMove.After
-                ? GetEffectTiming(bucket.Effect, settings).DurationMs
+                ? GetEffectTiming(bucket.Effect, settings).DurationMs + GetWaitMs(bucket.Effect, settings)
                 : 0;
 
             if (wave)
@@ -1947,6 +2105,7 @@ namespace OpenSilver.Animations.Engine
             bucket.Wipes = bucket.Fades = bucket.GhostWipes = bucket.GhostFades = bucket.OtherEffects = 0;
             bucket.OtherEffect = null;
             bucket.EffectPlayed = false;
+            bucket.EffectWait = 0;
             bool othersMove = bucket.Animated.Count > 0;
             foreach (int index in bucket.Revealed)
             {
@@ -1957,12 +2116,12 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
-                // OthersMove=Before: the element waits for the room to be made.
+                // OthersMove=Before: the element waits for the room to be made, then for its StartAfter.
                 if (AnyEffects && GetAppearEffect(element) is Transition effect)
                 {
                     double effectDelay = effect.OthersMove == OthersMove.Before && othersMove ? timing.DurationMs : 0;
-                    PlayAppearEffect(index, effect, effectDelay, raise: othersMove, settings, batch);
-                    CountEffect(bucket, element, effect, appears: true);
+                    double wait = PlayAppearEffect(index, effect, effectDelay, raise: othersMove, settings, batch);
+                    CountEffect(bucket, element, effect, appears: true, wait);
                     continue;
                 }
 
@@ -1994,8 +2153,8 @@ namespace OpenSilver.Animations.Engine
             {
                 if (disappearance.Effect != null)
                 {
-                    PlayGhost(disappearance, settings, batch);
-                    CountEffect(bucket, disappearance.Element, disappearance.Effect, appears: false);
+                    double wait = PlayGhost(disappearance, settings, batch);
+                    CountEffect(bucket, disappearance.Element, disappearance.Effect, appears: false, wait);
                     continue;
                 }
 
@@ -2168,62 +2327,76 @@ namespace OpenSilver.Animations.Engine
             return edge;
         }
 
-        private void PlayAppearEffect(int index, Transition effect, double delay, bool raise, AnimationSettings settings, BatchBuilder batch)
+        /// <summary>
+        /// Plays the Appear of an element, after <paramref name="delay"/> and its StartAfter.
+        /// Returns how long it waits for its StartAfter: nothing for an element held while its page
+        /// opened, which has already waited.
+        /// </summary>
+        private double PlayAppearEffect(int index, Transition effect, double delay, bool raise, AnimationSettings settings, BatchBuilder batch)
         {
             ref Record record = ref _records[index];
             record.Flags |= RecordFlags.Played;
+            double wait = (record.Flags & RecordFlags.Released) != 0 ? 0 : GetWaitMs(effect, settings);
             if (!IsAnimatable(record.Element, out string id))
             {
-                return;
+                return wait;
             }
 
             if (_quickFades)
             {
-                batch.AddEffect(id, batch.AddTiming(QuickFadeTiming), 0, FadeLook, raise: false);
+                batch.AddEffect(id, batch.AddTiming(QuickFadeTiming), wait, FadeLook, raise: false);
             }
             else
             {
                 Timing timing = GetEffectTiming(effect, settings);
-                batch.AddEffect(id, batch.AddTiming(timing), delay, effect.GetLook(appear: true), raise);
+                batch.AddEffect(id, batch.AddTiming(timing), delay + wait, effect.GetLook(appear: true), raise);
                 if (settings.ShowWhatAnimates)
                 {
-                    batch.AddOutline(id, timing.DurationMs, delay, false);
+                    batch.AddOutline(id, timing.DurationMs, delay + wait, false);
                 }
             }
+
+            return wait;
         }
 
-        private void PlayGhost(Disappearance disappearance, AnimationSettings settings, BatchBuilder batch)
+        /// <summary>
+        /// Plays the Disappear of a ghost after its StartAfter, and returns how long it waits.
+        /// </summary>
+        private double PlayGhost(Disappearance disappearance, AnimationSettings settings, BatchBuilder batch)
         {
             disappearance.Handled = true;
-            if (_quickFades)
+            double wait = GetWaitMs(disappearance.Effect, settings);
+            Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(disappearance.Effect, settings);
+            EffectLook look = _quickFades ? FadeLook : disappearance.Effect.GetLook(appear: false);
+            batch.AddGhost(disappearance.Id, batch.AddTiming(timing), wait, look, sizeCurve: false);
+            if (wait > 0)
             {
-                batch.AddGhost(disappearance.Id, batch.AddTiming(QuickFadeTiming), 0, FadeLook, sizeCurve: false);
+                KeepGhosted(disappearance.Element, wait + timing.DurationMs);
             }
-            else
-            {
-                batch.AddGhost(disappearance.Id, batch.AddTiming(GetEffectTiming(disappearance.Effect, settings)), 0,
-                    disappearance.Effect.GetLook(appear: false), sizeCurve: false);
-            }
+
+            return wait;
         }
 
-        private static void CountEffect(Bucket bucket, UIElement element, Transition effect, bool appears)
+        private static void CountEffect(Bucket bucket, UIElement element, Transition effect, bool appears, double waitMs)
         {
             if (element == bucket.EffectElement)
             {
                 bucket.EffectPlayed = true;
+                bucket.EffectWait = waitMs;
             }
             else if (bucket.OtherEffects++ == 0)
             {
-                bucket.OtherEffect = ElementNames.Of(element) + " " + effect.Describe(appears);
+                bucket.OtherEffect = ElementNames.Of(element) + " " + effect.Describe(appears) + After(waitMs);
             }
         }
 
         /// <summary>
         /// Plays the effects of the elements that appear or disappear in a group that snaps.
-        /// Returns the effect of the element the message names, if it played.
+        /// Returns the effect of the element the message names, if it played, and how long it waits.
         /// </summary>
-        private Transition PlayEffectsAlone(Bucket bucket, AnimationSettings settings, BatchBuilder batch)
+        private Transition PlayEffectsAlone(Bucket bucket, AnimationSettings settings, BatchBuilder batch, out double playedWait)
         {
+            playedWait = 0;
             if (!_effectsPlay || (!AnyEffects && bucket.Ghosts.Count == 0))
             {
                 return null;
@@ -2234,10 +2407,11 @@ namespace OpenSilver.Animations.Engine
             {
                 if ((_records[index].Flags & RecordFlags.Played) == 0 && GetAppearEffect(_records[index].Element) is Transition effect)
                 {
-                    PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
+                    double wait = PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
                     if (_records[index].Element == bucket.EffectElement)
                     {
                         played = effect;
+                        playedWait = wait;
                     }
                 }
             }
@@ -2246,10 +2420,11 @@ namespace OpenSilver.Animations.Engine
             {
                 if (!disappearance.Handled && disappearance.Effect != null)
                 {
-                    PlayGhost(disappearance, settings, batch);
+                    double wait = PlayGhost(disappearance, settings, batch);
                     if (disappearance.Element == bucket.EffectElement)
                     {
                         played = disappearance.Effect;
+                        playedWait = wait;
                     }
                 }
             }
@@ -2266,6 +2441,9 @@ namespace OpenSilver.Animations.Engine
             int withContainer = 0;
             UIElement firstWithContainer = null;
             Transition firstEffect = null;
+            double firstWait = 0;
+            int skipped = 0;
+            UIElement firstSkipped = null;
 
             foreach (int index in _effectAppears)
             {
@@ -2277,22 +2455,37 @@ namespace OpenSilver.Animations.Engine
 
                 UIElement element = record.Element;
                 Transition effect = GetAppearEffect(element);
-                PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
+                bool appearsWithContainer = (record.Flags & RecordFlags.WithContainer) != 0;
+
+                // OnPageOpen=Skip: it is simply there with its page.
+                if (appearsWithContainer && effect.OnPageOpen == PageOpen.Skip)
+                {
+                    record.Flags |= RecordFlags.Played;
+                    if (skipped++ == 0)
+                    {
+                        firstSkipped = element;
+                    }
+                    continue;
+                }
+
+                double wait = PlayAppearEffect(index, effect, 0, raise: false, settings, batch);
 
                 if (logging)
                 {
-                    if ((record.Flags & RecordFlags.WithContainer) != 0)
+                    if (appearsWithContainer)
                     {
                         if (withContainer++ == 0)
                         {
                             firstWithContainer = element;
                             firstEffect = effect;
+                            firstWait = wait;
                         }
                     }
                     else
                     {
                         Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(effect, settings);
-                        _messages.Add($"{ElementNames.Of(element)} appeared; {DescribeOwnEffect(effect, true, _quickFades, timing, snapReason)}.");
+                        _messages.Add($"{DescribeAppeared(element, (record.Flags & RecordFlags.Released) != 0, effect, settings)}; " +
+                                      $"{DescribeOwnEffect(effect, true, _quickFades, timing, snapReason, wait)}.");
                     }
                 }
             }
@@ -2300,11 +2493,20 @@ namespace OpenSilver.Animations.Engine
             if (withContainer == 1)
             {
                 Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(firstEffect, settings);
-                _messages.Add($"{ElementNames.Of(firstWithContainer)} appeared with its container; {DescribeOwnEffect(firstEffect, true, _quickFades, timing, snapReason)}.");
+                _messages.Add($"{ElementNames.Of(firstWithContainer)} appeared with its container; {DescribeOwnEffect(firstEffect, true, _quickFades, timing, snapReason, firstWait)}.");
             }
             else if (withContainer > 1)
             {
                 _messages.Add($"{withContainer} elements appeared with their container, and play their Appear effects, like {ElementNames.Of(firstWithContainer)}.");
+            }
+
+            if (logging && skipped == 1)
+            {
+                _messages.Add($"{ElementNames.Of(firstSkipped)} appeared with its container, without its effect, as OnPageOpen=Skip asks.");
+            }
+            else if (logging && skipped > 1)
+            {
+                _messages.Add($"{skipped} elements appeared with their container, without their effects, as OnPageOpen=Skip asks, like {ElementNames.Of(firstSkipped)}.");
             }
 
             foreach (Disappearance disappearance in _disappearing)
@@ -2316,11 +2518,11 @@ namespace OpenSilver.Animations.Engine
 
                 if (disappearance.Effect != null && _effectsPlay)
                 {
-                    PlayGhost(disappearance, settings, batch);
+                    double wait = PlayGhost(disappearance, settings, batch);
                     if (logging)
                     {
                         Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(disappearance.Effect, settings);
-                        _messages.Add($"{ElementNames.Of(disappearance.Element)} disappeared; {DescribeOwnEffect(disappearance.Effect, false, _quickFades, timing, snapReason)}.");
+                        _messages.Add($"{ElementNames.Of(disappearance.Element)} disappeared; {DescribeOwnEffect(disappearance.Effect, false, _quickFades, timing, snapReason, wait)}.");
                     }
                 }
                 else
@@ -2628,6 +2830,7 @@ namespace OpenSilver.Animations.Engine
             if (_carriers.Count > 0) _carriers.Clear();
             if (_measureOrigins.Count > 0) _measureOrigins.Clear();
             if (_shown.Count > 0) _shown.Clear();
+            if (_released.Count > 0) _released.Clear();
             if (_scrollChecked.Count > 0) _scrollChecked.Clear();
             if (_switches.Count > 0) _switches.Clear();
             _switchOnly = false;
@@ -2689,6 +2892,8 @@ namespace OpenSilver.Animations.Engine
             WithContainer = 32,
             // Its Appear was played in this pass.
             Played = 64,
+            // Shown again after its page opened (OnPageOpen=PushOthers), or the parent it appears in.
+            Released = 128,
         }
 
         private struct Record
@@ -2757,6 +2962,7 @@ namespace OpenSilver.Animations.Engine
 
             // What Emit played, for the message.
             public bool EffectPlayed;
+            public double EffectWait;
             public int OtherEffects;
             public string OtherEffect;
             public int Wipes;
@@ -2778,6 +2984,7 @@ namespace OpenSilver.Animations.Engine
                 EffectElement = null;
                 EffectAppears = false;
                 EffectPlayed = false;
+                EffectWait = 0;
                 OtherEffects = Wipes = Fades = GhostWipes = GhostFades = 0;
                 OtherEffect = null;
                 RevealedElement = VanishedElement = null;
