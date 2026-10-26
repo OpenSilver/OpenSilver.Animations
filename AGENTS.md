@@ -6,7 +6,7 @@ OpenSilver.Animations is a beginner-friendly animation library for [OpenSilver](
 <Button Content="Save" anim:Animate.MoveAndResize="Smooth" />
 ```
 
-The repository also holds the gallery, "OpenSilver Animations: a guided tour", which teaches the library in 14 chapters and is the manual test suite.
+The repository also holds the gallery, "OpenSilver.Animations library: a guided tour", which teaches the library in 14 chapters and is the manual test suite.
 
 Read these before working:
 
@@ -19,7 +19,7 @@ Read these before working:
 
 ## Working agreement with the product owner
 
-- **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository (branch `feat/motion`).
+- **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository (branch `feat/layout-observer`).
 - **Beginners first.** Names read as "When it ...". Parameters use plain words (`StartAfter`, not Delay; `Bouncy`, not Spring; `Wave`, not Ripple). Messages and gallery text are plain, complete sentences.
 - **Keep OpenSilver changes minimal**: hooks only, with no behavior change. Everything else goes in this library.
 - **No compatibility layer** with the Showcase's old animation project, which will be removed.

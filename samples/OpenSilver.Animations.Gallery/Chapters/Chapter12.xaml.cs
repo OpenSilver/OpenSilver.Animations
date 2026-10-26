@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
+using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
@@ -46,7 +47,12 @@ namespace OpenSilver.Animations.Gallery.Chapters
             Animate.Changes(() => ChangesBox.Width = width, AnimationTime.FromSeconds(0.6));
         }
 
-        private double NextChangesWidth() => ChangesBox.Width > 200 ? 140 : 360;
+        private double NextChangesWidth()
+        {
+            double narrow = WindowSize.IsPhone ? 110 : 140;
+            double room = ChangesRow.ActualWidth - FollowerText.ActualWidth - FollowerText.Margin.Left;
+            return ChangesBox.Width > narrow ? narrow : Math.Max(narrow, Math.Min(360, room));
+        }
 
         private void SkipChange_Click(object sender, RoutedEventArgs e)
         {
@@ -59,7 +65,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
             Animate.Skip(() => SkipPanel.Width = width);
         }
 
-        private double NextSkipWidth() => SkipPanel.Width > 300 ? 220 : 420;
+        private double NextSkipWidth() => NextBoxWidth(SkipPanel, SkipStage);
 
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => SaveSettings();
 
@@ -67,9 +73,19 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void TrySettings_Click(object sender, RoutedEventArgs e)
         {
-            bool wide = SettingsBox.Width > 300;
-            SettingsBox.Width = wide ? 220 : 420;
-            SettingsBox.HorizontalAlignment = wide ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            double width = NextBoxWidth(SettingsBox, SettingsStage);
+            SettingsBox.HorizontalAlignment = width > SettingsBox.Width ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+            SettingsBox.Width = width;
+        }
+
+        /// <summary>
+        /// The other width of a box that goes from narrow to wide: 420 pixels, or the width of the
+        /// demo on a small screen.
+        /// </summary>
+        private static double NextBoxWidth(FrameworkElement box, FrameworkElement stage)
+        {
+            double narrow = WindowSize.IsPhone ? 120 : 220;
+            return box.Width > narrow ? narrow : Math.Max(narrow, Math.Min(420, stage.ActualWidth));
         }
 
         private void ResetSettings_Click(object sender, RoutedEventArgs e)

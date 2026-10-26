@@ -1,6 +1,6 @@
 # Architecture: how the built part works
 
-This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave). The full specification, including the phases not built yet, is in [design.md](design.md).
+This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the automatic reveal of elements that appear inside an area. The full specification, including the phases not built yet, is in [design.md](design.md).
 
 ## The two halves
 
@@ -8,7 +8,7 @@ The library needs to see every layout pass, so OpenSilver gets a small extensibi
 
 ```mermaid
 flowchart LR
-    subgraph core ["OpenSilver core (branch feat/motion)"]
+    subgraph core ["OpenSilver core (branch feat/layout-observer)"]
         measure["UIElement.Measure"] --> observer["LayoutObserver"]
         arrange["UIElement.Arrange"] --> observer
         visibility["OnVisibilityChanged"] --> observer
@@ -25,7 +25,7 @@ flowchart LR
 
 ## The OpenSilver core changes
 
-They are on branch `feat/motion` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`), not committed yet. They don't change any behavior when no observer is registered: each call site is one null check.
+They are in commit `547adac2` on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`). They don't change any behavior when no observer is registered: each call site is one null check.
 
 | File (under `src/Runtime/`) | Change |
 | --- | --- |
@@ -47,7 +47,8 @@ What each hook guarantees:
   - The rects are relative to the visual parent: `VisualOffset` plus `RenderSize`, before and after.
   - `rendered` is false for elements whose box is not written to the DOM. These are the elements with `BypassLayoutPolicies`: `Window`, `PopupRoot`, `WindowHost` and taskbar items.
   - It is not in a `finally` block, so an exception during an arrange leaves an `OnArranging` without its pair. The pass still ends with `OnLayoutPassCompleted`, which resets the library.
-- **`OnVisibilityChanged`** and **`OnDetaching`** are not used by the library yet; phase 3 (Appear and Disappear) needs them. When `OnDetaching` is called, the DOM of the element still exists, and its removal runs after any JavaScript the observer queues.
+- **`OnVisibilityChanged`** is called after the DOM display has changed, before the element's next layout pass. The library uses it to recognize elements shown again (see "Elements that appear"). Phase 3 (Appear and Disappear) will use it for disappearances too.
+- **`OnDetaching`**: the library only forgets the element's running animation there for now. When it is called, the DOM of the element still exists, and its removal runs after any JavaScript the observer queues, which phase 3 needs for ghosts.
 - **`OnLayoutPassCompleted`** is called once per `UpdateLayout`, before the pending JavaScript is flushed. So JavaScript queued there with `ExecuteJavaScriptVoidAsync` runs in the same flush as the layout's own writes: the browser never paints the new layout without its animations.
 - The measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. Observers only record data there. Anything that needs the dispatcher, such as raising the `Logged` event, is posted with `BeginInvoke`.
 
@@ -140,7 +141,10 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
 
 `OnArranging` pushes a **record** on a stack. The record holds the element, its parent record (the element below it on the stack), its old and new rects, flags and a group id.
 
-- **Appearing elements.** An element arranged for the first time gets `FirstArrange`. Its descendants arranged for the first time in the same pass get no record at all: everything inside an element that appears, appears with it. The time it appeared is stored in `_appeared`, for the settling rule below.
+- **Appearing elements** get `Appears`. They are the elements arranged for the first time, and the elements shown again: their Visibility went back to Visible since the last pass (`_shown`, filled by `OnVisibilityChanged`).
+  - Their descendants arranged for the first time in the same pass get no record at all: everything inside an element that appears, appears with it.
+  - The time it appeared is stored in `_appeared`, for the settling rule below.
+  - An element shown again still has the box it had before it was collapsed, so its own rects say nothing. When it is a measure origin, its parent becomes the origin instead: showing the details of an option is a change of the form that holds them.
 - **Scrolled elements** get `Scrolled`.
 - **Origins** get `Origin`: a measure origin, or an element arranged again in the same rect without being measured (an arrange-only change, such as `Grid.Column` or an alignment). A window-resize pass has no origins at all (see below).
 
@@ -150,6 +154,7 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
 - It sets `NotRendered` when the rect changed but nothing was written (`rendered` false). Such elements are never animated.
 - An origin creates a **Change group**.
 - A Change group then joins the parent record's group (union-find: `NewGroup`, `Find`, `Union`). So a change climbs through every ancestor that was arranged again. A WindowResize group never climbs.
+- **A change never crosses `None`.** When the element or its parent has `MoveAndResize=None`, the group doesn't climb from one to the other. A change inside a carved-out chart stays inside it and snaps; the elements it pushes outside the chart are arranged by the parent's own group, or by none, and snap too. Without this rule, when the same Refresh also changed the size of a number card, the chart's change climbed through the dashboard and joined the numbers' change, and the bars glided with them. That's why "Leave the chart out" in chapter 7 seemed to work only on the first Refresh.
 
 When the stack is empty, the arrange session is over. `EndArrangeSession` walks the session's records in arrange order (pre-order):
 
@@ -170,12 +175,13 @@ When the stack is empty, the arrange session is over. `EndArrangeSession` walks 
 2. **Buckets.** For each record that changed or is an origin, except appearing ones:
    - without a group, a change snaps;
    - otherwise it goes into its group's bucket, as an origin and/or a member (a member is a record whose rect changed).
-3. **`ProcessGroup`** for each bucket that has members:
+   - An appearing record goes into the `Appearing` list of its parent's bucket (`AddAppearing`) when the parent is in a Change group inside an `EverythingInside` area, and the element itself doesn't have `None`. See "Elements that appear".
+3. **`ProcessGroup`** for each bucket that has members or appearing elements:
    - **A WindowResize group** (no origins) animates with the timing of the element that opted in.
    - **A Change group** goes through `Decide`, described below.
-   - **Culling and budget** (`CullAndCount`). A member is left out when both its old and new absolute rects are outside the window, with a margin of 100 px. If more than 300 members remain, the whole group snaps. If none remain, nothing happens.
-   - **`Emit`** adds the moves to the batch, or **`Snap`** cancels the running animations of the members.
-4. **The batch** is sent with one `ExecuteJavaScriptVoidAsync` call: moves, cancels and outlines.
+   - **Culling and budget** (`CullAndCount`). A member is left out when both its old and new absolute rects are outside the window, with a margin of 100 px; an appearing element, when its new rect is. If more than 300 remain, the whole group snaps. If none remain, nothing happens.
+   - **`Emit`** adds the moves and the reveals to the batch, or **`Snap`** cancels the running animations of the members.
+4. **The batch** is sent with one `ExecuteJavaScriptVoidAsync` call: moves, reveals, cancels, outlines and releases.
 5. **Messages** are published (see "Messages").
 
 ### Decide: does a Change group animate, and with which timing?
@@ -190,14 +196,19 @@ It goes through the origins. When not inside `Animate.Changes`, an origin is exc
 If every origin is excluded, the group snaps with the last reason. Otherwise the group animates when one of these gives a timing, checked in this order:
 
 1. `Animate.Changes`: its duration, or the default, with the Smooth curve.
-2. The origin's own setting. It counts even when the origin's own box doesn't change. That's needed for a ChildWindow, whose `Width` change resizes its template while the ChildWindow itself keeps the page size.
-3. The origin's area (`EverythingInside` on an ancestor).
-4. **The nearest ancestor that has a setting and is a member** (`FindAncestorMovement` with `IsMember`). An ancestor that stays in place doesn't count, because `ThisElement` is about its own box. Example: the Save button resizes because its label grew, so the button's setting gives the timing.
-5. **The member with an effective setting that is the fewest tree hops away** from the origin (`FindNearestMemberMovement`, through the records' parent chains). Example: a tab underline with `Bouncy` moves because its Grid rearranged its columns.
+2. **The nearest setting** (`FindNearestMovement`), going up from each eligible origin. The first of these wins:
+   - the origin's own setting. It counts even when the origin's own box doesn't change. That's needed for a ChildWindow, whose `Width` change resizes its template while the ChildWindow itself keeps the page size;
+   - an ancestor with `EverythingInside`;
+   - an ancestor with another setting that is a member (`IsMember`). An ancestor that stays in place doesn't count, because `ThisElement` is about its own box. Example: the Save button resizes because its label grew, so the button's setting gives the timing.
+
+   The walk stops at `None`, and at a popup's root. Among the origins, the setting found the fewest levels up wins; on a tie, an origin of the page beats a part of a control template. Each walk stops at the best level found so far.
+3. **The member with an effective setting that is the fewest tree hops away** from the origin (`FindNearestMemberMovement`, through the records' parent chains). Example: a tab underline with `Bouncy` moves because its Grid rearranged its columns.
 
 Otherwise it snaps: "no element involved has MoveAndResize".
 
-The origin named in messages, and used for the wave, is the origin that has its own setting, if any. Otherwise it is the first eligible origin, preferring an element of the page over a part of a control template (`IsTemplatePart`: `TemplatedParent != null`).
+So a `ThisElement` setting on an element inside an area gives the timing to the changes that start inside that element and move or resize it: it is nearer than the area. Before this rule, the area won.
+
+The origin named in messages, and used for the wave, is the origin whose walk found the setting, if any. Otherwise it is the first eligible origin, preferring an element of the page over a part of a control template (`IsTemplatePart`: `TemplatedParent != null`).
 
 ### Areas
 
@@ -207,9 +218,22 @@ The origin named in messages, and used for the wave, is the origin that has its 
 - `None`: the element is carved out;
 - the root: no area.
 
-`ThisElement` settings are passed over. Results are memoized per pass for every element on the walked path (`_areaCache`), so each element is visited at most once per pass. Popups are boundaries, because `GetParent` returns null at a popup's root.
+`ThisElement` settings are passed over: the area says whether an element is inside one, while the timing comes from the nearest setting (see "Decide"). Results are memoized per pass for every element on the walked path (`_areaCache`), so each element is visited at most once per pass. Popups are boundaries, because `GetParent` returns null at a popup's root.
 
 `GetEffectiveMovement(element)` is the element's own setting (null for `None`), or else its area's movement. Members use it, so a change that starts outside an area but moves something inside it animates.
+
+### Elements that appear
+
+Phase 3 brings effects that the app chooses. Until then, an element that appears inside an `EverythingInside` area takes part in the change that makes room for it, so that it never overlaps the elements it pushes while they move.
+
+- **The hold.** The core changes the DOM display as soon as Visibility goes back to Visible, but arranges the element only in the next layout pass, at Render priority. In between, the browser can paint it with the box it had before it was collapsed. So `OnVisibilityChanged` calls `BrowserBridge.Hold` for an element inside an area (`IsInsideArea`, which walks up without memoizing, because it runs outside the passes). `animations.js` keeps it at opacity 0, for at most a second.
+- **The release.** Every held element gets a release entry in the batch of the next pass (`_held`). One that is revealed is released by its reveal. One whose group snaps is simply shown, at its final place. `ReleaseHeld` also runs when the pass has no records, and after an exception.
+- **The reveal.** `Emit` reveals each appearing element of an animated group, with the group's timing and the size curve, so that the revealed part keeps up with the elements it pushes. `GetRevealEdge` picks how:
+  - the side it pushes its siblings away from: when the siblings below move down, it wipes from its top;
+  - when it pushes no sibling but its container grows, the top edge (or the left edge, when the container grew more in width);
+  - otherwise, a fade.
+- **The wave.** A revealed element starts with the element it follows (the sibling or container that `GetRevealEdge` returns), so it doesn't open before the space does.
+- **Outside areas**, nothing changes: the element appears at once in its place and only the others move. It is not held, so the one-frame flash of the old box can happen there.
 
 ### Window-resize passes
 
@@ -243,12 +267,13 @@ When the timing has `Wave > 0`, each member gets a delay.
 Messages are produced only when `LogForDebugging` is on or `Logged` has handlers.
 
 - **An animated group:** "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
+  - With elements that appear: "FormFields changed size; 27 elements animate together, and TwoStepDetails wipes in (Smooth, 0.25 s, from the EverythingInside of SettingsForm)." Several give "3 elements wipe in", "fade in" or "wipe or fade in".
 - **A window-resize group:** "The window was resized; FollowingTiles follows it (Smooth, 0.25 s, from the AlsoOnWindowResize of FollowingTiles)." At most one per second.
 - **A snap:** "SliderBar changed size; nothing animated because something is being dragged."
   - Only snaps that would otherwise have animated are explained: inside `Animate.Changes`, or when an origin or a member has an effective setting (`InvolvesSettings`).
   - Scroll chrome and settling snap silently.
   - The same message is written at most once per second (typing and dragging repeat it).
-- The snap reasons are: `Animate.Skip was used`, `AnimationSettings.IsEnabled is false`, `the app runs in a designer`, `the device asks for reduced motion`, `reduced motion is simulated (AnimationSettings.SimulateReducedMotion)`, `something is being dragged`, `it came from resizing the window or from outside the elements that have settings`, `the change came from typing in X`, `the change started inside an element with MoveAndResize=None`, `no element involved has MoveAndResize`, and `more than 300 elements would animate at once`.
+- The snap reasons are: `Animate.Skip was used`, `AnimationSettings.IsEnabled is false`, `the app runs in a designer`, `the device asks for reduced motion`, `reduced motion is simulated (AnimationSettings.SimulateReducedMotion)`, `something is being dragged`, `it came from resizing the window or from outside the elements that have settings`, `the change came from typing in X`, `the change started inside X, which has MoveAndResize=None` (or `in X` when X is where it started), `no element involved has MoveAndResize`, and `more than 300 elements would animate at once`.
 - `LogForDebugging` writes to the console with the prefix `[OpenSilver.Animations]`. The `Logged` event is raised with `Dispatcher.BeginInvoke` after the pass, so handlers can change the page. A handler that changes an animated element starts a new pass. Avoid logging into a list that is inside an animated area, or each message would cause another one.
 
 ### Constants
@@ -276,9 +301,13 @@ These are at the top of `LayoutAnimator`:
 ```text
 { t: [ { d: durationMs, e?: cssEasing, s?: [samples], se?: sizeEasing } ],
   m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags] ],
+  a: [ [id, timingIndex, delayMs, edge] ],
   c: [ ids to cancel ],
-  o: [ [id, durationMs, delayMs, isOrigin] ] }
+  o: [ [id, durationMs, delayMs, isOrigin] ],
+  r: [ ids to release ] }
 ```
+
+They run in this order: cancels, moves, reveals, outlines, releases. `osAnimations.hold(id)` is called on its own, from `OnVisibilityChanged`.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
@@ -286,17 +315,21 @@ These are at the top of `LayoutAnimator`:
   - Size: `width`/`height` from the old size to the new one.
   - Delays use `fill: 'backwards'`, so a delayed element shows its old place until it starts.
 - **Flags.**
-  - `1` (`ClipOwnBox`): the element's clip is exactly its own box, as with `ClipToBounds` or a `ScrollContentPresenter`. The size animation holds `clip-path: inset(0px)` so that the clip follows the animated box.
+  - `1` (`ClipOwnBox`): the element's clip is exactly its own box, as with `ClipToBounds` or a `ScrollContentPresenter`: a `RectangleGeometry` the size of the element, with no transform or an identity one. The size animation holds `clip-path: inset(0px)` so that the clip follows the animated box. Without the flag, the core's clip has the final size at once: a sidebar that narrows looks like it snaps, and the content of a dialog that narrows is cut.
   - `2` (`Rectangle`) and `4` (`Ellipse`): a shape with `Stretch=Fill`. Its SVG geometry (`width`/`height`, or `rx`/`ry`/`cx`/`cy`) is animated too, where the browser supports these CSS properties. `Path` geometry always snaps.
 - **Curves.** A CSS easing (`cubic-bezier`, `linear`), or samples. Samples play as CSS `linear(...)` where supported, and are otherwise baked into keyframe offsets. `Bouncy` moves use spring samples, and its sizes use the Smooth cubic-bezier (`se`), so content doesn't wobble.
 - **Interruptions.** Running animations are kept per element in a `WeakMap`. A new animation reads the eased progress of the previous one (`getComputedTiming().progress`) and starts from the current offset and size, then cancels the previous one.
+- **Reveals.** The edge is `0` for a fade, then `1` to `4` for a wipe from the top, left, bottom or right. A wipe animates `clip-path: inset(...)` and a fade animates `opacity` up to the element's current opacity, both with the size curve and `fill: 'backwards'`. A reveal first releases the element's hold.
+- **Holds.** `hold` runs an opacity 0 animation of one second on the element, kept in a `WeakMap`; `release` cancels it.
 - **Outlines** (`ShowWhatAnimates`) animate `outline` on the element: orange for the origin, pink for members. They last at least 700 ms.
 
 ## Things to know before changing the engine
 
 - **The hot path.** The hooks are called for every measured and arranged element of every pass. Keep them to set and dictionary operations, with no allocations and no tree walks. Tree walks (areas, typing, settling, scroll chrome, ancestors) only happen in `CompletePass`, for origins and members.
 - **Final values are reported at once.** `ActualWidth`, `TransformToVisual` and `SizeChanged` report final values immediately. Anything that app code positions from them jumps to its final place.
-- **ChildWindow.** While it's open, its `Width` reads as the width of the page (`UpdateOverlaySize`). Code that toggles it must keep its own state, as `ResizableDialog` does.
+- **ChildWindow.**
+  - While it's open, its `Width` reads as the width of the page (`UpdateOverlaySize`). Code that toggles it must keep its own state, as `ResizableDialog` does.
+  - When its size changes, it keeps its top-left corner in place with a `TranslateTransform` on its `ContentRoot`, as in Silverlight. To stay centered, `ResizableDialog` sets that offset back to 0 in its own `SizeChanged` handler on the `ContentPresenter` part, which runs after the ChildWindow's.
 - **DOM order.** Children created through `osjs.createLayout`, such as the containers of an `ItemsControl`, are always appended. So DOM order can differ from visual order, for example in the gallery's log, where new entries are inserted at the top. That's existing OpenSilver behavior. Don't rely on DOM order.
 - **Element classes.** In Debug builds of an app (`Features.DOM.AssignClass`), each element's div also has its type name as a CSS class, for example `System.Windows.Controls.Slider`. Release builds don't have them.
 - **The Simulator.** JavaScript batches can arrive a frame apart there, so an animation can start one frame late.

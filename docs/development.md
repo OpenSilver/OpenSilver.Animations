@@ -4,7 +4,7 @@
 
 | Path | What it is |
 | --- | --- |
-| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/motion`. It holds the core changes (see [architecture.md](architecture.md)), not committed yet. |
+| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/layout-observer`. It holds the core changes (see [architecture.md](architecture.md)), in commit `547adac2`. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations` | This repository (remote `github.com/OpenSilver/OpenSilver.Animations`). It sits inside the OpenSilver folder but is a separate git repository. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Themes.Modern` | Another library repository, the model for this repository's layout and build scripts. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase` | The Showcase, to be ported to this library in phase 3. Its own animation project will be removed. |
@@ -15,7 +15,7 @@ The three nested folders show up as untracked in the OpenSilver repository. They
 
 - **.NET SDK 10** (10.0.401 was used).
 - **Visual Studio's `msbuild` in the PATH** for the `.bat` scripts, for example from a Developer PowerShell. The OpenSilver build scripts need it.
-- The OpenSilver repository on branch `feat/motion`.
+- The OpenSilver repository on branch `feat/layout-observer`.
 
 ## The OpenSilver packages with the hooks
 
@@ -82,14 +82,20 @@ dotnet run --project samples\OpenSilver.Animations.Gallery.Browser\OpenSilver.An
   Get-CimInstance Win32_Process -Filter "Name='dotnet.exe'" | Where-Object { $_.CommandLine -match 'Gallery.Browser' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
   ```
 
-The gallery's toolbar has four controls:
+The gallery has four options, all off at start:
 
 - **Slow motion** sets `Speed` to 0.25.
 - **Show what animates** sets `ShowWhatAnimates`.
 - **Reduce motion** sets `SimulateReducedMotion`.
 - **Replay page** opens the chapter again.
 
-The right column shows the `Logged` messages. Each demo has a "What should happen" switch with its acceptance lines.
+The log, "What just happened", shows the `Logged` messages. Each demo has a "What should happen" expander with its acceptance lines.
+
+The shell is responsive (see "The gallery chapters" in [roadmap.md](roadmap.md)). From 1280 px, the options are in the top bar and the log is on the right. From 960 px, the log is a drawer opened by the Log button. Below that, the options and the chapters are in a drawer opened by the menu button.
+
+- **The breakpoints** are `ResponsiveThreshold.Default`, set in `App`. The XAML uses `{Responsive Mobile=..., Tablet=...}` values (the Desktop value falls back to Tablet).
+- **Code** uses `Shell.WindowSize`: `WindowSize.IsPhone` for sizes that differ on a phone, as in chapters 8, 12 and 13.
+- **Measure the window, not the page.** `{Responsive}` compares the width of the `Window`, which draws a 1 px border around the page, so the page is 2 px narrower. Code that compared the page's width chose the phone layout at 960 and 961 px while the XAML chose the tablet one.
 
 ## Testing in the browser as an agent
 
@@ -115,7 +121,7 @@ Then change `width`, for example to 1350 and back. It takes effect after a short
 
 ### Helper scripts
 
-**Console capture.** Every `console.log`, `warn` and `error` goes into `window.__logs`. The library's messages start with `[OpenSilver.Animations]` when `LogForDebugging` is on; the gallery leaves it off and shows the `Logged` messages in its right column.
+**Console capture.** Every `console.log`, `warn` and `error` goes into `window.__logs`. The library's messages start with `[OpenSilver.Animations]` when `LogForDebugging` is on; the gallery leaves it off and shows the `Logged` messages in its log.
 
 ```js
 window.__logs = [];
@@ -212,7 +218,7 @@ for (const k of ['log', 'warn', 'error']) {
       }
       return this.center(text);
     },
-    // The texts of the right column ("What just happened"), top to bottom, without the times.
+    // The texts of the log ("What just happened") when it's on the right, top to bottom, without the times.
     panel() {
       return [...document.querySelectorAll('.opensilver-textblock')]
         .map(e => [e, e.getBoundingClientRect()])
@@ -246,7 +252,24 @@ The `panel` cut-off (`innerWidth - 330`) and the drags following the captured el
 })()
 ```
 
-On chapter 5 this gives 20 animations: 10 moves plus 10 outlines, because Show what animates is on in that chapter. The newest message is "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
+On chapter 5 this gives 10 animations, or 20 with Show what animates on (10 moves plus 10 outlines). The newest message is "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
+
+### Testing a phone
+
+```json
+{ "method": "Emulation.setDeviceMetricsOverride", "params": { "width": 390, "height": 844, "deviceScaleFactor": 2, "mobile": true } }
+```
+
+Two more helpers were added at runtime for the responsive checks. In a narrow window, off-screen copies of a text (in a closed drawer, for example) are easy to hit, so `vis` keeps the matches that are on screen, and `center` uses it:
+
+```js
+__t.vis = function (s) { return this.all(s).filter(e => { const b = e.getBoundingClientRect(); return b.right > 0 && b.left < innerWidth && b.bottom > 0 && b.top < innerHeight; }); };
+__t.center = function (s, n) { const a = this.vis(s); const e = a[a.length - 1 - (n || 0)]; if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2)]; };
+// The elements wider than the window: [] means that nothing overflows.
+__t.overflow = () => [...document.querySelectorAll('.opensilver-uielement')].filter(e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.right > innerWidth + 1 && getComputedStyle(e).display !== 'none'; }).slice(0, 8).map(e => e.id + ' ' + (e.textContent || '').trim().slice(0, 30) + ' ' + JSON.stringify(__t.rect(e)));
+```
+
+The menu button is at about (22, 28): `__t.tapAt(22, 28)` opens the drawer.
 
 ### Testing pitfalls
 
@@ -255,3 +278,4 @@ On chapter 5 this gives 20 animations: 10 moves plus 10 outlines, because Show w
 - **Type-name classes** such as `[class*="Controls.Slider"]` exist only in Debug builds of the gallery.
 - **Interrupting an animation** in a Debug build can look like a jump. Measure it with `sample` before concluding: in chapter 5, the dialog's second animation started from 556.7 px, exactly where the first one was.
 - **The emulated window size** sometimes survives a reload. Clear it at the end.
+- **Registering the helper script twice** on a tab (for example in two sessions) wraps `element.animate` twice, so `__anims` records each call twice. Check with a test `div` before counting.

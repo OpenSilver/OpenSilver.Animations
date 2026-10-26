@@ -169,13 +169,13 @@ Animate.Skip(() => LoadInitialData());
     - `AlsoOnWindowResize`: default false.
   - **ApplyTo=ThisElement.** Whenever this element moves or changes size, it animates. The exceptions are resizing the browser window, scrolling, dragging and typing (see "Never animates"). Everything that moves in the same change animates with it, even if the change started elsewhere.
   - **ApplyTo=EverythingInside.** Exactly as if every element inside, at any depth (including templates and items created later), had `MoveAndResize` with the same settings. Two additions:
-    - Elements inside that appear or disappear without their own effect get an automatic one: Wipe when they push others, Fade otherwise. Only the topmost appearing element gets it, never on page open.
+    - Elements inside that appear or disappear without their own effect get an automatic one: Wipe when they push others, Fade otherwise. Only the topmost appearing element gets it, never on page open. (Built for appearing elements; disappearing ones come with phase 3, and vanish at once until then.)
     - Lists inside track their items by data item, as with `ItemMoveAndResize`.
 
     Nothing is copied to the elements inside: the area is found by a lookup when a change happens (see "Areas").
     - A nested `EverythingInside` starts a new area with its own settings.
     - `None` on a descendant carves it and everything inside it out of the area: changes starting there never animate, including the ones that push others.
-    - A descendant with `ThisElement` doesn't carve anything out. It only gives its own timing to the changes that move or resize it.
+    - A descendant with `ThisElement` doesn't carve anything out. It gives its own timing to the changes that move or resize it, including the ones that start inside it, because the nearest setting wins (see "One timing per group").
   - **AlsoOnWindowResize.** Normally, changes caused by resizing the browser window never animate, because animating a whole page while its edge is dragged feels laggy.
     - With this flag, only the elements that opted in animate, together with their content; everything else snaps to the new size, and brief overlaps are accepted.
     - Each resize event retargets from the current on-screen position, so elements keep following the window edge.
@@ -447,9 +447,9 @@ All previews run on the live canvas through `AnimationDesign.Play(element, secti
   - `Describe`, `GetHints`, `WouldPushOthers`, `GetArea`, `GetMagicMoveGroup`, `Play`, `PlayPageIntro`, `StopPreview`.
 - **Localization.** All labels, example lines and hint texts come from the catalog, so they can be translated.
 
-## Gallery app: "OpenSilver Animations: a guided tour"
+## Gallery app: "OpenSilver.Animations library: a guided tour"
 
-A standalone OpenSilver app in the library repo that tells the story of the system, from the simplest thing to the most advanced one. Each chapter introduces one idea, and every idea comes with something to click. It is also the manual test suite: every acceptance scenario below lives in a chapter.
+A standalone OpenSilver app in the library repo that tells the story of the system, from the simplest thing to the most advanced one. The name keeps the dot, and says "library", so that it isn't mistaken for OpenSilver's storyboard animations. The logo, in the top bar and as the browser tab's icon (`favicon.svg`), is a rounded box that moves to the right, leaving a fading trail. Each chapter introduces one idea, and every idea comes with something to click. It is also the manual test suite: every acceptance scenario below lives in a chapter.
 
 ### Every chapter page
 
@@ -460,7 +460,7 @@ A standalone OpenSilver app in the library repo that tells the story of the syst
 - **Summary.** The sentence from `AnimationDesign.Describe`.
 - **"What just happened".** The last messages from `AnimationSettings.Logged`, so the reader sees why things moved.
 - **"Good to know".** One tip or pitfall.
-- **"What should happen".** A collapsible box with the chapter's acceptance lines, for manual testing.
+- **"What should happen".** A collapsible box with the chapter's acceptance lines, for manual testing. Its header is a two-sided chevron that points right when closed and down when open, so it reads as an expander, not as an option.
 - **Navigation.** Previous and Next.
 
 ### Global toolbar
@@ -470,6 +470,15 @@ A standalone OpenSilver app in the library repo that tells the story of the syst
 - **Reduce motion:** simulates the user preference.
 - **Replay page:** replays the current chapter's page open.
 - **Chapters sidebar:** progress, and one URL per chapter for deep links.
+- All the options are off at start.
+
+### Phones and tablets
+
+The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThreshold.Default` (960 and 1280 px):
+
+- **Desktop:** the chapters, the page and the log are three columns; the options are in the top bar.
+- **Tablet:** the log becomes a drawer, opened by a Log button with a dot for new messages.
+- **Phone:** the chapters and the options become a drawer too, opened by a menu button. Margins, fonts and the demos' sizes are smaller, so that every demo fits and still animates.
 
 ### Chapters
 
@@ -485,7 +494,7 @@ A standalone OpenSilver app in the library repo that tells the story of the syst
    - a card whose image loads;
    - a search box that widens on focus.
 
-   Show what animates is on by default, to explain that everything involved moves together.
+   The intro suggests turning on Show what animates, to see that everything involved moves together.
 6. **Lists.** `ItemAppear`, `ItemDisappear`, `ItemMoveAndResize` and `ItemCascade`. Demos:
    - a to-do list (add and remove);
    - toasts;
@@ -572,11 +581,12 @@ Each line is what the developer sets, and what must happen.
   - it starts inside an `EverythingInside` area;
   - it moves or resizes an element with `MoveAndResize`, or an item of a list with `ItemMoveAndResize`;
   - it's a runtime appearance or disappearance of an element that has an effect (its own, an item effect, or an automatic one).
-- **One timing per group** (Duration and curve), which keeps the containment guarantee. It comes from, in this order:
-  - the setting where the change starts: an effect gives its Duration and Easing, and a bouncy effect moves the others smoothly;
-  - otherwise the setting of the nearest ancestor that moved or changed size in the same change (an ancestor that stays in place doesn't count: its setting is about its own box);
-  - otherwise the nearest affected element with a setting (fewest tree hops, then document order);
-  - otherwise the defaults.
+- **One timing per group** (Duration and curve), which keeps the containment guarantee. **The nearest setting wins:** going up from where the change starts, the timing comes from the first of:
+  - the setting of the element where the change starts, even when its own box stays the same: an effect gives its Duration and Easing, and a bouncy effect moves the others smoothly;
+  - an ancestor with `EverythingInside`;
+  - an ancestor with another setting that moved or changed size in the same change. An ancestor that stays in place doesn't count: its setting is about its own box.
+
+  When several changes start in the same group, the setting found the fewest levels up wins. Otherwise the timing comes from the nearest affected element with a setting (fewest tree hops, then document order), and otherwise from the defaults.
 - **Page open.** An element appears together with its container when it isn't the topmost element appearing in that pass. Such appearances follow `OnPageOpen` and never push others unless it's `PushOthers`.
 - **Items re-sorted, filtered or refreshed.** The library keeps, for lists with item animations, a map from each data item to its rectangle from the previous completed pass. It records each container's item when it's first arranged, using `ItemContainerGenerator.ItemFromContainer` (public).
   - Containers that are removed, created or recycled in the same pass glide from their item's old rectangle to its new one, instead of running the item disappear and appear effects.

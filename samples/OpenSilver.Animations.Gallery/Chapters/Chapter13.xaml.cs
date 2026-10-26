@@ -43,7 +43,10 @@ namespace OpenSilver.Animations.Gallery.Chapters
             }
 
             SetTileCount(FewTiles);
+            LeftColumn.Width = new GridLength(LeftPaneWidth);
         }
+
+        private static double LeftPaneWidth => WindowSize.IsPhone ? 120 : 220;
 
         private void Rows_Click(object sender, RoutedEventArgs e)
         {
@@ -57,7 +60,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void ResetSplit_Click(object sender, RoutedEventArgs e)
         {
-            LeftColumn.Width = new GridLength(220);
+            LeftColumn.Width = new GridLength(LeftPaneWidth);
         }
 
         private void BarSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -115,12 +118,16 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void WrapBox_Click(object sender, RoutedEventArgs e)
         {
-            WrapBox.Width = WrapBox.Width > 400 ? 300 : 520;
+            bool phone = WindowSize.IsPhone;
+            double narrow = phone ? 160 : 300;
+            WrapBox.Width = WrapBox.Width > narrow ? narrow : phone ? 260 : 520;
         }
 
         private void Shapes_Click(object sender, RoutedEventArgs e)
         {
-            double size = RectangleBox.Width > 100 ? 80 : 150;
+            bool phone = WindowSize.IsPhone;
+            double small = phone ? 50 : 80;
+            double size = RectangleBox.Width > small ? small : phone ? 80 : 150;
             foreach (FrameworkElement box in new FrameworkElement[] { RectangleBox, EllipseBox, PathBox })
             {
                 box.Width = size;

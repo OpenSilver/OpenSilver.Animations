@@ -6,13 +6,27 @@
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
           Title="Smooth moves and resizes">
 
+    <sdk:Page.Resources>
+        <!-- The widths when expanded or not focused; the code sets the other width and clears it to come back -->
+        <Style x:Key="DemoSidebarStyle" TargetType="Border">
+            <Setter Property="Width" Value="{Responsive Mobile=150, Tablet=240}" />
+        </Style>
+        <Style x:Key="SearchBoxStyle" TargetType="TextBox">
+            <Setter Property="Width" Value="{Responsive Mobile=100, Tablet=180}" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#D9DCE7" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+    </sdk:Page.Resources>
+
     <StackPanel Style="{StaticResource ChapterRoot}">
         <TextBlock Text="CHAPTER 5" Style="{StaticResource OverlineText}" />
         <TextBlock Text="Smooth moves and resizes" Style="{StaticResource ChapterTitleText}" />
         <TextBlock Style="{StaticResource IntroText}"
                    Text="Set Animate.MoveAndResize to Smooth on an element, and whenever it moves or changes size, it glides there instead of jumping. Everything that moves because of the same change glides with it, with the same timing, so nothing ever overlaps." />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="Show what animates is on in this chapter: the element where the change started is outlined in orange, and the elements that move with it in pink." />
+                   Text="Turn on Show what animates to see what moves together: the element where the change started is outlined in orange, and the elements that move with it in pink." />
 
         <!-- 1. Save button -->
         <controls:DemoCard Title="A button whose label changes"
@@ -55,16 +69,16 @@
 
         <!-- 3. Sidebar -->
         <controls:DemoCard Title="A sidebar that collapses"
-                           Description="The sidebar goes from 240 to 64 pixels wide. The content area next to it fills the space with the same timing."
+                           Description="The sidebar narrows to 64 pixels, leaving only its icons. The content area next to it fills the space with the same timing."
                            Xaml='&lt;Border x:Name="Sidebar" Width="240" ClipToBounds="True" anim:Animate.MoveAndResize="Smooth"&gt;'
                            Expectations="• The sidebar narrows and widens smoothly; the labels are revealed or hidden by its edge.&#10;• The content area grows and shrinks in sync, with no gap and no overlap.">
             <StackPanel>
-                <Grid Height="220">
+                <Grid MinHeight="220">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border x:Name="DemoSidebar" Width="240" Background="{StaticResource DarkPanelBrush}" CornerRadius="10" ClipToBounds="True"
+                    <Border x:Name="DemoSidebar" Style="{StaticResource DemoSidebarStyle}" Background="{StaticResource DarkPanelBrush}" CornerRadius="10" ClipToBounds="True"
                             anim:Animate.MoveAndResize="Smooth">
                         <StackPanel Margin="14">
                             <Grid Margin="0,0,0,10">
@@ -93,14 +107,14 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-                    <Border Grid.Column="1" Style="{StaticResource Card}" Margin="12,0,0,0" Padding="20">
+                    <Border Grid.Column="1" Style="{StaticResource Card}" Margin="12,0,0,0" Padding="{Responsive Mobile=12, Tablet=20}">
                         <StackPanel>
                             <TextBlock Text="Dashboard" Style="{StaticResource HeadingText}" />
                             <TextBlock Style="{StaticResource BodyText}" Margin="0,6,0,14"
                                        Text="This area takes the rest of the row. It has no setting, and still follows the sidebar." />
                             <Border Height="10" CornerRadius="5" Background="{StaticResource AccentLightBrush}" />
-                            <Border Height="10" CornerRadius="5" Background="{StaticResource AccentLightBrush}" Margin="0,10,60,0" />
-                            <Border Height="10" CornerRadius="5" Background="{StaticResource AccentLightBrush}" Margin="0,10,120,0" />
+                            <Border Height="10" CornerRadius="5" Background="{StaticResource AccentLightBrush}" Margin="{Responsive Mobile='0,10,25,0', Tablet='0,10,60,0'}" />
+                            <Border Height="10" CornerRadius="5" Background="{StaticResource AccentLightBrush}" Margin="{Responsive Mobile='0,10,50,0', Tablet='0,10,120,0'}" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -110,7 +124,7 @@
 
         <!-- 4. ChildWindow -->
         <controls:DemoCard Title="A dialog that gets wider"
-                           Description="Open the dialog, then make it wider. It grows from 300 to 600 pixels and stays centered, and its content stretches with it."
+                           Description="Open the dialog, then make it wider. It grows from 300 to 600 pixels, or to the width of a small screen, and stays centered, and its content stretches with it."
                            Xaml='&lt;ChildWindow Width="300" anim:Animate.MoveAndResize="Smooth"&gt;'
                            Expectations="• The dialog grows and shrinks smoothly, and stays centered while it does.&#10;• The text box inside stretches in sync and never sticks out of the dialog.">
             <Button Content="Open the dialog" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="OpenDialog_Click" />
@@ -139,11 +153,11 @@
                            Description="Click in the search box. It widens, and the buttons next to it slide. Typing inside it never animates."
                            Xaml='&lt;TextBox Width="180" GotFocus="Widen" LostFocus="Narrow" anim:Animate.MoveAndResize="Smooth" /&gt;'
                            Expectations="• The search box widens smoothly when it gets the focus, and narrows when it loses it.&#10;• Filters and Sort slide with it.">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <TextBox x:Name="SearchBox" Width="180" VerticalAlignment="Center" anim:Animate.MoveAndResize="Smooth"
+            <StackPanel x:Name="SearchRow" Orientation="Horizontal">
+                <TextBox x:Name="SearchBox" Style="{StaticResource SearchBoxStyle}" VerticalAlignment="Center" anim:Animate.MoveAndResize="Smooth"
                          GotFocus="SearchBox_GotFocus" LostFocus="SearchBox_LostFocus" />
-                <Button Content="Filters" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" />
-                <Button Content="Sort" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" />
+                <Button x:Name="FiltersButton" Content="Filters" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" />
+                <Button x:Name="SortButton" Content="Sort" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" />
             </StackPanel>
         </controls:DemoCard>
 

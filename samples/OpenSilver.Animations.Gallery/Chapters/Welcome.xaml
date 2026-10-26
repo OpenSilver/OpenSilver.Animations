@@ -3,7 +3,16 @@
           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
-          Title="OpenSilver Animations: a guided tour">
+          Title="OpenSilver.Animations library: a guided tour">
+
+    <sdk:Page.Resources>
+        <Style x:Key="ToolbarItemName" TargetType="TextBlock">
+            <Setter Property="Width" Value="{Responsive Mobile=110, Tablet=180}" />
+            <Setter Property="Margin" Value="0,0,12,10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </sdk:Page.Resources>
 
     <StackPanel Style="{StaticResource ChapterRoot}">
         <TextBlock Text="WELCOME" Style="{StaticResource OverlineText}" />
@@ -11,14 +20,16 @@
         <TextBlock Style="{StaticResource IntroText}"
                    Text="OpenSilver.Animations makes your pages feel alive without writing a single storyboard. You say what an element does when it moves, changes size, appears or disappears, and the library takes care of the rest, including everything around it." />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="This tour tells the story one idea at a time. Every chapter has something to click, the XAML that makes it work, and a log on the right that explains, in plain words, why things moved or not." />
+                   Text="This tour tells the story one idea at a time. Every chapter has something to click, the XAML that makes it work, and a log, What just happened, that explains in plain words why things moved or not." />
 
         <Border Style="{StaticResource Card}" Padding="24" Margin="0,12,0,0">
             <StackPanel>
-                <TextBlock Text="The toolbar" Style="{StaticResource HeadingText}" />
+                <TextBlock Text="The options" Style="{StaticResource HeadingText}" />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="{Responsive Mobile='They are in the menu, at the top left.', Tablet='They are in the top bar.'}" />
                 <Grid Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -27,13 +38,13 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Slow motion" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Text="Slow motion" Style="{StaticResource ToolbarItemName}" />
                     <TextBlock Grid.Column="1" Style="{StaticResource BodyText}" Margin="0,0,0,10" Text="Plays every animation four times slower (AnimationSettings.Speed = 0.25)." />
-                    <TextBlock Grid.Row="1" Text="Show what animates" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="1" Text="Show what animates" Style="{StaticResource ToolbarItemName}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource BodyText}" Margin="0,0,0,10" Text="Outlines the elements that animate together: the one where the change started in orange, the others in pink." />
-                    <TextBlock Grid.Row="2" Text="Reduce motion" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="2" Text="Reduce motion" Style="{StaticResource ToolbarItemName}" />
                     <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource BodyText}" Margin="0,0,0,10" Text="Behaves as if your device asked for less motion: moves and resizes become instant." />
-                    <TextBlock Grid.Row="3" Text="Replay page" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="3" Text="Replay page" Style="{StaticResource ToolbarItemName}" Margin="0,0,12,0" />
                     <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource BodyText}" Text="Opens the current chapter again, as if you just arrived." />
                 </Grid>
             </StackPanel>
@@ -43,10 +54,10 @@
             <StackPanel>
                 <TextBlock Text="Where to start" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="This version of the library animates moves and size changes. The chapters about appearing, disappearing, lists, text and Magic move arrive with the next versions, and are marked 'soon' in the sidebar." />
+                           Text="This version of the library animates moves and size changes. The chapters about appearing, disappearing, lists, text and Magic move arrive with the next versions, and are marked 'soon' in the list of chapters." />
             </StackPanel>
         </Border>
 
-        <Button Content="Start with chapter 5: Smooth moves and resizes" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="Start_Click" />
+        <Button Content="Start with chapter 5" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="Start_Click" />
     </StackPanel>
 </sdk:Page>

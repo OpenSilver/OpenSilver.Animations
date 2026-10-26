@@ -7,7 +7,7 @@ using System.Windows.Media;
 namespace OpenSilver.Animations.Gallery.Shell
 {
     /// <summary>
-    /// A chapter of the tour, as shown in the sidebar.
+    /// A chapter of the tour, as shown in the list of chapters.
     /// </summary>
     public sealed class ChapterInfo : INotifyPropertyChanged
     {

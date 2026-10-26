@@ -20,7 +20,7 @@
                            Xaml='&lt;ScrollViewer Height="220" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;'
                            Expectations="• Scrolling, with the wheel or the scroll bar, follows your hand exactly.&#10;• Make the rows taller: the rows grow smoothly, and the scroll bar adjusts.">
             <StackPanel>
-                <Border Style="{StaticResource Card}" Padding="0" Width="420" HorizontalAlignment="Left" ClipToBounds="True">
+                <Border Style="{StaticResource Card}" Padding="0" Width="{Responsive Mobile=NaN, Tablet=420}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}" ClipToBounds="True">
                     <ScrollViewer Height="220" BorderThickness="0" Padding="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                   anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
                         <StackPanel x:Name="ScrollRows" />
@@ -38,9 +38,9 @@
             <StackPanel>
                 <Grid Height="150" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="LeftColumn" Width="220" MinWidth="120" />
+                        <ColumnDefinition x:Name="LeftColumn" Width="220" MinWidth="80" />
                         <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="*" MinWidth="120" />
+                        <ColumnDefinition Width="*" MinWidth="80" />
                     </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
@@ -69,7 +69,7 @@
                            Xaml='&lt;Border x:Name="Bar" Width="{Binding Value, ElementName=BarSlider}" anim:Animate.MoveAndResize="Smooth" /&gt;'
                            Expectations="• Drag the thumb: the bar follows it exactly.&#10;• Click on the track: the value jumps, and the bar glides to its new width. The thumb glides with it, because it moved in the same change.">
             <StackPanel>
-                <Slider x:Name="BarSlider" Width="420" HorizontalAlignment="Left" Minimum="40" Maximum="420" Value="160" SmallChange="10" LargeChange="80"
+                <Slider x:Name="BarSlider" Width="{Responsive Mobile=240, Tablet=420}" HorizontalAlignment="Left" Minimum="40" Maximum="{Responsive Mobile=240, Tablet=420}" Value="160" SmallChange="10" LargeChange="80"
                         ValueChanged="BarSlider_ValueChanged" />
                 <Border x:Name="SliderBar" Width="160" Height="28" CornerRadius="8" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left" Margin="0,12,0,0"
                         anim:Animate.MoveAndResize="Smooth" />
@@ -83,7 +83,7 @@
                            Expectations="• While you type, the text box and the Send button follow every letter at once.&#10;• Add a word from code: the text box grows smoothly, and the Send button slides.">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="AutoWidthBox" Text="Type here" MinWidth="120" MaxWidth="440" VerticalAlignment="Center"
+                    <TextBox x:Name="AutoWidthBox" Text="Type here" MinWidth="120" MaxWidth="{Responsive Mobile=160, Tablet=440}" VerticalAlignment="Center"
                              anim:Animate.MoveAndResize="Smooth" />
                     <Button Content="Send" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" />
                 </StackPanel>
@@ -101,7 +101,7 @@
         <controls:DemoCard Title="Too many elements at once"
                            Description="When more than 300 elements would animate together, the whole change happens at once instead, because animating that many would be slow. Elements outside the window don't count."
                            Xaml='&lt;WrapPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;!-- 100 or 400 tiles --&gt;&#10;&lt;/WrapPanel&gt;'
-                           Expectations="• With 100 tiles, they all grow smoothly.&#10;• With 400 tiles, they all grow at once, and the log on the right says why.">
+                           Expectations="• With 100 tiles, they all grow smoothly.&#10;• With 400 tiles, they all grow at once, and the What just happened log says why.">
             <StackPanel>
                 <WrapPanel x:Name="BudgetTiles" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}" />
                 <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
@@ -121,7 +121,7 @@
                            Xaml='&lt;Border Width="520" anim:Animate.MoveAndResize="Smooth"&gt;&#10;    &lt;TextBlock TextWrapping="Wrap" /&gt;&#10;&lt;/Border&gt;'
                            Expectations="• The box resizes smoothly.&#10;• The words move to their new lines during the animation; the text is always readable when it ends.&#10;• Tip: animate the width of text only when it doesn't wrap, or when the change is small.">
             <StackPanel>
-                <Border x:Name="WrapBox" Width="520" Style="{StaticResource Card}" HorizontalAlignment="Left" anim:Animate.MoveAndResize="Smooth">
+                <Border x:Name="WrapBox" Width="{Responsive Mobile=260, Tablet=520}" Style="{StaticResource Card}" HorizontalAlignment="Left" anim:Animate.MoveAndResize="Smooth">
                     <TextBlock Style="{StaticResource BodyText}"
                                Text="OpenSilver runs your C# and XAML in the browser, with no plugin. The same code runs on the web, on the desktop and on mobile, and the layout of this paragraph is recomputed each time its box changes width." />
                 </Border>
@@ -134,14 +134,16 @@
                            Xaml='&lt;Rectangle Fill="..." /&gt;     &lt;!-- follows the box --&gt;&#10;&lt;Ellipse Fill="..." /&gt;       &lt;!-- follows the box --&gt;&#10;&lt;Path Stretch="Fill" Data="..." /&gt;   &lt;!-- jumps to its final size --&gt;'
                            Expectations="• The rectangle and the circle grow and shrink smoothly with their boxes.&#10;• The star jumps to its final size at once, while its box glides.">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" Height="160">
-                    <Border x:Name="RectangleBox" Width="80" Height="80" VerticalAlignment="Top" anim:Animate.MoveAndResize="Smooth">
+                <StackPanel Orientation="Horizontal" Height="{Responsive Mobile=90, Tablet=160}">
+                    <Border x:Name="RectangleBox" Width="{Responsive Mobile=50, Tablet=80}" Height="{Responsive Mobile=50, Tablet=80}" VerticalAlignment="Top" anim:Animate.MoveAndResize="Smooth">
                         <Rectangle Fill="{StaticResource AccentBrush}" RadiusX="10" RadiusY="10" />
                     </Border>
-                    <Border x:Name="EllipseBox" Width="80" Height="80" VerticalAlignment="Top" Margin="24,0,0,0" anim:Animate.MoveAndResize="Smooth">
+                    <Border x:Name="EllipseBox" Width="{Responsive Mobile=50, Tablet=80}" Height="{Responsive Mobile=50, Tablet=80}" VerticalAlignment="Top"
+                            Margin="{Responsive Mobile='12,0,0,0', Tablet='24,0,0,0'}" anim:Animate.MoveAndResize="Smooth">
                         <Ellipse Fill="#E07A1F" />
                     </Border>
-                    <Border x:Name="PathBox" Width="80" Height="80" VerticalAlignment="Top" Margin="24,0,0,0" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="6"
+                    <Border x:Name="PathBox" Width="{Responsive Mobile=50, Tablet=80}" Height="{Responsive Mobile=50, Tablet=80}" VerticalAlignment="Top"
+                            Margin="{Responsive Mobile='12,0,0,0', Tablet='24,0,0,0'}" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="6"
                             anim:Animate.MoveAndResize="Smooth">
                         <Path Fill="#239B6A" Stretch="Fill" Margin="6"
                               Data="M 50,0 L 61,35 L 98,35 L 68,57 L 79,91 L 50,70 L 21,91 L 32,57 L 2,35 L 39,35 Z" />
@@ -159,7 +161,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• The changes that start inside an element with MoveAndResize=None." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• Elements shown for the first time: they appear in their place, and only the others move. Effects for appearing and disappearing come with the next version." />
+                           Text="• Elements that appear, outside an area with ApplyTo=EverythingInside: they are in their place at once, and only the others move. Inside such an area they are revealed, as in the settings form of chapter 7. Effects of your own for appearing and disappearing come with the next version." />
             </StackPanel>
         </Border>
 

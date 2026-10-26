@@ -58,6 +58,16 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         public static void Run(string batch) => Interop.ExecuteJavaScriptVoidAsync("globalThis.osAnimations.run(" + batch + ")");
 
+        /// <summary>
+        /// Hides an element that just became visible until a batch wipes it in or releases it.
+        /// </summary>
+        public static void Hold(string id)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.hold(");
+            AppendString(sb, id);
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
         public static void WriteToConsole(string message)
         {
             Interop.ExecuteJavaScriptVoidAsync("console.log($0)", "[OpenSilver.Animations] " + message);

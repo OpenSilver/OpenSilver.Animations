@@ -61,6 +61,9 @@ namespace OpenSilver.Animations
         /// <summary>
         /// <see cref="AnimationScope.ThisElement"/> (the default) animates the moves and size changes of
         /// this element. <see cref="AnimationScope.EverythingInside"/> also animates every change inside it.
+        /// When settings are nested, the nearest one to the element where a change starts gives the
+        /// timing; a <see cref="AnimationScope.ThisElement"/> setting above it only counts if its
+        /// element moves or changes size in that change.
         /// </summary>
         public AnimationScope ApplyTo
         {

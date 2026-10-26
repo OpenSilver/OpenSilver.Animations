@@ -18,17 +18,17 @@
                            Xaml='// Jumps: the box has no setting&#10;ChangesBox.Width = 360;&#10;&#10;// Glides, with the default duration or the one you give&#10;Animate.Changes(() =&gt; ChangesBox.Width = 360);&#10;Animate.Changes(() =&gt; ChangesBox.Width = 360, AnimationTime.FromSeconds(0.6));'
                            Expectations="• Change it directly: the box and the label next to it jump.&#10;• Inside Animate.Changes: both glide.&#10;• With 0.6 s: they glide more slowly.">
             <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <Border x:Name="ChangesBox" Width="140" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0">
+                <StackPanel x:Name="ChangesRow" Orientation="Horizontal">
+                    <Border x:Name="ChangesBox" Width="{Responsive Mobile=110, Tablet=140}" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0">
                         <TextBlock Text="No setting" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </Border>
-                    <TextBlock Text="I follow the box" Style="{StaticResource BodyText}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                    <TextBlock x:Name="FollowerText" Text="{Responsive Mobile='I follow', Tablet='I follow the box'}" Style="{StaticResource BodyText}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                    <Button Content="Change it directly" Style="{StaticResource SecondaryButton}" Click="ChangeDirectly_Click" />
-                    <Button Content="Inside Animate.Changes" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ChangeAnimated_Click" />
-                    <Button Content="With 0.6 s" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ChangeSlowly_Click" />
-                </StackPanel>
+                <WrapPanel Margin="0,16,0,0">
+                    <Button Content="Change it directly" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeDirectly_Click" />
+                    <Button Content="Inside Animate.Changes" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeAnimated_Click" />
+                    <Button Content="With 0.6 s" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeSlowly_Click" />
+                </WrapPanel>
             </StackPanel>
         </controls:DemoCard>
 
@@ -37,10 +37,10 @@
                            Description="This panel has MoveAndResize=Smooth, so its changes animate. A change made inside Animate.Skip is simply there, for example when a saved layout is restored or a form is reset."
                            Xaml='// Glides: the panel has MoveAndResize=Smooth&#10;SkipPanel.Width = 400;&#10;&#10;// Instant&#10;Animate.Skip(() =&gt; SkipPanel.Width = 400);'
                            Expectations="• Change it: the panel glides.&#10;• Inside Animate.Skip: it jumps, although it has a setting.">
-            <StackPanel>
-                <Border x:Name="SkipPanel" Width="220" Height="56" CornerRadius="10" Background="{StaticResource DarkPanelBrush}" Padding="14,0" HorizontalAlignment="Left"
+            <StackPanel x:Name="SkipStage">
+                <Border x:Name="SkipPanel" Width="{Responsive Mobile=120, Tablet=220}" Height="56" CornerRadius="10" Background="{StaticResource DarkPanelBrush}" Padding="14,0" HorizontalAlignment="Left"
                         anim:Animate.MoveAndResize="Smooth">
-                    <TextBlock Text="MoveAndResize=Smooth" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Responsive Mobile=Smooth, Tablet='MoveAndResize=Smooth'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                     <Button Content="Change it" Style="{StaticResource SecondaryButton}" Click="SkipChange_Click" />
@@ -54,11 +54,11 @@
                            Description="AnimationSettings.Current applies to every animation of the application. Declare it in the resources of App.xaml, or change it from code at any time. Move the sliders, then try."
                            Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" DefaultDuration="0.3s" /&gt;&#10;&#10;// From code&#10;AnimationSettings.Current.Speed = 0.5;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.4);&#10;AnimationSettings.Current.IsEnabled = false;'
                            Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• These settings are reset when you leave this chapter.">
-            <StackPanel>
-                <Grid Width="560" HorizontalAlignment="Left">
+            <StackPanel x:Name="SettingsStage">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" MaxWidth="370" />
                         <ColumnDefinition Width="70" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -66,19 +66,19 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Speed" VerticalAlignment="Center" />
+                    <TextBlock Text="Speed" Style="{StaticResource SliderLabel}" />
                     <Slider x:Name="SpeedSlider" Grid.Column="1" Minimum="0.25" Maximum="2" Value="1" SmallChange="0.25" LargeChange="0.25" ValueChanged="Slider_ValueChanged" />
                     <TextBlock x:Name="SpeedText" Grid.Column="2" Text="1" VerticalAlignment="Center" Margin="12,0,0,0" />
-                    <TextBlock Grid.Row="1" Text="Default duration" VerticalAlignment="Center" Margin="0,8,0,0" />
+                    <TextBlock Grid.Row="1" Text="Default duration" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
                     <Slider x:Name="DurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.1" Maximum="1" Value="0.25" SmallChange="0.05" LargeChange="0.05" Margin="0,8,0,0" ValueChanged="Slider_ValueChanged" />
                     <TextBlock x:Name="DurationText" Grid.Row="1" Grid.Column="2" Text="0.25 s" VerticalAlignment="Center" Margin="12,8,0,0" />
                     <CheckBox x:Name="EnabledSwitch" Grid.Row="2" Grid.ColumnSpan="3" Content="Animations are on (IsEnabled)" Style="{StaticResource SwitchCheckBox}" IsChecked="True"
                               Margin="-8,8,0,0" HorizontalAlignment="Left" Checked="EnabledSwitch_Changed" Unchecked="EnabledSwitch_Changed" />
                 </Grid>
 
-                <Border x:Name="SettingsBox" Width="220" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0" HorizontalAlignment="Left" Margin="0,20,0,0"
+                <Border x:Name="SettingsBox" Width="{Responsive Mobile=120, Tablet=220}" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0" HorizontalAlignment="Left" Margin="0,20,0,0"
                         anim:Animate.MoveAndResize="Smooth">
-                    <TextBlock Text="MoveAndResize=Smooth" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Responsive Mobile=Smooth, Tablet='MoveAndResize=Smooth'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                     <Button Content="Try it" Style="{StaticResource PrimaryButton}" Click="TrySettings_Click" />
@@ -89,7 +89,7 @@
 
         <!-- 4. Logging and reduced motion -->
         <controls:DemoCard Title="Why did it animate, or not?"
-                           Description="The panel on the right lists the messages of the AnimationSettings.Logged event. Use it in your own app, or turn on LogForDebugging to write them to the browser console."
+                           Description="The What just happened log lists the messages of the AnimationSettings.Logged event. Use it in your own app, or turn on LogForDebugging to write them to the browser console."
                            Xaml='AnimationSettings.Logged += (sender, e) =&gt; Debug.WriteLine(e.Message);&#10;&#10;// Or, in the browser console&#10;AnimationSettings.Current.LogForDebugging = true;'>
             <TextBlock Style="{StaticResource BodyText}"
                        Text="Only the changes that involve a setting, or Animate.Changes, are explained, so the messages stay few and useful. When the window is resized, there is at most one message per second." />

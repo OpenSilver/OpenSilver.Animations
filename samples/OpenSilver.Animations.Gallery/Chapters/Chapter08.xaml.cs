@@ -2,13 +2,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
     public partial class Chapter08 : Page
     {
         private const int TileCount = 14;
-        private const double TileWidth = 150;
+
+        private static double TileWidth => WindowSize.IsPhone ? 120 : 150;
 
         private static readonly string[] Places =
         {
@@ -66,7 +68,8 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private static void Tile_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             var tile = (Border)sender;
-            tile.Width = tile.Width > TileWidth ? TileWidth : TileWidth * 2 + 12;
+            double width = TileWidth;
+            tile.Width = tile.Width > width ? width : width * 2 + 12;
         }
     }
 }

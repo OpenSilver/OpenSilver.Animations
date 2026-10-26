@@ -16,6 +16,11 @@
     const FLAG_RECTANGLE = 2;
     const FLAG_ELLIPSE = 4;
 
+    const FADE = 0;
+    const REVEAL_FROM_TOP = 1;
+    const REVEAL_FROM_LEFT = 2;
+    const REVEAL_FROM_BOTTOM = 3;
+
     const ORIGIN_COLOR = 'rgba(255, 145, 0, 0.95)';
     const MEMBER_COLOR = 'rgba(233, 30, 99, 0.85)';
 
@@ -28,6 +33,12 @@
 
     // Running layout animations, per element.
     const states = new WeakMap();
+
+    // Running wipes and fades of elements that appear, per element.
+    const reveals = new WeakMap();
+
+    // Elements that just became visible, hidden until their layout pass is done.
+    const holds = new WeakMap();
 
     function sampleAt(samples, p) {
         const n = samples.length - 1;
@@ -173,6 +184,57 @@
         }
     }
 
+    // The clip of a wipe from the given edge, p going from 0 (hidden) to 1 (fully shown).
+    function wipeAt(edge, p) {
+        const hidden = (Math.round((1 - Math.max(0, Math.min(1, p))) * 10000) / 100) + '%';
+        switch (edge) {
+            case REVEAL_FROM_TOP: return 'inset(0px 0px ' + hidden + ' 0px)';
+            case REVEAL_FROM_LEFT: return 'inset(0px ' + hidden + ' 0px 0px)';
+            case REVEAL_FROM_BOTTOM: return 'inset(' + hidden + ' 0px 0px 0px)';
+            default: return 'inset(0px 0px 0px ' + hidden + ')';
+        }
+    }
+
+    // Hidden for at most a second, in case no batch ever says what to do with the element.
+    function hold(id) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        release(element);
+        holds.set(element, element.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1000 }));
+    }
+
+    function release(element) {
+        const animation = holds.get(element);
+        if (animation) {
+            animation.cancel();
+            holds.delete(element);
+        }
+    }
+
+    // Wipes or fades in an element that appears, with the size curve, so that the revealed part
+    // keeps up with the elements it pushes.
+    function reveal(element, timing, delay, edge) {
+        release(element);
+        const previous = reveals.get(element);
+        if (previous) previous.cancel();
+
+        const curve = curveOf(timing, true);
+        const options = { duration: Math.max(1, timing.d), delay, fill: 'backwards', easing: curve.easing };
+        let animation;
+        if (edge === FADE) {
+            const opacity = parseFloat(getComputedStyle(element).opacity);
+            const target = isNaN(opacity) ? 1 : opacity;
+            animation = element.animate(lerpKeyframes(curve, (p) => ({ opacity: target * p })), options);
+        } else {
+            animation = element.animate(lerpKeyframes(curve, (p) => ({ clipPath: wipeAt(edge, p) })), options);
+        }
+
+        reveals.set(element, animation);
+        animation.addEventListener('finish', () => {
+            if (reveals.get(element) === animation) reveals.delete(element);
+        });
+    }
+
     function outline(element, duration, delay, isOrigin) {
         const color = isOrigin ? ORIGIN_COLOR : MEMBER_COLOR;
         const width = isOrigin ? '3px' : '2px';
@@ -200,10 +262,24 @@
             }
         }
 
+        if (batch.a) {
+            for (const a of batch.a) {
+                const element = document.getElementById(a[0]);
+                if (element) reveal(element, batch.t[a[1]], a[2], a[3]);
+            }
+        }
+
         if (batch.o) {
             for (const o of batch.o) {
                 const element = document.getElementById(o[0]);
                 if (element) outline(element, o[1], o[2], o[3] === 1);
+            }
+        }
+
+        if (batch.r) {
+            for (const id of batch.r) {
+                const element = document.getElementById(id);
+                if (element) release(element);
             }
         }
     }
@@ -249,5 +325,5 @@
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run });
+    globalThis.osAnimations = Object.freeze({ init, run, hold });
 })();

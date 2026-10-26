@@ -24,9 +24,11 @@ namespace OpenSilver.Animations.Engine
     /// being measured. A pass caused by resizing the browser window has no origins. The origins
     /// are grouped with the elements that moved because of them: a group goes up to the ancestors
     /// that were arranged again, then down to everything they arranged. Elements that follow the
-    /// window (AlsoOnWindowResize) form groups of their own that only go down. At the end of the
-    /// pass, each group animates or snaps as a whole, and all the animations of the pass are sent
-    /// to the browser in one batch, in the same flush as the layout writes.
+    /// window (AlsoOnWindowResize) form groups of their own that only go down. Groups never go
+    /// into or out of an element with MoveAndResize=None. At the end of the pass, each group
+    /// animates or snaps as a whole, with the elements that appeared inside an area wiping or
+    /// fading in, and all the animations of the pass are sent to the browser in one batch, in the
+    /// same flush as the layout writes.
     /// </remarks>
     internal sealed class LayoutAnimator : LayoutObserver
     {
@@ -56,6 +58,8 @@ namespace OpenSilver.Animations.Engine
         private readonly HashSet<UIElement> _measured = new HashSet<UIElement>();
         private readonly HashSet<UIElement> _carriers = new HashSet<UIElement>();
         private readonly HashSet<UIElement> _measureOrigins = new HashSet<UIElement>();
+        private readonly HashSet<UIElement> _shown = new HashSet<UIElement>();
+        private readonly HashSet<UIElement> _held = new HashSet<UIElement>();
         private readonly Dictionary<UIElement, bool> _scrollChecked = new Dictionary<UIElement, bool>();
         private readonly ConditionalWeakTable<UIElement, ScrollOffset> _scrollOffsets = new ConditionalWeakTable<UIElement, ScrollOffset>();
 
@@ -172,7 +176,7 @@ namespace OpenSilver.Animations.Engine
             int parent = _stack.Count > 0 ? _stack[_stack.Count - 1] : -1;
 
             // Everything inside an element that appears appears with it.
-            if (isFirstArrange && parent >= 0 && (_records[parent].Flags & RecordFlags.FirstArrange) != 0)
+            if (parent >= 0 && (_records[parent].Flags & RecordFlags.Appears) != 0)
             {
                 return;
             }
@@ -181,10 +185,19 @@ namespace OpenSilver.Animations.Engine
             ref Record record = ref _records[index];
             record.Parent = parent;
 
-            if (isFirstArrange)
+            // An element shown again still has the box it had before it was collapsed: it appears,
+            // like an element arranged for the first time, and the change starts in its parent.
+            bool shown = !isFirstArrange && _shown.Count > 0 && _shown.Contains(element);
+            if (isFirstArrange || shown)
             {
-                record.Flags |= RecordFlags.FirstArrange;
+                record.Flags |= RecordFlags.Appears;
                 _appeared[element] = _clock.ElapsedMilliseconds;
+
+                if (shown && parent >= 0 && _measureOrigins.Contains(element) && !IsWindowResizePass() &&
+                    (_records[parent].Flags & RecordFlags.Scrolled) == 0)
+                {
+                    _records[parent].Flags |= RecordFlags.Origin;
+                }
             }
             else if (element is IScrollInfo scrollInfo && IsScrolled(element, scrollInfo))
             {
@@ -239,15 +252,44 @@ namespace OpenSilver.Animations.Engine
 
             // Only changes go up to the containers. Following the window concerns the elements that
             // opted in and their content, even when they are arranged again later in the same pass.
+            // A change never goes into or out of an element with MoveAndResize=None, so that what
+            // it pushes around it snaps, even when another change in the same pass animates.
             if (record.Group != 0 && record.Parent >= 0 && _groups[Find(record.Group)].Kind == GroupKind.Change)
             {
                 ref Record parentRecord = ref _records[record.Parent];
-                parentRecord.Group = parentRecord.Group == 0 ? record.Group : Union(parentRecord.Group, record.Group);
+                if (!AnyAreas || (!HasNone(element) && !HasNone(parentRecord.Element)))
+                {
+                    parentRecord.Group = parentRecord.Group == 0 ? record.Group : Union(parentRecord.Group, record.Group);
+                }
             }
 
             if (_stack.Count == 0)
             {
                 EndArrangeSession();
+            }
+        }
+
+        protected override void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue)
+        {
+            if (newValue != Visibility.Visible)
+            {
+                if (_shown.Count > 0)
+                {
+                    _shown.Remove(element);
+                }
+                return;
+            }
+
+            _shown.Add(element);
+
+            // The browser shows the element at once, but it is only arranged in the next layout
+            // pass. Inside an area, it stays hidden until then, so that it never shows where it
+            // was before it was collapsed, nor before it is wiped in.
+            if (AnyAreas && !_held.Contains(element) && IsInsideArea(element) &&
+                Interop.GetDiv(element).Uid is string id && id.Length > 0)
+            {
+                _held.Add(element);
+                BrowserBridge.Hold(id);
             }
         }
 
@@ -268,6 +310,7 @@ namespace OpenSilver.Animations.Engine
 
             if (_recordCount == 0 && !_forced && !_skip)
             {
+                ReleaseHeld();
                 ClearMeasureState();
                 return;
             }
@@ -282,6 +325,7 @@ namespace OpenSilver.Animations.Engine
             }
             finally
             {
+                ReleaseHeld();
                 Reset();
             }
         }
@@ -409,8 +453,12 @@ namespace OpenSilver.Animations.Engine
             for (int i = 0; i < _recordCount; i++)
             {
                 ref Record record = ref _records[i];
-                if ((record.Flags & RecordFlags.FirstArrange) != 0)
+                if ((record.Flags & RecordFlags.Appears) != 0)
                 {
+                    if (AnyAreas && record.Parent >= 0)
+                    {
+                        AddAppearing(i);
+                    }
                     continue;
                 }
 
@@ -452,6 +500,12 @@ namespace OpenSilver.Animations.Engine
             {
                 batch.AddCancel(element);
             }
+
+            foreach (UIElement element in _held)
+            {
+                batch.AddRelease(element);
+            }
+            _held.Clear();
 
             if (!batch.IsEmpty)
             {
@@ -501,9 +555,32 @@ namespace OpenSilver.Animations.Engine
             return null;
         }
 
+        /// <summary>
+        /// An element that appears inside an area, without a MoveAndResize=None of its own, is
+        /// revealed with the change that makes room for it, if that change animates.
+        /// </summary>
+        private void AddAppearing(int index)
+        {
+            ref Record parent = ref _records[_records[index].Parent];
+            if (parent.Group == 0)
+            {
+                return;
+            }
+
+            int group = Find(parent.Group);
+            if (_groups[group].Kind != GroupKind.Change ||
+                GetArea(parent.Element).Movement == null ||
+                HasNone(_records[index].Element))
+            {
+                return;
+            }
+
+            GetBucket(group).Appearing.Add(index);
+        }
+
         private void ProcessGroup(int group, Bucket bucket, AnimationSettings settings, string snapReason, bool logging, long now, BatchBuilder batch)
         {
-            if (bucket.Members.Count == 0)
+            if (bucket.Members.Count == 0 && bucket.Appearing.Count == 0)
             {
                 return;
             }
@@ -583,7 +660,7 @@ namespace OpenSilver.Animations.Engine
                 }
                 else
                 {
-                    _messages.Add($"{Describe(bucket, firstOrigin, false)}; {ElementNames.Count(bucket.Animated.Count, "element animates", "elements animate together")} ({timing.Description}, from {source}).");
+                    _messages.Add($"{Describe(bucket, firstOrigin, false)}; {DescribeAnimated(bucket)} ({timing.Description}, from {source}).");
                 }
             }
         }
@@ -592,9 +669,9 @@ namespace OpenSilver.Animations.Engine
         /// Says whether a group with origins animates. Returns why not, or null when it animates.
         /// </summary>
         /// <remarks>
-        /// It animates when an origin has a setting, when it is inside an area, or when a member
-        /// has a setting. The timing comes from the first of: Animate.Changes, the setting of the
-        /// origin, its area, the nearest ancestor that is a member, the nearest member.
+        /// The nearest setting wins. The timing comes from the first of: Animate.Changes; going up
+        /// from an origin, its own setting, the first EverythingInside, or the first other setting
+        /// of an element that moves or changes size in this change; the nearest member.
         /// </remarks>
         private string Decide(int group, Bucket bucket, AnimationSettings settings, out Timing timing, out string source, out UIElement firstOrigin)
         {
@@ -612,10 +689,10 @@ namespace OpenSilver.Animations.Engine
             UIElement focusedTextInput = GetFocusedTextInput();
             string exclusion = null;
             UIElement eligible = null;
-            Movement originMovement = null;
-            UIElement originMovementElement = null;
-            Movement areaMovement = null;
-            UIElement areaElement = null;
+            Movement nearest = null;
+            UIElement nearestOwner = null;
+            UIElement nearestOrigin = null;
+            int nearestLevels = int.MaxValue;
 
             foreach (int index in bucket.Origins)
             {
@@ -645,7 +722,8 @@ namespace OpenSilver.Animations.Engine
                 Area area = GetArea(origin);
                 if (area.IsCarvedOut && !_forced)
                 {
-                    exclusion = "the change started inside an element with MoveAndResize=None";
+                    exclusion = "the change started " + (ReferenceEquals(origin, area.Element) ? "in " : "inside ") +
+                                ElementNames.Of(area.Element) + ", which has MoveAndResize=None";
                     continue;
                 }
 
@@ -654,16 +732,14 @@ namespace OpenSilver.Animations.Engine
                     eligible = origin;
                 }
 
-                if (originMovement == null && Animate.GetMoveAndResize(origin) is Movement own && !own.IsNone)
+                int levels = FindNearestMovement(origin, group, nearestLevels, out Movement movement, out UIElement owner);
+                if (movement != null &&
+                    (levels < nearestLevels || (IsTemplatePart(nearestOrigin) && !IsTemplatePart(origin))))
                 {
-                    originMovement = own;
-                    originMovementElement = origin;
-                }
-
-                if (areaMovement == null && area.Movement != null)
-                {
-                    areaMovement = area.Movement;
-                    areaElement = area.Element;
+                    nearest = movement;
+                    nearestOwner = owner;
+                    nearestOrigin = origin;
+                    nearestLevels = levels;
                 }
             }
 
@@ -673,7 +749,7 @@ namespace OpenSilver.Animations.Engine
                 return exclusion;
             }
 
-            firstOrigin = originMovementElement ?? eligible;
+            firstOrigin = nearestOrigin ?? eligible;
 
             if (_forced)
             {
@@ -682,31 +758,19 @@ namespace OpenSilver.Animations.Engine
                 return null;
             }
 
-            if (originMovement != null)
+            if (nearest != null)
             {
-                timing = Timing.FromMovement(originMovement, settings);
-                source = "the MoveAndResize of " + ElementNames.Of(originMovementElement);
+                timing = Timing.FromMovement(nearest, settings);
+                source = (nearest.ApplyTo == AnimationScope.EverythingInside && nearestOwner != nearestOrigin
+                    ? "the EverythingInside of "
+                    : "the MoveAndResize of ") + ElementNames.Of(nearestOwner);
                 return null;
             }
 
-            if (areaMovement != null)
-            {
-                timing = Timing.FromMovement(areaMovement, settings);
-                source = "the EverythingInside of " + ElementNames.Of(areaElement);
-                return null;
-            }
-
-            if (FindAncestorMovement(eligible, group, out UIElement owner) is Movement ancestorMovement)
-            {
-                timing = Timing.FromMovement(ancestorMovement, settings);
-                source = "the MoveAndResize of " + ElementNames.Of(owner);
-                return null;
-            }
-
-            if (FindNearestMemberMovement(bucket, eligible, out owner) is Movement memberMovement)
+            if (FindNearestMemberMovement(bucket, eligible, out UIElement memberOwner) is Movement memberMovement)
             {
                 timing = Timing.FromMovement(memberMovement, settings);
-                source = "the MoveAndResize of " + ElementNames.Of(owner);
+                source = "the MoveAndResize of " + ElementNames.Of(memberOwner);
                 return null;
             }
 
@@ -714,22 +778,45 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// The setting of the nearest ancestor that moved or changed size in this change. An
-        /// ancestor that stays in place doesn't count: its setting is about its own box.
+        /// The setting that gives its timing to a change that starts at the origin: its own, even
+        /// when its box stays the same, or else the nearest ancestor that has EverythingInside, or
+        /// another setting and moves or changes size in this change. An ancestor with another
+        /// setting that stays in place doesn't count: its setting is about its own box. Returns
+        /// how many levels up the setting is, looking at most <paramref name="maxLevels"/> up.
         /// </summary>
-        private Movement FindAncestorMovement(UIElement origin, int group, out UIElement owner)
+        private int FindNearestMovement(UIElement origin, int group, int maxLevels, out Movement movement, out UIElement owner)
         {
-            for (UIElement e = VisualTreeHelper.GetParent(origin) as UIElement; e != null; e = VisualTreeHelper.GetParent(e) as UIElement)
+            if (Animate.GetMoveAndResize(origin) is Movement own && !own.IsNone)
             {
-                if (Animate.GetMoveAndResize(e) is Movement m && !m.IsNone && IsMember(e, group))
+                movement = own;
+                owner = origin;
+                return 0;
+            }
+
+            int levels = 1;
+            for (UIElement e = VisualTreeHelper.GetParent(origin) as UIElement; e != null && levels <= maxLevels; e = VisualTreeHelper.GetParent(e) as UIElement, levels++)
+            {
+                if (Animate.GetMoveAndResize(e) is not Movement m)
                 {
+                    continue;
+                }
+
+                if (m.IsNone)
+                {
+                    break;
+                }
+
+                if (m.ApplyTo == AnimationScope.EverythingInside || IsMember(e, group))
+                {
+                    movement = m;
                     owner = e;
-                    return m;
+                    return levels;
                 }
             }
 
+            movement = null;
             owner = null;
-            return null;
+            return int.MaxValue;
         }
 
         private bool IsMember(UIElement element, int group)
@@ -740,7 +827,7 @@ namespace OpenSilver.Animations.Engine
             }
 
             ref Record record = ref _records[index];
-            return record.Group != 0 && (record.Flags & RecordFlags.FirstArrange) == 0 && Find(record.Group) == group && IsChanged(ref record);
+            return record.Group != 0 && (record.Flags & RecordFlags.Appears) == 0 && Find(record.Group) == group && IsChanged(ref record);
         }
 
         /// <summary>
@@ -812,7 +899,8 @@ namespace OpenSilver.Animations.Engine
 
             foreach (int index in bucket.Origins)
             {
-                if (GetEffectiveMovement(_records[index].Element) != null)
+                UIElement origin = _records[index].Element;
+                if (GetEffectiveMovement(origin) != null || GetArea(origin).IsCarvedOut)
                 {
                     return true;
                 }
@@ -862,6 +950,23 @@ namespace OpenSilver.Animations.Engine
             return ElementNames.Of(origin) + " " + what;
         }
 
+        private string DescribeAnimated(Bucket bucket)
+        {
+            string moved = ElementNames.Count(bucket.Animated.Count, "element animates", "elements animate together");
+            int revealed = bucket.Wipes + bucket.Fades;
+            if (revealed == 0)
+            {
+                return moved;
+            }
+
+            string how = bucket.Fades == 0 ? "wipe" : bucket.Wipes == 0 ? "fade" : "wipe or fade";
+            string appeared = revealed == 1
+                ? ElementNames.Of(_records[bucket.Revealed[0]].Element) + " " + how + "s in"
+                : revealed + " elements " + how + " in";
+
+            return bucket.Animated.Count == 0 ? appeared : moved + ", and " + appeared;
+        }
+
         #endregion
 
         #region Areas and settings
@@ -896,7 +1001,7 @@ namespace OpenSilver.Animations.Engine
             {
                 if (own.IsNone)
                 {
-                    area = new Area { IsCarvedOut = true };
+                    area = new Area { IsCarvedOut = true, Element = element };
                 }
                 else if (own.ApplyTo == AnimationScope.EverythingInside)
                 {
@@ -914,6 +1019,59 @@ namespace OpenSilver.Animations.Engine
 
             _areaCache[element] = area;
             return area;
+        }
+
+        private static bool HasNone(UIElement element)
+            => Animate.GetMoveAndResize(element) is Movement own && own.IsNone;
+
+        /// <summary>
+        /// Says whether an element would be revealed when it appears. Called outside the layout
+        /// passes, so nothing is memoized.
+        /// </summary>
+        private static bool IsInsideArea(UIElement element)
+        {
+            if (HasNone(element))
+            {
+                return false;
+            }
+
+            for (UIElement e = VisualTreeHelper.GetParent(element) as UIElement; e != null; e = VisualTreeHelper.GetParent(e) as UIElement)
+            {
+                if (Animate.GetMoveAndResize(e) is Movement movement)
+                {
+                    if (movement.IsNone)
+                    {
+                        return false;
+                    }
+
+                    if (movement.ApplyTo == AnimationScope.EverythingInside)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Shows the elements hidden since they became visible that were not wiped or faded in.
+        /// </summary>
+        private void ReleaseHeld()
+        {
+            if (_held.Count == 0)
+            {
+                return;
+            }
+
+            var batch = new BatchBuilder();
+            foreach (UIElement element in _held)
+            {
+                batch.AddRelease(element);
+            }
+            _held.Clear();
+
+            BrowserBridge.Run(batch.ToJson());
         }
 
         private static UIElement GetFocusedTextInput()
@@ -1038,6 +1196,7 @@ namespace OpenSilver.Animations.Engine
         private int CullAndCount(Bucket bucket)
         {
             bucket.Animated.Clear();
+            bucket.Revealed.Clear();
             Rect viewport = GetViewport();
 
             foreach (int index in bucket.Members)
@@ -1057,7 +1216,21 @@ namespace OpenSilver.Animations.Engine
                 bucket.Animated.Add(index);
             }
 
-            return bucket.Animated.Count;
+            foreach (int index in bucket.Appearing)
+            {
+                if (!viewport.IsEmpty)
+                {
+                    EnsureAbsolute(index);
+                    if (!new Rect(_absNew[index], _records[index].NewRect.Size).IntersectsWith(viewport))
+                    {
+                        continue;
+                    }
+                }
+
+                bucket.Revealed.Add(index);
+            }
+
+            return bucket.Animated.Count + bucket.Revealed.Count;
         }
 
         private void Emit(Bucket bucket, Timing timing, UIElement origin, AnimationSettings settings, long now, BatchBuilder batch)
@@ -1116,6 +1289,36 @@ namespace OpenSilver.Animations.Engine
                 }
             }
 
+            bucket.Wipes = bucket.Fades = 0;
+            foreach (int index in bucket.Revealed)
+            {
+                string id = Interop.GetDiv(_records[index].Element).Uid;
+                if (string.IsNullOrEmpty(id))
+                {
+                    continue;
+                }
+
+                int edge = GetRevealEdge(index, out int pusher);
+                double delay = wave && pusher >= 0 && _memberStamp[pusher] == _waveStamp
+                    ? GetWaveDelay(pusher, originIndex, timing.Wave) / settings.Speed
+                    : 0;
+
+                batch.AddReveal(id, timingIndex, delay, edge);
+                if (edge == BatchBuilder.Fade)
+                {
+                    bucket.Fades++;
+                }
+                else
+                {
+                    bucket.Wipes++;
+                }
+
+                if (settings.ShowWhatAnimates)
+                {
+                    batch.AddOutline(id, timing.DurationMs, delay, false);
+                }
+            }
+
             if (settings.ShowWhatAnimates)
             {
                 foreach (int index in bucket.Origins)
@@ -1165,6 +1368,62 @@ namespace OpenSilver.Animations.Engine
             return _delays[index] = delay;
         }
 
+        /// <summary>
+        /// The edge an appearing element is revealed from: the side it pushes the elements next to
+        /// it away from, or its top or left edge when it makes its container grow. When it pushes
+        /// nothing, it fades in. <paramref name="pusher"/> is the element whose move it follows.
+        /// </summary>
+        private int GetRevealEdge(int index, out int pusher)
+        {
+            int parent = _records[index].Parent;
+            int edge = BatchBuilder.Fade;
+            double farthest = 0.5;
+            pusher = -1;
+
+            for (int i = 0; i < _recordCount; i++)
+            {
+                ref Record sibling = ref _records[i];
+                if (sibling.Parent != parent || i == index || (sibling.Flags & RecordFlags.Appears) != 0 || !IsChanged(ref sibling))
+                {
+                    continue;
+                }
+
+                double dx = sibling.NewRect.X - sibling.OldRect.X;
+                double dy = sibling.NewRect.Y - sibling.OldRect.Y;
+                if (Math.Abs(dy) > farthest)
+                {
+                    farthest = Math.Abs(dy);
+                    edge = dy > 0 ? BatchBuilder.RevealFromTop : BatchBuilder.RevealFromBottom;
+                    pusher = i;
+                }
+                if (Math.Abs(dx) > farthest)
+                {
+                    farthest = Math.Abs(dx);
+                    edge = dx > 0 ? BatchBuilder.RevealFromLeft : BatchBuilder.RevealFromRight;
+                    pusher = i;
+                }
+            }
+
+            if (edge == BatchBuilder.Fade && IsChanged(ref _records[parent]))
+            {
+                ref Record container = ref _records[parent];
+                double grewHeight = container.NewRect.Height - container.OldRect.Height;
+                double grewWidth = container.NewRect.Width - container.OldRect.Width;
+                if (grewHeight > 0.5 && grewHeight >= grewWidth)
+                {
+                    edge = BatchBuilder.RevealFromTop;
+                    pusher = parent;
+                }
+                else if (grewWidth > 0.5)
+                {
+                    edge = BatchBuilder.RevealFromLeft;
+                    pusher = parent;
+                }
+            }
+
+            return edge;
+        }
+
         private static int GetFlags(UIElement element, ref Record record)
         {
             bool resized = !AreClose(record.OldRect.Width, record.NewRect.Width) || !AreClose(record.OldRect.Height, record.NewRect.Height);
@@ -1174,7 +1433,7 @@ namespace OpenSilver.Animations.Engine
             }
 
             int flags = 0;
-            if (VisualTreeHelper.GetClip(element) is RectangleGeometry clip && clip.Transform == null)
+            if (VisualTreeHelper.GetClip(element) is RectangleGeometry clip && (clip.Transform is null || clip.Transform.Value.IsIdentity))
             {
                 Rect r = clip.Rect;
                 if (Math.Abs(r.X) < 0.5 && Math.Abs(r.Y) < 0.5 &&
@@ -1411,6 +1670,7 @@ namespace OpenSilver.Animations.Engine
             if (_measured.Count > 0) _measured.Clear();
             if (_carriers.Count > 0) _carriers.Clear();
             if (_measureOrigins.Count > 0) _measureOrigins.Clear();
+            if (_shown.Count > 0) _shown.Clear();
             if (_scrollChecked.Count > 0) _scrollChecked.Clear();
             _windowChecked = false;
         }
@@ -1449,7 +1709,7 @@ namespace OpenSilver.Animations.Engine
         {
             None = 0,
             HasRects = 1,
-            FirstArrange = 2,
+            Appears = 2,
             Origin = 4,
             Scrolled = 8,
             NotRendered = 16,
@@ -1498,12 +1758,19 @@ namespace OpenSilver.Animations.Engine
             public readonly List<int> Origins = new List<int>();
             public readonly List<int> Members = new List<int>();
             public readonly List<int> Animated = new List<int>();
+            public readonly List<int> Appearing = new List<int>();
+            public readonly List<int> Revealed = new List<int>();
+            public int Wipes;
+            public int Fades;
 
             public void Clear()
             {
                 Origins.Clear();
                 Members.Clear();
                 Animated.Clear();
+                Appearing.Clear();
+                Revealed.Clear();
+                Wipes = Fades = 0;
             }
         }
 

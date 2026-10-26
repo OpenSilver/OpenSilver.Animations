@@ -20,15 +20,17 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
             for (int i = 0; i < BarCount; i++)
             {
-                Bars.Children.Add(new Border
+                Bars.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                var bar = new Border
                 {
-                    Width = 22,
-                    Margin = new Thickness(0, 0, 10, 0),
+                    Margin = new Thickness(0, 0, i < BarCount - 1 ? 8 : 0, 0),
                     CornerRadius = new CornerRadius(4, 4, 0, 0),
                     Background = BarBrush,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Height = NextBarHeight(),
-                });
+                };
+                Grid.SetColumn(bar, i);
+                Bars.Children.Add(bar);
             }
 
             ApplyColumns();

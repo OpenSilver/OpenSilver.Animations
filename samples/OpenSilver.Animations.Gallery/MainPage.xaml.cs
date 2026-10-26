@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Navigation;
 using OpenSilver.Animations.Gallery.Shell;
 
@@ -10,12 +11,26 @@ namespace OpenSilver.Animations.Gallery
     /// <summary>
     /// The shell of the tour: the toolbar, the chapters, the chapter page and the log.
     /// </summary>
+    /// <remarks>
+    /// On a desktop the chapters and the log are columns beside the page. On a tablet the log
+    /// becomes a drawer opened from the top bar, and on a phone the chapters and the options
+    /// become a drawer too. The breakpoints are <see cref="ResponsiveThreshold.Default"/>.
+    /// </remarks>
     public partial class MainPage : UserControl
     {
         private const int MaxLogEntries = 40;
         private const double SlowMotionSpeed = 0.25;
+        private const double ChaptersWidth = 272;
+        private const double LogWidth = 320;
+        private const double MenuWidth = 300;
+        private const double MenuGap = 48;
 
         private readonly ObservableCollection<LogEntry> _log = new ObservableCollection<LogEntry>();
+
+        private bool _isPhone;
+        private bool _isLogBeside = true;
+        private bool _isMenuOpen;
+        private bool _isLogOpen;
 
         public MainPage()
         {
@@ -27,7 +42,6 @@ namespace OpenSilver.Animations.Gallery
             Toolbar.DataContext = AnimationSettings.Current;
 
             AnimationSettings.Logged += OnLogged;
-            Loaded += OnLoaded;
         }
 
         public static MainPage Current { get; private set; }
@@ -40,14 +54,6 @@ namespace OpenSilver.Animations.Gallery
             }
         }
 
-        private void OnLoaded(object sender, RoutedEventArgs e)
-        {
-            if (ContentFrame.Source == null || string.IsNullOrEmpty(ContentFrame.Source.OriginalString))
-            {
-                ContentFrame.Navigate(new Uri("/", UriKind.Relative));
-            }
-        }
-
         private void OnLogged(object sender, AnimationLoggedEventArgs e)
         {
             _log.Insert(0, new LogEntry(e.Message, e.Time));
@@ -57,6 +63,10 @@ namespace OpenSilver.Animations.Gallery
             }
 
             EmptyLogText.Visibility = Visibility.Collapsed;
+            if (!_isLogBeside && !_isLogOpen)
+            {
+                UnreadDot.Visibility = Visibility.Visible;
+            }
         }
 
         private void ClearLog_Click(object sender, RoutedEventArgs e)
@@ -79,6 +89,8 @@ namespace OpenSilver.Animations.Gallery
             }
 
             PageScroller.ScrollToVerticalOffset(0);
+            _isMenuOpen = false;
+            UpdateDrawers();
         }
 
         /// <summary>
@@ -94,6 +106,85 @@ namespace OpenSilver.Animations.Gallery
         private void ReplayPage_Click(object sender, RoutedEventArgs e)
         {
             ContentFrame.Refresh();
+        }
+
+        private void MainPage_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateLayoutForWidth(e.NewSize.Width);
+
+        private void UpdateLayoutForWidth(double width)
+        {
+            ResponsiveThreshold threshold = ResponsiveThreshold.Default;
+            _isPhone = WindowSize.Width < threshold.Mobile;
+            _isLogBeside = WindowSize.Width >= threshold.Tablet;
+            if (!_isPhone)
+            {
+                _isMenuOpen = false;
+            }
+            if (_isLogBeside)
+            {
+                _isLogOpen = false;
+            }
+
+            ChaptersColumn.Width = new GridLength(_isPhone ? 0 : ChaptersWidth);
+            Grid.SetColumnSpan(ChaptersPanel, _isPhone ? 3 : 1);
+            ChaptersPanel.HorizontalAlignment = _isPhone ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+            ChaptersPanel.Width = _isPhone ? Math.Min(MenuWidth, width - MenuGap) : double.NaN;
+            DrawerOptions.Visibility = _isPhone ? Visibility.Visible : Visibility.Collapsed;
+            MoveToolbar(_isPhone ? DrawerOptions : ToolbarHost);
+
+            LogColumn.Width = new GridLength(_isLogBeside ? LogWidth : 0);
+            Grid.SetColumn(LogPanel, _isLogBeside ? 2 : 0);
+            Grid.SetColumnSpan(LogPanel, _isLogBeside ? 1 : 3);
+            LogPanel.HorizontalAlignment = _isLogBeside ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
+            LogPanel.Width = _isLogBeside ? double.NaN : Math.Min(LogWidth, width);
+
+            UpdateDrawers();
+        }
+
+        private void MoveToolbar(Panel host)
+        {
+            if (Toolbar.Parent is Panel parent && parent != host)
+            {
+                parent.Children.Remove(Toolbar);
+                host.Children.Add(Toolbar);
+            }
+        }
+
+        private void UpdateDrawers()
+        {
+            ChaptersPanel.Visibility = !_isPhone || _isMenuOpen ? Visibility.Visible : Visibility.Collapsed;
+            LogPanel.Visibility = _isLogBeside || _isLogOpen ? Visibility.Visible : Visibility.Collapsed;
+            Scrim.Visibility = _isMenuOpen || _isLogOpen ? Visibility.Visible : Visibility.Collapsed;
+            if (_isLogBeside || _isLogOpen)
+            {
+                UnreadDot.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void MenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isMenuOpen = !_isMenuOpen;
+            _isLogOpen = false;
+            UpdateDrawers();
+        }
+
+        private void LogButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isLogOpen = !_isLogOpen;
+            _isMenuOpen = false;
+            UpdateDrawers();
+        }
+
+        private void CloseLog_Click(object sender, RoutedEventArgs e)
+        {
+            _isLogOpen = false;
+            UpdateDrawers();
+        }
+
+        private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _isMenuOpen = false;
+            _isLogOpen = false;
+            UpdateDrawers();
         }
     }
 }

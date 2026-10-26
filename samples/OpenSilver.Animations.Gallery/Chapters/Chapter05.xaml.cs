@@ -3,33 +3,23 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
     public partial class Chapter05 : Page
     {
+        private const double CollapsedSidebarWidth = 64;
+        private const double FocusedSearchWidth = 320;
+
         private static readonly int[] BadgeCounts = { 3, 12, 128 };
-        private static bool _outlinesShown;
 
         private int _badgeIndex;
         private bool _saving;
+        private bool _sidebarCollapsed;
 
         public Chapter05()
         {
             InitializeComponent();
-        }
-
-        protected override void OnNavigatedTo(NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
-
-            // This chapter explains what moves together, so the outlines are on the first time.
-            if (!_outlinesShown)
-            {
-                _outlinesShown = true;
-                AnimationSettings.Current.ShowWhatAnimates = true;
-            }
         }
 
         private async void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -56,9 +46,16 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void SidebarButton_Click(object sender, RoutedEventArgs e)
         {
-            bool collapse = DemoSidebar.Width > 100;
-            DemoSidebar.Width = collapse ? 64 : 240;
-            SidebarButton.Content = collapse ? "Expand the sidebar" : "Collapse the sidebar";
+            _sidebarCollapsed = !_sidebarCollapsed;
+            if (_sidebarCollapsed)
+            {
+                DemoSidebar.Width = CollapsedSidebarWidth;
+            }
+            else
+            {
+                DemoSidebar.ClearValue(WidthProperty);
+            }
+            SidebarButton.Content = _sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar";
         }
 
         private void OpenDialog_Click(object sender, RoutedEventArgs e)
@@ -80,8 +77,12 @@ namespace OpenSilver.Animations.Gallery.Chapters
             }
         }
 
-        private void SearchBox_GotFocus(object sender, RoutedEventArgs e) => SearchBox.Width = 320;
+        private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            double room = SearchRow.ActualWidth - FiltersButton.ActualWidth - SortButton.ActualWidth - 16;
+            SearchBox.Width = Math.Max(SearchBox.ActualWidth, Math.Min(FocusedSearchWidth, room));
+        }
 
-        private void SearchBox_LostFocus(object sender, RoutedEventArgs e) => SearchBox.Width = 180;
+        private void SearchBox_LostFocus(object sender, RoutedEventArgs e) => SearchBox.ClearValue(WidthProperty);
     }
 }
