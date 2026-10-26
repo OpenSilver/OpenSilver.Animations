@@ -82,6 +82,10 @@ namespace OpenSilver.Animations
         /// Also animates when the change comes from resizing the browser window. The default is false,
         /// because following a window edge with a delay can feel laggy.
         /// </summary>
+        /// <remarks>
+        /// A {Responsive} value that switches when the window, or the element it watches, crosses a
+        /// breakpoint animates without it, like a click.
+        /// </remarks>
         public bool AlsoOnWindowResize { get; set; }
 
         internal abstract string PresetName { get; }

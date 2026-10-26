@@ -45,6 +45,7 @@ public abstract class LayoutObserver
     protected internal virtual void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered) { }
     protected internal virtual void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue) { }
     protected internal virtual void OnDetaching(UIElement child, UIElement parent) { }
+    protected internal virtual void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property) { }
     protected internal virtual void OnLayoutPassCompleted() { }
 }
 ```
@@ -55,6 +56,7 @@ Call sites, each a guarded one-liner:
 - [UIElement.cs](src/Runtime/Runtime/System.Windows/UIElement.cs), `OnVisibilityChanged`: at the very end, after `UpdateIsVisibleCache()`. The library may re-enter here, and an earlier call would let the outer callback overwrite the caches with a stale value.
 - [INTERNAL_VisualTreeManager.cs](src/Runtime/Runtime/Core/Rendering/INTERNAL_VisualTreeManager.cs), `DetachVisualChildIfNotNull`: before `InternalDetachVisual(child)`. The DOM still exists at that point: `RemoveFromDom` either queues the removal to `ProcessRenderQueue` or appends it to the same JS buffer, so it always runs after the library's clone call.
 - [LayoutManager.cs](src/Runtime/Runtime/System.Windows/LayoutManager.cs), the `finally` block of `UpdateLayout`: before `UIRenderer.ProcessRenderQueue(true)`. The library's JS goes into the same flush.
+- [ResponsiveExpression.cs](src/Runtime/Runtime/System.Windows/ResponsiveExpression.cs), `OnSourceElementSizeChanged`: after the expression is applied again, when it had a value and the new one differs. It passes the mentor (the element, or the owner of a ColumnDefinition, for example), the target and the property. This runs in the `SizeChanged` of the watched element, inside `UpdateLayout`, between two layout rounds.
 
 Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The library only records data there; anything that needs the dispatcher is posted with `BeginInvoke`.
 
@@ -179,6 +181,7 @@ Animate.Skip(() => LoadInitialData());
   - **AlsoOnWindowResize.** Normally, changes caused by resizing the browser window never animate, because animating a whole page while its edge is dragged feels laggy.
     - With this flag, only the elements that opted in animate, together with their content; everything else snaps to the new size, and brief overlaps are accepted.
     - Each resize event retargets from the current on-screen position, so elements keep following the window edge.
+    - A `{Responsive}` value that switches when the window, or the element it watches, crosses a breakpoint animates without this flag, like a click (see "Window resizes" in "When things animate").
 - **Items** (Panel or ItemsControl). Items are the containers of an ItemsControl, or the children of a Panel. Setting the properties on the items panel inside an ItemsControl's template also works.
   - `Animate.ItemAppear` and `Animate.ItemDisappear`: the same presets and parameters as Appear/Disappear, except the text ones. `OnPageOpen` accepts `InPlace` or `Skip`.
   - `Animate.ItemMoveAndResize`: `Smooth`, `Bouncy` or `None`, with the same parameters as `MoveAndResize` except `ApplyTo`. Each item moves and resizes smoothly, including when the list is re-sorted, filtered or refreshed.
@@ -503,7 +506,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
    - a streaming chat;
    - a virtualized list where scrolling plays no effects.
 7. **Everything inside.** `ApplyTo=EverythingInside` on a settings form; a nested `None` that carves out a chart; the area outline; the popup boundary. Demo: a responsive layout that switches from 2 columns to 1 with a button.
-8. **Following the browser window.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window".
+8. **When the window or a panel is resized.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window". A profile panel resized with a GridSplitter, whose content switches layout with `{Responsive ElementName=...}` while it's dragged. Cards that switch from a row to a column with the window.
 9. **Text that moves.** Typewriter, Roll on a counter, Count up, Scramble and Retype, plus a live clock.
 10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
 11. **Magic move.** A segmented control with a selection pill, a tab underline, a list-to-detail photo, and a wizard with `MagicMoveByName`.
@@ -512,7 +515,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
     - scrolling;
     - dragging a GridSplitter or a Slider;
     - typing;
-    - window resizing.
+    - window resizing, except the values that switch with `{Responsive}` (the shapes switch size at 960 px).
 
     Also the performance budget, and the known limitations shown live (text re-wrapping, `Path` shapes).
 14. **Putting it together.** A link to the Showcase port as the real-world example.
@@ -553,6 +556,7 @@ Each line is what the developer sets, and what must happen.
 - **WrapPanel of tiles that re-flow when the browser window is resized:** `ItemMoveAndResize` Smooth with `AlsoOnWindowResize=True` on the WrapPanel. Tiles glide to their new rows while the edge is dragged; the rest of the page snaps.
 - **Accordion that expands its content only after the space has opened:** `Appear` Fade with `OthersMove=Before`.
 - **Responsive page** (breakpoint switches from 2 columns to 1): `MoveAndResize` Smooth with `ApplyTo=EverythingInside` on the page root. The rearrangement animates; the window resize itself doesn't.
+- **A side panel whose content switches layout while its edge is dragged:** `Orientation="{Responsive ElementName=Panel, Threshold=220, ...}"` on its content, and `ApplyTo=EverythingInside` on the panel. The edge follows the pointer; at the breakpoint, the content glides into its new layout while the drag goes on.
 - **Settings form with toggles that show sub-options:** `ApplyTo=EverythingInside` on the form.
 - **Page intro:** `Appear` with `StartAfter` on each element; the subtitle has `OnPageOpen=PushOthers`; the title uses `Typewriter`.
 - **Selection pill across radio buttons:** `MagicMove=SelectionPill` on the template background. Travel is automatic, and resolves to Behind, whichever direction it travels.
@@ -567,6 +571,7 @@ Each line is what the developer sets, and what must happen.
     - Implementation: when a child reports "same available size, desired size changed", its layout parent goes into a per-pass set. An element in that set isn't an origin.
   - An element re-arranged with an unchanged final rect because something inside it invalidated its arrange (for example Canvas.Left, or an alignment change).
   - An element appearing or disappearing.
+  - An element where a `{Responsive}` value switched, and its parent.
 - **Collecting.** During arrange the library keeps a stack and records, for each re-arranged element, its old and new rectangles (relative and absolute) and its origin.
   - The old rectangle is the one before the first change in this `UpdateLayout` call, so changes made in `SizeChanged` handlers (second loop) animate from what was on screen.
   - An element is affected if it's on the origin's ancestor chain, or if its parent is affected and its slot changed.
@@ -595,10 +600,11 @@ Each line is what the developer sets, and what must happen.
   - **Window resizes** (new constraints on the roots), except for the elements that set `AlsoOnWindowResize` and their content. The rest of that group snaps.
     - A pass is a window-resize pass when `Application.Current.Host.Content` has a different size than at the previous pass. Such a pass has no origins at all: scroll bar parts and other elements that measure again would otherwise look like changes, and their group would climb to the root and take the whole page with it.
     - Groups that follow the window never join their containers, even when an element is arranged again later in the same pass.
+    - **`{Responsive}` switches** are the exception, in a window resize and during a drag. A switch is a change, like a click: what was arranged before it follows the resize, and the rest of the pass only has the switches as origins. Their groups take their timing from the settings found going up from them, and only what is inside these settings animates; the rest snaps with the resize. While the resize goes on, their animations go on too, and follow the new sizes.
   - **Settling after appearing.** For 0.5 s after an element is first arranged (a page, a dialog, new items), changes that start inside it snap silently: scroll bars showing up, fonts and images loading.
   - **Scroll chrome.** Changes that start in a scroll bar or in a part of a scroll viewer's template snap silently; they're consequences of a content change.
   - **Scrolling.** An arrange-only change of an `IScrollInfo` whose offset changed (OpenSilver scrolls by arranging, through `ScrollContentPresenter`). Items that virtualization realizes or removes in that pass get no effects either.
-  - **Dragging.** A dragging state is on while a pointer button is held and the pointer has moved more than 4 px. A small JS pointer tracker notifies C# only when a drag starts and ends. During a drag, everything snaps except list items that move because the list order changed (drag-to-reorder). The element holding the mouse capture, and everything inside it, always snaps.
+  - **Dragging.** A dragging state is on while a pointer button is held and the pointer has moved more than 4 px. A small JS pointer tracker notifies C# only when a drag starts and ends. During a drag, everything snaps except list items that move because the list order changed (drag-to-reorder), and `{Responsive}` switches. The element holding the mouse capture, and everything inside it, always snaps.
   - **Typing.** Changes that start inside the content of the focused text box (`FocusManager.GetFocusedElement()`). The text box's own Width and similar properties still animate.
   - Reduced motion (see the API), design mode, `AnimationSettings.IsEnabled = false`, `Animate.Skip`, and origins under `MoveAndResize=None`.
 - **Performance:**
@@ -615,7 +621,7 @@ Each line is what the developer sets, and what must happen.
   - Size animates `width` and `height`.
   - The core's inline `left/top/width/height` are already the final values and show when the animation ends.
   - Start delays use `fill: 'backwards'`.
-- **One JS call per pass**, addressing elements by `Interop.GetDiv(e).Uid`, with a shared start time. It goes into the same flush as the core's arrange writes. The core removes `uielement-unarranged` in `osjs.arrange`, earlier in the same batch.
+- **One JS call per pass**, addressing elements by `Interop.GetDiv(e).Uid`, with a shared start time: the next frame, not the time of the frame the call runs in, which can be long gone after a big layout pass. It goes into the same flush as the core's arrange writes. The core removes `uielement-unarranged` in `osjs.arrange`, earlier in the same batch.
 - **Curves.** They're passed as CSS `linear()`. On browsers without it, the curve is baked into keyframe offsets.
 - **Containment guarantee.** All elements of a group share start time, duration and curve, and every edge is interpolated with the same progress value. Being inside the parent is a set of linear inequalities, so a child that is inside its parent before and after stays inside at every frame.
   - For layouts that are linear in the parent size (stretch, alignment, margins, star columns without Min/Max), the in-between frames equal the real layout at that size.

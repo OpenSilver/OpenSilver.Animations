@@ -131,7 +131,7 @@ for (const k of ['log', 'warn', 'error']) {
 }
 ```
 
-**Pointer capture for synthetic events.** OpenSilver captures the pointer with `setPointerCapture`, which throws for untrusted events. This patch fakes capture, for tests only. With it, a Slider thumb drag worked once. The GridSplitter (through `DragValidator`) never captured with synthetic events, so it needs a manual check.
+**Pointer capture for synthetic events.** OpenSilver captures the pointer with `setPointerCapture`, which throws for untrusted events. This patch fakes capture, for tests only. With it, a Slider thumb drag worked once. For a GridSplitter, use the patch of "Dragging a GridSplitter" below instead.
 
 ```js
 (() => {
@@ -271,6 +271,33 @@ __t.overflow = () => [...document.querySelectorAll('.opensilver-uielement')].fil
 
 The menu button is at about (22, 28): `__t.tapAt(22, 28)` opens the drawer.
 
+### Dragging a GridSplitter
+
+This drove the profile panel of chapter 8 across its `{Responsive}` breakpoint. The capture patch keeps the real capture when it works, and raises `lostpointercapture` on release, which OpenSilver needs to end the drag:
+
+```js
+const P = Element.prototype;
+const set = P.setPointerCapture, has = P.hasPointerCapture, rel = P.releasePointerCapture;
+P.setPointerCapture = function (id) { try { set.call(this, id); } catch { this.__cap = id; } };
+P.hasPointerCapture = function (id) { return this.__cap === id || has.call(this, id); };
+P.releasePointerCapture = function (id) {
+  if (this.__cap === id) { this.__cap = undefined; this.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: id, bubbles: true })); return; }
+  try { rel.call(this, id); } catch {}
+};
+```
+
+Then dispatch every event on the splitter's div (`[class*="GridSplitter"]`, Debug builds only), with the same `pointerId`:
+
+1. `pointerover`, then `pointerdown` and `mousedown` with `button: 0, buttons: 1`.
+2. One `pointermove` per animation frame (`await` a `requestAnimationFrame` between them), with `button: -1, buttons: 1` and a growing `clientX`. Record positions in the same loop.
+3. `pointerup` and `mouseup` with `buttons: 0`.
+
+### Recording frames and batches
+
+- **Frames.** A `requestAnimationFrame` loop that pushes `[time, rects..., animation count]` into a `window` array, stopped by time rather than by a number of frames, so that it's still running when the next tool call resizes the window. Keep only the frames that differ from the previous one before returning them.
+- **Batches.** `globalThis.osAnimations` is frozen, but the global itself can be replaced by a wrapper whose `run` records the batch, then calls the real one. That's how the shapes of chapter 13 turned out to be animated, but ended before they were painted (see "Start time" in [architecture.md](architecture.md)).
+- **Messages below 1280 px.** The log is then a closed drawer, and new entries only show in the DOM once it is opened. Open it with the Log button, or test messages at 1280 px or more.
+
 ### Testing pitfalls
 
 - **The log column in the DOM.** New entries are inserted at the top on screen, but their DOM nodes are appended (see "DOM order" in [architecture.md](architecture.md)). Read it with `panel()`, which sorts by position, not with `innerText`.
@@ -278,4 +305,6 @@ The menu button is at about (22, 28): `__t.tapAt(22, 28)` opens the drawer.
 - **Type-name classes** such as `[class*="Controls.Slider"]` exist only in Debug builds of the gallery.
 - **Interrupting an animation** in a Debug build can look like a jump. Measure it with `sample` before concluding: in chapter 5, the dialog's second animation started from 556.7 px, exactly where the first one was.
 - **The emulated window size** sometimes survives a reload. Clear it at the end.
+- **Stuck at 99% after a rebuild.** The browser can keep a broken cache entry for one of the `_framework` files and load it with `force-cache`. Turn the cache off with `Network.enable`, then `Network.setCacheDisabled` (`{ "cacheDisabled": true }`), and navigate to the page with a new query string, like `?r=2`. Turn the cache back on at the end.
+- **Clicks with `browser_mouse_click_xy`** need a screenshot just before, and its coordinates are scaled by the image size, not the page drawn in it: x is `viewportX × imageWidth / innerWidth`, y the same with the heights. The tool reports the viewport position it clicked: check it.
 - **Registering the helper script twice** on a tab (for example in two sessions) wraps `element.animate` twice, so `__anims` records each call twice. Check with a test `div` before counting.

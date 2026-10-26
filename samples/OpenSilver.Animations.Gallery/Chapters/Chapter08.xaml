@@ -4,17 +4,20 @@
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
           xmlns:anim="http://opensilver.net/animations"
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
-          Title="Following the browser window">
+          Title="When the window or a panel is resized"
+          SizeChanged="Page_SizeChanged">
 
     <!-- This chapter uses the whole width of the window, so that resizing the window changes it. -->
     <StackPanel Style="{StaticResource ChapterRoot}" MaxWidth="100000">
         <StackPanel MaxWidth="920" HorizontalAlignment="Left">
             <TextBlock Text="CHAPTER 8" Style="{StaticResource OverlineText}" />
-            <TextBlock Text="Following the browser window" Style="{StaticResource ChapterTitleText}" />
+            <TextBlock Text="When the window or a panel is resized" Style="{StaticResource ChapterTitleText}" />
             <TextBlock Style="{StaticResource IntroText}"
                        Text="When the browser window is resized, nothing animates by default, even elements that have MoveAndResize. A page that follows the edge of the window with a delay feels slow, and it costs a lot." />
             <TextBlock Style="{StaticResource IntroText}"
                        Text="For the few elements that should glide, like a grid of photos, add AlsoOnWindowResize=True. They follow the window, together with what is inside them, and the rest of the page snaps." />
+            <TextBlock Style="{StaticResource IntroText}"
+                       Text="A layout that switches with {Responsive} needs nothing more. When the window, or the panel that a {Responsive} value watches, crosses a breakpoint, the switch is a change, like a click: what it rearranges animates with the nearest setting, while everything else keeps following your hand." />
         </StackPanel>
 
         <Border Style="{StaticResource TipBox}" Margin="0,4,0,24" HorizontalAlignment="Left">
@@ -40,6 +43,78 @@
                        anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}" />
         </controls:DemoCard>
 
+        <!-- 3. A {Responsive} switch while a panel is resized -->
+        <controls:DemoCard Title="A panel that you resize" MaxWidth="920" HorizontalAlignment="Left"
+                           Description="Drag the handle on the right of the profile. Its content uses {Responsive} with ElementName=ProfilePanel: from 220 pixels wide, the photo goes beside the name and the buttons side by side. The panel has ApplyTo=EverythingInside, and no AlsoOnWindowResize."
+                           Xaml='&lt;Border x:Name="ProfilePanel" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;StackPanel Orientation="{Responsive ElementName=ProfilePanel, Threshold=220,&#10;                                          Mobile=Vertical, Desktop=Horizontal}"&gt;'
+                           Expectations="• While you drag, the panel and the page next to it follow the pointer exactly.&#10;• When the panel crosses 220 pixels, the photo, the name and the buttons glide to their new places, even though you keep dragging.&#10;• Switch the layout from code: the panel also glides to its new width, because a click is not a resize.">
+            <StackPanel>
+                <Grid x:Name="ProfileGrid" Height="250">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ProfileColumn" Width="170" MinWidth="130" MaxWidth="420" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" MinWidth="24" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="ProfilePanel" Style="{StaticResource Card}"
+                            anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
+                        <StackPanel>
+                            <StackPanel Orientation="{Responsive ElementName=ProfilePanel, Threshold=220, Mobile=Vertical, Desktop=Horizontal}">
+                                <Border Width="48" Height="48" CornerRadius="24" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left">
+                                    <TextBlock Text="AL" Foreground="White" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Margin="{Responsive ElementName=ProfilePanel, Threshold=220, Mobile='0,10,0,0', Desktop='12,0,0,0'}" VerticalAlignment="Center">
+                                    <TextBlock Text="Ada Lovelace" FontWeight="SemiBold" />
+                                    <TextBlock Text="Analyst" Style="{StaticResource CaptionText}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="{Responsive ElementName=ProfilePanel, Threshold=220, Mobile=Vertical, Desktop=Horizontal}" Margin="0,16,0,0">
+                                <Button Content="Follow" Style="{StaticResource PrimaryButton}" />
+                                <Button Content="Message" Style="{StaticResource SecondaryButton}"
+                                        Margin="{Responsive ElementName=ProfilePanel, Threshold=220, Mobile='0,8,0,0', Desktop='8,0,0,0'}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <sdk:GridSplitter Grid.Column="1" Width="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="False" />
+                    <Border Grid.Column="1" Width="4" Height="40" CornerRadius="2" Background="#C9CCD8" IsHitTestVisible="False" />
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <TextBlock Text="The rest of the page" Style="{StaticResource BodyText}" TextWrapping="Wrap" />
+                    </Border>
+                </Grid>
+                <Button Content="Switch the layout from code" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="SwitchProfile_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 4. A {Responsive} switch while the window is resized -->
+        <controls:DemoCard Title="A layout that switches with the window" MaxWidth="920" HorizontalAlignment="Left"
+                           Description="Three steps in a StackPanel with ApplyTo=EverythingInside, whose Orientation comes from {Responsive} with Threshold=1100: side by side when the window is at least 1100 pixels wide, one below the other when it is narrower. The panel has no AlsoOnWindowResize."
+                           Xaml='&lt;StackPanel Orientation="{Responsive Threshold=1100, Mobile=Vertical, Desktop=Horizontal}"&#10;            anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;'
+                           Expectations="• Make the window narrower and wider across 1100 pixels: the steps glide between a row and a column, while you keep resizing.&#10;• At other widths, nothing in this demo moves.&#10;• The card around the steps snaps to its new height, so steps can stick out of it for a moment.">
+            <StackPanel>
+                <TextBlock x:Name="WindowWidthText" Style="{StaticResource CaptionText}" Margin="0,0,0,12" />
+                <StackPanel Orientation="{Responsive Threshold=1100, Mobile=Vertical, Desktop=Horizontal}" HorizontalAlignment="Left"
+                            anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
+                    <Border Style="{StaticResource Card}" Width="200" Margin="0,0,12,12">
+                        <StackPanel>
+                            <TextBlock Text="1. Pick a photo" FontWeight="SemiBold" />
+                            <TextBlock Text="From your device or the web." Style="{StaticResource CaptionText}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Width="200" Margin="0,0,12,12">
+                        <StackPanel>
+                            <TextBlock Text="2. Crop it" FontWeight="SemiBold" />
+                            <TextBlock Text="Drag the corners." Style="{StaticResource CaptionText}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Width="200" Margin="0,0,12,12">
+                        <StackPanel>
+                            <TextBlock Text="3. Share it" FontWeight="SemiBold" />
+                            <TextBlock Text="With a link or by email." Style="{StaticResource CaptionText}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </controls:DemoCard>
+
         <Border Style="{StaticResource TipBox}" HorizontalAlignment="Left" MaxWidth="920">
             <StackPanel>
                 <TextBlock Text="Good to know" FontWeight="SemiBold" />
@@ -47,6 +122,10 @@
                            Text="• Each time the window size changes, the tiles start again from where they are on screen, so they never jump back." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• AlsoOnWindowResize also works on a single element, for example {anim:Smooth AlsoOnWindowResize=True} on a side panel that changes width with the window." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• A {Responsive} switch animates whether it watches the window, an element named with ElementName, or one found with RelativeSource. It animates with the setting found going up from the element it applies to, like the ApplyTo=EverythingInside of the profile panel, and only inside it: the rest of the page snaps, because it follows the resize." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• The switch keeps animating while you keep dragging or resizing: what stretches with the panel follows it at once, and what the switch moved glides on top of that." />
             </StackPanel>
         </Border>
 

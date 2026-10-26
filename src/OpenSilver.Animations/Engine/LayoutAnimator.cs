@@ -29,6 +29,13 @@ namespace OpenSilver.Animations.Engine
     /// animates or snaps as a whole, with the elements that appeared inside an area wiping or
     /// fading in, and all the animations of the pass are sent to the browser in one batch, in the
     /// same flush as the layout writes.
+    ///
+    /// A {Responsive} value that switches is also an origin: the element it applies to and its
+    /// parent. When it switches while the window or a panel is being resized, what was arranged
+    /// before is completed as a pass of its own, which follows the resize, and the rest of the
+    /// pass only has the switches as origins, animates even while something is dragged, and only
+    /// inside the settings found going up from the switches. While the resize continues, these
+    /// animations go on instead of being cancelled, and their sizes are retargeted.
     /// </remarks>
     internal sealed class LayoutAnimator : LayoutObserver
     {
@@ -40,6 +47,7 @@ namespace OpenSilver.Animations.Engine
         private const long SettleMs = 500;
         private const string ScrollBarReason = "the change happened in a scroll bar";
         private const string SettlingReason = "the element had just appeared";
+        private const string DraggingReason = "something is being dragged";
 
         private static LayoutAnimator _instance;
 
@@ -69,14 +77,24 @@ namespace OpenSilver.Animations.Engine
         private readonly Dictionary<UIElement, Area> _areaCache = new Dictionary<UIElement, Area>();
         private readonly Dictionary<UIElement, long> _appeared = new Dictionary<UIElement, long>();
         private readonly List<UIElement> _expired = new List<UIElement>();
-        private readonly Dictionary<UIElement, long> _runningUntil = new Dictionary<UIElement, long>();
+        // When the animations end, and whether they come from a {Responsive} switch during a resize,
+        // which goes on while the resize continues.
+        private readonly Dictionary<UIElement, (long Until, bool FromSwitch)> _runningUntil = new Dictionary<UIElement, (long Until, bool FromSwitch)>();
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private long _nextSweep;
 
         private readonly Dictionary<int, Bucket> _buckets = new Dictionary<int, Bucket>();
         private readonly Stack<Bucket> _bucketPool = new Stack<Bucket>();
         private readonly List<UIElement> _toCancel = new List<UIElement>();
+        private readonly List<int> _toRetarget = new List<int>();
         private readonly List<string> _messages = new List<string>();
+
+        // The {Responsive} values that switched in this pass: the elements where the change starts,
+        // and what to say about it.
+        private readonly Dictionary<UIElement, string> _switches = new Dictionary<UIElement, string>();
+        private readonly List<UIElement> _owners = new List<UIElement>();
+        private bool _switchOnly;
+        private bool _keepRunning;
 
         private Point[] _absOld = new Point[64];
         private Point[] _absNew = new Point[64];
@@ -193,7 +211,7 @@ namespace OpenSilver.Animations.Engine
                 record.Flags |= RecordFlags.Appears;
                 _appeared[element] = _clock.ElapsedMilliseconds;
 
-                if (shown && parent >= 0 && _measureOrigins.Contains(element) && !IsWindowResizePass() &&
+                if (shown && parent >= 0 && !_switchOnly && _measureOrigins.Contains(element) && !IsWindowResizePass() &&
                     (_records[parent].Flags & RecordFlags.Scrolled) == 0)
                 {
                     _records[parent].Flags |= RecordFlags.Origin;
@@ -203,9 +221,10 @@ namespace OpenSilver.Animations.Engine
             {
                 record.Flags |= RecordFlags.Scrolled;
             }
-            else if (!IsWindowResizePass() &&
-                     (_measureOrigins.Contains(element) ||
-                      (!_measured.Contains(element) && AreClose(finalRect, previousFinalRect))))
+            else if (IsSwitched(element) ||
+                     (!_switchOnly && !IsWindowResizePass() &&
+                      (_measureOrigins.Contains(element) ||
+                       (!_measured.Contains(element) && AreClose(finalRect, previousFinalRect)))))
             {
                 record.Flags |= RecordFlags.Origin;
             }
@@ -301,6 +320,65 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
+        protected override void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property)
+        {
+            // The new value is applied between two rounds of the pass, and the next rounds arrange
+            // what it changed. While the window or a panel is being resized, what was arranged so
+            // far only follows the resize: it is completed on its own, and the rest of the pass
+            // starts from there, with the switches as its only origins.
+            if (!_switchOnly && _stack.Count == 0 && (BrowserBridge.IsDragging || IsWindowResizePass()))
+            {
+                if (_recordCount > 0)
+                {
+                    try
+                    {
+                        CompletePass(releaseHeld: false);
+                    }
+                    catch (Exception ex)
+                    {
+                        BrowserBridge.WriteToConsole("Something went wrong, nothing was animated: " + ex);
+                    }
+                    finally
+                    {
+                        ResetRecords();
+                    }
+                }
+
+                _switchOnly = true;
+            }
+
+            string description = "{Responsive} switched the " + DescribeProperty(element, target, property);
+            AddSwitch(element, description);
+
+            // A value of the parent, like Grid.Row, or a Visibility, changes where the parent puts
+            // its children.
+            if (VisualTreeHelper.GetParent(element) is UIElement parent)
+            {
+                AddSwitch(parent, description);
+            }
+        }
+
+        private void AddSwitch(UIElement element, string description)
+        {
+            if (!_switches.ContainsKey(element))
+            {
+                _switches.Add(element, description);
+            }
+        }
+
+        private bool IsSwitched(UIElement element) => _switches.Count > 0 && _switches.ContainsKey(element);
+
+        private static string DescribeProperty(FrameworkElement element, DependencyObject target, DependencyProperty property)
+        {
+            if (!ReferenceEquals(target, element))
+            {
+                return property.Name + " of a " + target.GetType().Name + " in " + ElementNames.Of(element);
+            }
+
+            string name = property.OwnerType.IsInstanceOfType(element) ? property.Name : property.OwnerType.Name + "." + property.Name;
+            return name + " of " + ElementNames.Of(element);
+        }
+
         protected override void OnLayoutPassCompleted()
         {
             if (_appeared.Count > 0)
@@ -317,7 +395,7 @@ namespace OpenSilver.Animations.Engine
 
             try
             {
-                CompletePass();
+                CompletePass(releaseHeld: true);
             }
             catch (Exception ex)
             {
@@ -441,7 +519,7 @@ namespace OpenSilver.Animations.Engine
 
         #region Decisions
 
-        private void CompletePass()
+        private void CompletePass(bool releaseHeld)
         {
             AnimationSettings settings = AnimationSettings.Current;
             bool logging = settings.LogForDebugging || AnimationSettings.HasLoggedHandlers;
@@ -449,6 +527,11 @@ namespace OpenSilver.Animations.Engine
 
             string snapReason = GetGlobalSnapReason(settings);
             _stamp++;
+
+            // Following a resize doesn't stop a {Responsive} switch that animates: it goes on while
+            // the edge is dragged further.
+            _keepRunning = (BrowserBridge.IsDragging || IsWindowResizePass()) &&
+                           (snapReason == null || ReferenceEquals(snapReason, DraggingReason));
 
             for (int i = 0; i < _recordCount; i++)
             {
@@ -474,7 +557,7 @@ namespace OpenSilver.Animations.Engine
                 {
                     if (changed)
                     {
-                        Snap(record.Element, now);
+                        Snap(i, now);
                     }
                     continue;
                 }
@@ -501,11 +584,24 @@ namespace OpenSilver.Animations.Engine
                 batch.AddCancel(element);
             }
 
-            foreach (UIElement element in _held)
+            foreach (int index in _toRetarget)
             {
-                batch.AddRelease(element);
+                ref Record record = ref _records[index];
+                if ((!AreClose(record.OldRect.Width, record.NewRect.Width) || !AreClose(record.OldRect.Height, record.NewRect.Height)) &&
+                    Interop.GetDiv(record.Element).Uid is string id && id.Length > 0)
+                {
+                    batch.AddRetarget(id, record.NewRect.Width, record.NewRect.Height);
+                }
             }
-            _held.Clear();
+
+            if (releaseHeld)
+            {
+                foreach (UIElement element in _held)
+                {
+                    batch.AddRelease(element);
+                }
+                _held.Clear();
+            }
 
             if (!batch.IsEmpty)
             {
@@ -549,7 +645,7 @@ namespace OpenSilver.Animations.Engine
 
             if (BrowserBridge.IsDragging)
             {
-                return "something is being dragged";
+                return DraggingReason;
             }
 
             return null;
@@ -592,6 +688,13 @@ namespace OpenSilver.Animations.Engine
             string source = null;
             string reason = snapReason;
             UIElement firstOrigin = null;
+            _owners.Clear();
+
+            // A {Responsive} value that switches is a change, even while an edge is being dragged.
+            if (_switchOnly && ReferenceEquals(reason, DraggingReason) && bucket.Origins.Count > 0)
+            {
+                reason = null;
+            }
 
             if (reason == null)
             {
@@ -608,6 +711,15 @@ namespace OpenSilver.Animations.Engine
             else if (bucket.Origins.Count > 0)
             {
                 firstOrigin = GetDescribedOrigin(bucket);
+            }
+
+            // During a resize, a switch only animates what is inside the settings found going up
+            // from where it applies. The rest of the page follows the resize, and may also have been
+            // arranged again because of something else, like a container that changes its own
+            // layout at the same width.
+            if (timing != null && _switchOnly && _owners.Count > 0)
+            {
+                KeepInsideOwners(bucket, now);
             }
 
             if (timing != null)
@@ -628,7 +740,7 @@ namespace OpenSilver.Animations.Engine
             {
                 foreach (int index in bucket.Members)
                 {
-                    Snap(_records[index].Element, now);
+                    Snap(index, now);
                 }
 
                 if (logging && reason != null && !IsSilent(reason) && (_forced || InvolvesSettings(bucket)))
@@ -671,7 +783,10 @@ namespace OpenSilver.Animations.Engine
         /// <remarks>
         /// The nearest setting wins. The timing comes from the first of: Animate.Changes; going up
         /// from an origin, its own setting, the first EverythingInside, or the first other setting
-        /// of an element that moves or changes size in this change; the nearest member.
+        /// of an element that moves or changes size in this change; the nearest member, except for
+        /// a {Responsive} switch during a resize, where the members also follow the resize. For
+        /// such a switch, the elements whose settings are found going up from each origin are
+        /// collected in <see cref="_owners"/>.
         /// </remarks>
         private string Decide(int group, Bucket bucket, AnimationSettings settings, out Timing timing, out string source, out UIElement firstOrigin)
         {
@@ -732,12 +847,17 @@ namespace OpenSilver.Animations.Engine
                     eligible = origin;
                 }
 
-                int levels = FindNearestMovement(origin, group, nearestLevels, out Movement movement, out UIElement owner);
+                int levels = FindNearestMovement(origin, group, _switchOnly ? int.MaxValue : nearestLevels, out Movement movement, out UIElement movementOwner);
+                if (_switchOnly && movement != null && !_owners.Contains(movementOwner))
+                {
+                    _owners.Add(movementOwner);
+                }
+
                 if (movement != null &&
                     (levels < nearestLevels || (IsTemplatePart(nearestOrigin) && !IsTemplatePart(origin))))
                 {
                     nearest = movement;
-                    nearestOwner = owner;
+                    nearestOwner = movementOwner;
                     nearestOrigin = origin;
                     nearestLevels = levels;
                 }
@@ -767,6 +887,11 @@ namespace OpenSilver.Animations.Engine
                 return null;
             }
 
+            if (_switchOnly)
+            {
+                return "neither " + ElementNames.Of(eligible) + " nor an element around it has MoveAndResize";
+            }
+
             if (FindNearestMemberMovement(bucket, eligible, out UIElement memberOwner) is Movement memberMovement)
             {
                 timing = Timing.FromMovement(memberMovement, settings);
@@ -775,6 +900,52 @@ namespace OpenSilver.Animations.Engine
             }
 
             return "no element involved has MoveAndResize";
+        }
+
+        /// <summary>
+        /// Snaps the members and leaves out the elements that appear outside the <see cref="_owners"/>.
+        /// </summary>
+        private void KeepInsideOwners(Bucket bucket, long now)
+        {
+            List<int> members = bucket.Members;
+            int kept = 0;
+            for (int i = 0; i < members.Count; i++)
+            {
+                int index = members[i];
+                if (IsInsideOwner(_records[index].Element))
+                {
+                    members[kept++] = index;
+                }
+                else
+                {
+                    Snap(index, now);
+                }
+            }
+            members.RemoveRange(kept, members.Count - kept);
+
+            List<int> appearing = bucket.Appearing;
+            kept = 0;
+            for (int i = 0; i < appearing.Count; i++)
+            {
+                if (IsInsideOwner(_records[appearing[i]].Element))
+                {
+                    appearing[kept++] = appearing[i];
+                }
+            }
+            appearing.RemoveRange(kept, appearing.Count - kept);
+        }
+
+        private bool IsInsideOwner(UIElement element)
+        {
+            for (DependencyObject e = element; e != null; e = VisualTreeHelper.GetParent(e))
+            {
+                if (e is UIElement u && _owners.Contains(u))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -885,15 +1056,19 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// Says whether the group would have animated without the reason it snapped: only then
-        /// is the snap worth a message.
+        /// is the snap worth a message. After a {Responsive} switch during a resize, only the
+        /// settings around the switches count.
         /// </summary>
         private bool InvolvesSettings(Bucket bucket)
         {
-            foreach (int index in bucket.Members)
+            if (!_switchOnly)
             {
-                if (GetEffectiveMovement(_records[index].Element) != null)
+                foreach (int index in bucket.Members)
                 {
-                    return true;
+                    if (GetEffectiveMovement(_records[index].Element) != null)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -930,6 +1105,11 @@ namespace OpenSilver.Animations.Engine
             if (origin == null)
             {
                 return windowResize ? "The window was resized" : "Elements moved because of a change outside them";
+            }
+
+            if (_switches.Count > 0 && _switches.TryGetValue(origin, out string switched))
+            {
+                return switched;
             }
 
             ref Record record = ref _records[_recordIndex[origin]];
@@ -1237,6 +1417,7 @@ namespace OpenSilver.Animations.Engine
         {
             int timingIndex = batch.AddTiming(timing);
             bool wave = timing.Wave > 0 && origin != null;
+            bool fromSwitch = _switchOnly && bucket.Origins.Count > 0;
             int originIndex = origin != null && _recordIndex.TryGetValue(origin, out int oi) ? oi : -1;
 
             if (wave)
@@ -1281,7 +1462,7 @@ namespace OpenSilver.Animations.Engine
                     record.NewRect.Width, record.NewRect.Height,
                     flags);
 
-                _runningUntil[element] = now + (long)(delay + timing.DurationMs) + 50;
+                _runningUntil[element] = (now + (long)(delay + timing.DurationMs) + 50, fromSwitch);
 
                 if (settings.ShowWhatAnimates)
                 {
@@ -1455,15 +1636,25 @@ namespace OpenSilver.Animations.Engine
             return flags;
         }
 
-        private void Snap(UIElement element, long now)
+        private void Snap(int index, long now)
         {
-            if (_runningUntil.TryGetValue(element, out long until))
+            UIElement element = _records[index].Element;
+            if (!_runningUntil.TryGetValue(element, out (long Until, bool FromSwitch) running))
             {
-                _runningUntil.Remove(element);
-                if (until > now)
-                {
-                    _toCancel.Add(element);
-                }
+                return;
+            }
+
+            // The element follows the resize at once, and the animation of the switch goes on from there.
+            if (running.Until > now && running.FromSwitch && _keepRunning)
+            {
+                _toRetarget.Add(index);
+                return;
+            }
+
+            _runningUntil.Remove(element);
+            if (running.Until > now)
+            {
+                _toCancel.Add(element);
             }
         }
 
@@ -1471,9 +1662,9 @@ namespace OpenSilver.Animations.Engine
         {
             _nextSweep = now + 2000;
             List<UIElement> finished = null;
-            foreach (KeyValuePair<UIElement, long> pair in _runningUntil)
+            foreach (KeyValuePair<UIElement, (long Until, bool FromSwitch)> pair in _runningUntil)
             {
-                if (pair.Value <= now)
+                if (pair.Value.Until <= now)
                 {
                     (finished ??= new List<UIElement>()).Add(pair.Key);
                 }
@@ -1672,20 +1863,32 @@ namespace OpenSilver.Animations.Engine
             if (_measureOrigins.Count > 0) _measureOrigins.Clear();
             if (_shown.Count > 0) _shown.Clear();
             if (_scrollChecked.Count > 0) _scrollChecked.Clear();
+            if (_switches.Count > 0) _switches.Clear();
+            _switchOnly = false;
             _windowChecked = false;
         }
 
         private void Reset()
+        {
+            ResetRecords();
+            ClearMeasureState();
+            _messages.Clear();
+        }
+
+        /// <summary>
+        /// Forgets what was arranged, keeping what was measured and shown in the pass.
+        /// </summary>
+        private void ResetRecords()
         {
             Array.Clear(_records, 0, _recordCount);
             _recordCount = 0;
             _recordIndex.Clear();
             _stack.Clear();
             _sessionOrder.Clear();
-            ClearMeasureState();
             _areaCache.Clear();
             _toCancel.Clear();
-            _messages.Clear();
+            _toRetarget.Clear();
+            _keepRunning = false;
 
             _groupParents.Clear();
             _groupParents.Add(0);

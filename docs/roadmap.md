@@ -1,13 +1,13 @@
 # Status and roadmap
 
-Last updated: October 23, 2026, after the product owner's first round of feedback on phase 2.
+Last updated: October 26, 2026, after the `{Responsive}` switches.
 
 ## Phases
 
 | Phase | Content | Status |
 | --- | --- | --- |
 | 0 | Spike: validate the risky parts | Partly done (see below). |
-| 1 | OpenSilver core changes: `LayoutObserver` and the insertion fix | Done: commit `547adac2` on branch `feat/layout-observer`, no PR yet. |
+| 1 | OpenSilver core changes: `LayoutObserver` and the insertion fix | Done: commit `547adac2` on branch `feat/layout-observer`, then the `{Responsive}` hook (`OnResponsiveValueChanged`). No PR yet. |
 | 2 | `MoveAndResize` (Smooth), grouping, exclusions, performance guards, diagnostics; the gallery shell | Done. The product owner tested it; the first round of feedback is addressed and verified in Chromium (see "Verified"). |
 | 3 | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties; then the Showcase port | Not started. |
 | 4 | `AnimationCatalog` and `AnimationDesign`, and the gallery playgrounds built on them | Not started. |
@@ -36,10 +36,10 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | Id | Content | Status |
 | --- | --- | --- |
 | spike | See above | In progress |
-| core-observer | `LayoutObserver` and its call sites | Done |
+| core-observer | `LayoutObserver` and its call sites, including `{Responsive}` switches | Done |
 | core-js | `createVisual` skips `data-os-foreign` children | Done |
 | lib-api | Public API | `MoveAndResize`, `Changes`, `Skip`, `AnimationSettings` and the curves are done. `Appear`, `Disappear`, the `Item...` properties, `TextChange` and `MagicMove` are pending. |
-| lib-causality | Origins, groups, areas, decisions, exclusions, guards | Done for `MoveAndResize`, including the rule that changes never cross `None`. Pending: the drag-to-reorder exception, effects on virtualized items, and the rule that the element holding the mouse capture snaps (today everything snaps during a drag). |
+| lib-causality | Origins, groups, areas, decisions, exclusions, guards | Done for `MoveAndResize`, including the rule that changes never cross `None`, and `{Responsive}` switches that animate during a resize. Pending: the drag-to-reorder exception, effects on virtualized items, and the rule that the element holding the mouse capture snaps (today everything snaps during a drag). |
 | lib-render | Web Animations rendering | Moves, sizes, clips, shapes, interruptions, and the automatic wipe or fade of elements appearing inside an area are done. Effects with center compensation are pending (phase 3). |
 | lib-appear | Appear, Disappear, ghosts, holds, items | Pending. Done early: the automatic reveal inside areas, and a hold that hides an element shown again inside an area until its layout pass. |
 | lib-diagnostics | `ShowWhatAnimates`, `Logged` | Done |
@@ -63,12 +63,12 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | 5. Smooth moves and resizes | Built: Save button, badge, sidebar, ChildWindow (`ResizableDialog`, which stays centered), photo card, search box. |
 | 6. Lists | Coming soon (phase 3) |
 | 7. Everything inside | Built: grid from 2 columns to 1, settings form whose details wipe in, dashboard with the chart carved out by `None`. |
-| 8. Following the browser window | Built: tiles with and without `AlsoOnWindowResize`. Uses `ApplyTo=EverythingInside` on the WrapPanel until `ItemMoveAndResize` exists. |
+| 8. When the window or a panel is resized | Built: tiles with and without `AlsoOnWindowResize` (they use `ApplyTo=EverythingInside` on the WrapPanel until `ItemMoveAndResize` exists); a profile panel resized with a GridSplitter, whose content switches at 220 px with `{Responsive ElementName=ProfilePanel}`, also from code; three step cards that switch from a row to a column with the window, at 1100 px. |
 | 9. Text that moves | Coming soon (phase 5) |
 | 10. Bouncy and Wave | Built: bouncy tab underline with Bounciness and Duration sliders, a growing card with a Wave slider. |
 | 11. Magic move | Coming soon (phase 7) |
 | 12. From code | Built: `Animate.Changes` (default and 0.6 s), `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, IsEnabled), reset when leaving. |
-| 13. What never animates, and why | Built: scrolling, GridSplitter, Slider, typing, window resize (links to chapter 8), the 300-element budget, wrapping text, shapes. |
+| 13. What never animates, and why | Built: scrolling, GridSplitter, Slider, typing, window resize (links to chapter 8, with `{Responsive}` as the exception), the 300-element budget, wrapping text, shapes (which switch size with `{Responsive}` at 960 px). |
 | 14. Putting it together | Coming soon (after the Showcase port) |
 
 Not built yet in the chapters: the playgrounds, the live XAML with Copy, and the summary sentences, which come with phase 4. Each demo has a "What should happen" expander (a chevron, closed by default) with its acceptance lines.
@@ -129,9 +129,21 @@ Checked in the Debug build:
   - Resizing with a drawer open goes to the right layout: the menu closes above 960 px, and the log returns beside the page at 1280 px.
   - At 390 px nothing is wider than the window in chapters 2, 5, 7, 8, 10, 12 and 13, and their demos still animate (sidebar 150 to 64 px, search box, dialog at 12 px from each side, settings form, dashboard, boxes of chapters 12 and 13).
 
+### `{Responsive}` switches
+
+Checked in the Debug build, at 1300 × 800 unless stated otherwise:
+
+- **Chapter 8, the profile panel**, dragged from 170 to 280 px with synthetic pointer events (see development.md).
+  - The edge and the rest of the page follow the pointer in the same frame. Animations that were running when the drag started are cancelled.
+  - At 220 px, the content glides into its new layout in about 14 frames while the drag goes on (the name moves 60 px right and 51 px up), then follows the edge again. The log says "{Responsive} switched the Orientation of StackPanel; 17 elements animate together (Smooth, 0.25 s, from the EverythingInside of ProfilePanel)."
+  - "Switch the layout from code" glides in 0.25 s.
+- **Chapter 8, the step cards**: crossing 1100 px both ways, the row becomes a column and back with an animation, which goes on through the next resize steps. The log says "...3 elements animate together (Smooth, 0.25 s, from the MoveAndResize of StackPanel)." Crossing 1280 px, where only the shell switches, writes no message.
+- **Chapter 13, the shapes**, crossing 960 px both ways between 940 and 980 px, where the shell switches to the phone layout too (73 switches in one pass): the three boxes resize between 50 and 80 px and their gaps change, in 0.25 s. The rest of the page follows the window at once.
+- **Start time.** That pass takes about 0.4 s and ends late in a frame, so before the fix of `startAtNextFrame` the shapes' animations ended before they were painted. Clicks and reveals still play in full with it: the chapter 8 switch button, and the settings form of chapter 7, both ways.
+
 ## Not verified yet
 
-- The GridSplitter drag in chapter 13. Synthetic pointer events never start its capture, so it needs a check by hand.
+- The GridSplitter drag in chapter 13, and drags by hand in general. Synthetic pointer events start a GridSplitter's capture only with `setPointerCapture` patched, as in development.md.
 - The Simulator, by hand.
 - Safari and Firefox: SVG geometry properties, the `linear()` fallback, `composite: 'add'`.
 - Touch devices: the drag tracker relies on `pointercancel` when the browser starts scrolling.
@@ -153,6 +165,7 @@ Checked in the Debug build:
 - **The `RenderTransformOrigin` offset** snaps.
 - **Storyboards** that animate layout properties of animated elements are smoothed twice.
 - **Elements that appear.** Inside an area with `ApplyTo=EverythingInside`, they wipe in from the side they push the others away from, or fade in when they push nothing. Elsewhere they appear in their place at once, and only the others move. Elements that disappear vanish at once. Effects of the app's own choosing, for appearing and disappearing, come with phase 3.
+- **Switches of the same pass share one timing and one message.** The timing is the nearest setting found among them, and the message names the switch it came from. In a window resize the whole page is arranged again, so every switch of the page is in the same group: at 960 px in chapter 13, the message names AutoWidthBox, while the shapes animate too. With different settings, a switch would animate with the timing of another one.
 - **One frame at the old size.** When a click makes an element Visible again, the core shows it in the DOM during the click itself (releasing the mouse capture runs the queued JavaScript), but arranges it only in the next layout pass, one dispatcher tick later. The browser often paints a frame in between, where the element has the box it had before it was collapsed and the elements around it haven't moved yet. Inside an area, the library hides it until that pass. Elsewhere, it needs a fix in the core: a pending layout pass should always run before the browser paints.
 - **The Simulator:** JavaScript batches can arrive a frame apart.
 
@@ -165,10 +178,11 @@ Checked in the Debug build:
 - **The gallery is a progressive storytelling tour.** Chapters are added in the phase that builds their feature.
 - **Minimal OpenSilver changes:** only hooks and the insertion fix, with no behavior change. The rest stays in the library.
 - **Window resizes never animate by default.** Following a window edge with a delay feels laggy; elements opt in with `AlsoOnWindowResize`.
+- **A `{Responsive}` switch is a change, like a click**, agreed with the product owner. It animates with the nearest setting, even while the window or a panel is resized; the rest of the resize still snaps. `AlsoOnWindowResize` keeps its name and meaning: following the resize itself.
 - **`ThisElement` means the element's own box.** Its setting gives the timing to changes that move or resize it, including changes that start inside it, like a longer label. An ancestor that stays in place doesn't make changes inside it animate. That's what `EverythingInside` is for.
 - **The nearest setting wins**, agreed with the product owner after the first round of feedback. Going up from where a change starts, the first `EverythingInside`, or the first other setting on an element that moves or resizes, gives the timing. Before, an area won over a nearer `ThisElement` setting, and the "Good to know" of chapter 7 needed two hard bullets to explain the difference.
 - **Silent snaps** for scroll chrome and for the 500 ms after an element appears. They're consequences, not things the developer did.
-- **Only the first measure of a pass makes an origin**, and a window-resize pass has no origins. These rules came from testing: without them, a window resize animated or snapped the whole page.
+- **Only the first measure of a pass makes an origin**, and a window-resize pass has no origins except `{Responsive}` switches. These rules came from testing: without them, a window resize animated or snapped the whole page.
 - **Bouncy only bounces moves**; sizes change smoothly, so content doesn't wobble.
 - **Changes never cross `None`.** A change inside an element with `MoveAndResize=None` doesn't go up to the elements around it, and a change outside doesn't go into it. So what the carved-out element pushes snaps with it, even when another change animates in the same pass.
 - **Automatic reveals inside areas.** In an `EverythingInside` area, an element that appears takes part in the change: a wipe that keeps up with the elements it pushes reads better than an element that overlaps them until they have moved.
@@ -176,7 +190,7 @@ Checked in the Debug build:
 
 ## Next steps
 
-1. **The product owner tests the fixes of the first round of feedback**, and the "nearest setting wins" rule.
+1. **The product owner tests the fixes of the first round of feedback**, the "nearest setting wins" rule, and the `{Responsive}` switches of chapters 8 and 13, by dragging the panel and resizing the window by hand.
 2. **The OpenSilver PR.** Open the PR from `feat/layout-observer`, and get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
 3. **Phase 3: Appear and Disappear**, specified in design.md under "Library API", "Appear and disappear mechanics" and "Items".
    - The core hooks it needs already exist: `OnVisibilityChanged`, `OnDetaching`, and the `data-os-foreign` insertion fix for ghosts.

@@ -40,6 +40,30 @@
     // Elements that just became visible, hidden until their layout pass is done.
     const holds = new WeakMap();
 
+    // Animations made since the last frame. They start at the next frame, not at the time of the
+    // frame their batch runs in: a batch can run late in a frame, after a long resize, or in the
+    // middle of a long task, and the browser would count that time as already played, so that
+    // they would end before showing.
+    let starting = null;
+
+    function startAtNextFrame(animation) {
+        if (!animation) return animation;
+        animation.startTime = performance.now();
+        if (!starting) {
+            starting = [];
+            requestAnimationFrame(() => {
+                const animations = starting;
+                starting = null;
+                const now = performance.now();
+                for (const a of animations) {
+                    if (a.playState === 'running') a.startTime = now;
+                }
+            });
+        }
+        starting.push(animation);
+        return animation;
+    }
+
     function sampleAt(samples, p) {
         const n = samples.length - 1;
         const x = Math.max(0, Math.min(1, p)) * n;
@@ -103,34 +127,47 @@
         }
     }
 
+    function sizeKeyframes(state) {
+        const { fromW, fromH, toW, toH, clip } = state;
+        return lerpKeyframes(state.sizeCurve, (p) => {
+            const frame = { width: px(Math.max(0, fromW + (toW - fromW) * p)), height: px(Math.max(0, fromH + (toH - fromH) * p)) };
+            if (clip) frame.clipPath = 'inset(0px)';
+            return frame;
+        });
+    }
+
+    // The keyframes of the shape of a Rectangle or an Ellipse, from its attributes at the new size.
+    function geometryKeyframes(shape, flags, dw, dh, curve) {
+        const attr = (name) => parseFloat(shape.getAttribute(name)) || 0;
+
+        if (flags & FLAG_RECTANGLE) {
+            const w = attr('width'), h = attr('height');
+            return lerpKeyframes(curve, (p) => ({
+                width: px(Math.max(0, w - dw * (1 - p))),
+                height: px(Math.max(0, h - dh * (1 - p))),
+            }));
+        }
+
+        if (flags & FLAG_ELLIPSE) {
+            const rx = attr('rx'), ry = attr('ry'), cx = attr('cx'), cy = attr('cy');
+            return lerpKeyframes(curve, (p) => ({
+                rx: px(Math.max(0, rx - dw / 2 * (1 - p))),
+                ry: px(Math.max(0, ry - dh / 2 * (1 - p))),
+                cx: px(cx - dw / 2 * (1 - p)),
+                cy: px(cy - dh / 2 * (1 - p)),
+            }));
+        }
+
+        return null;
+    }
+
     function animateGeometry(element, flags, fromW, fromH, toW, toH, options, curve) {
         if (!supportsGeometry) return null;
         const shape = element.firstElementChild;
         if (!shape) return null;
 
-        const dw = toW - fromW;
-        const dh = toH - fromH;
-        const attr = (name) => parseFloat(shape.getAttribute(name)) || 0;
-
-        if (flags & FLAG_RECTANGLE) {
-            const w = attr('width'), h = attr('height');
-            return shape.animate(lerpKeyframes(curve, (p) => ({
-                width: px(Math.max(0, w - dw * (1 - p))),
-                height: px(Math.max(0, h - dh * (1 - p))),
-            })), options);
-        }
-
-        if (flags & FLAG_ELLIPSE) {
-            const rx = attr('rx'), ry = attr('ry'), cx = attr('cx'), cy = attr('cy');
-            return shape.animate(lerpKeyframes(curve, (p) => ({
-                rx: px(Math.max(0, rx - dw / 2 * (1 - p))),
-                ry: px(Math.max(0, ry - dh / 2 * (1 - p))),
-                cx: px(cx - dw / 2 * (1 - p)),
-                cy: px(cy - dh / 2 * (1 - p)),
-            })), options);
-        }
-
-        return null;
+        const frames = geometryKeyframes(shape, flags, toW - fromW, toH - fromH, curve);
+        return frames ? shape.animate(frames, options) : null;
     }
 
     function animateBox(element, timing, delay, dx, dy, ow, oh, nw, nh, flags) {
@@ -150,37 +187,59 @@
             cancelState(element, previous);
         }
 
-        const state = { fromX, fromY, fromW, fromH, toW: nw, toH: nh, move: null, size: null, geometry: null };
+        const state = { fromX, fromY, fromW, fromH, toW: nw, toH: nh, flags, clip: (flags & FLAG_CLIP_OWN_BOX) !== 0, move: null, size: null, geometry: null };
         const duration = Math.max(1, timing.d);
 
         if (Math.abs(fromX) >= 0.5 || Math.abs(fromY) >= 0.5) {
             const curve = curveOf(timing, false);
             state.moveCurve = curve;
-            state.move = element.animate(
+            state.move = startAtNextFrame(element.animate(
                 lerpKeyframes(curve, (p) => ({ translate: px(fromX * (1 - p)) + ' ' + px(fromY * (1 - p)) })),
-                { duration, delay, fill: 'backwards', easing: curve.easing, composite: 'add' });
+                { duration, delay, fill: 'backwards', easing: curve.easing, composite: 'add' }));
         }
 
         if (Math.abs(fromW - nw) >= 0.5 || Math.abs(fromH - nh) >= 0.5) {
             const curve = curveOf(timing, true);
-            const clip = (flags & FLAG_CLIP_OWN_BOX) !== 0;
             state.sizeCurve = curve;
             const options = { duration, delay, fill: 'backwards', easing: curve.easing };
-            state.size = element.animate(
-                lerpKeyframes(curve, (p) => {
-                    const frame = { width: px(fromW + (nw - fromW) * p), height: px(fromH + (nh - fromH) * p) };
-                    if (clip) frame.clipPath = 'inset(0px)';
-                    return frame;
-                }),
-                options);
+            state.size = startAtNextFrame(element.animate(sizeKeyframes(state), options));
             if (flags & (FLAG_RECTANGLE | FLAG_ELLIPSE)) {
-                state.geometry = animateGeometry(element, flags, fromW, fromH, nw, nh, options, curve);
+                state.geometry = startAtNextFrame(animateGeometry(element, flags, fromW, fromH, nw, nh, options, curve));
             }
         }
 
         if (state.move || state.size) {
             states.set(element, state);
             trackEnd(element, state);
+        }
+    }
+
+    // The element got a new size without animating, like the rest of a resize it follows, while
+    // its size animates. Both ends of the animation move by the same amount: the element follows
+    // the resize at once, and what is left of its change plays on top, like a move, which is
+    // added to where the layout puts the element.
+    function retarget(element, nw, nh) {
+        const state = states.get(element);
+        if (!state || !state.size) return;
+
+        const dw = nw - state.toW, dh = nh - state.toH;
+        if (Math.abs(dw) < 0.01 && Math.abs(dh) < 0.01) return;
+
+        const effect = state.size.effect;
+        if (!effect || !effect.setKeyframes) {
+            cancelState(element, state);
+            return;
+        }
+
+        state.fromW += dw;
+        state.fromH += dh;
+        state.toW = nw;
+        state.toH = nh;
+        effect.setKeyframes(sizeKeyframes(state));
+
+        if (state.geometry && state.geometry.effect) {
+            const frames = geometryKeyframes(state.geometry.effect.target, state.flags, nw - state.fromW, nh - state.fromH, state.sizeCurve);
+            if (frames) state.geometry.effect.setKeyframes(frames);
         }
     }
 
@@ -229,7 +288,7 @@
             animation = element.animate(lerpKeyframes(curve, (p) => ({ clipPath: wipeAt(edge, p) })), options);
         }
 
-        reveals.set(element, animation);
+        reveals.set(element, startAtNextFrame(animation));
         animation.addEventListener('finish', () => {
             if (reveals.get(element) === animation) reveals.delete(element);
         });
@@ -240,9 +299,9 @@
         const width = isOrigin ? '3px' : '2px';
         const visible = { outline: width + ' solid ' + color, outlineOffset: '-' + width };
         const hidden = { outline: width + ' solid transparent', outlineOffset: '-' + width };
-        element.animate(
+        startAtNextFrame(element.animate(
             [Object.assign({ offset: 0 }, visible), Object.assign({ offset: 0.85 }, visible), Object.assign({ offset: 1 }, hidden)],
-            { duration: Math.max(700, duration + 300), delay: delay });
+            { duration: Math.max(700, duration + 300), delay: delay }));
     }
 
     function run(batch) {
@@ -251,6 +310,13 @@
                 const element = document.getElementById(id);
                 const state = element && states.get(element);
                 if (state) cancelState(element, state);
+            }
+        }
+
+        if (batch.s) {
+            for (const s of batch.s) {
+                const element = document.getElementById(s[0]);
+                if (element) retarget(element, s[1], s[2]);
             }
         }
 

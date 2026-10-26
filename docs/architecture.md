@@ -13,6 +13,7 @@ flowchart LR
         arrange["UIElement.Arrange"] --> observer
         visibility["OnVisibilityChanged"] --> observer
         detach["DetachVisualChildIfNotNull"] --> observer
+        responsive["ResponsiveExpression switch"] --> observer
         passEnd["UpdateLayout finally"] --> observer
     end
     subgraph lib ["OpenSilver.Animations"]
@@ -25,7 +26,7 @@ flowchart LR
 
 ## The OpenSilver core changes
 
-They are in commit `547adac2` on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`). They don't change any behavior when no observer is registered: each call site is one null check.
+They are on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`): commit `547adac2`, then the `{Responsive}` hook. They don't change any behavior when no observer is registered: each call site is one null check.
 
 | File (under `src/Runtime/`) | Change |
 | --- | --- |
@@ -34,6 +35,7 @@ They are in commit `547adac2` on branch `feat/layout-observer` of the OpenSilver
 | `Runtime/System.Windows/UIElement.cs` | `NotifyVisibilityChanged` at the very end of `OnVisibilityChanged`. |
 | `Runtime/Core/Rendering/INTERNAL_VisualTreeManager.cs` | `NotifyDetaching` in `DetachVisualChildIfNotNull`, before `InternalDetachVisual`. |
 | `Runtime/System.Windows/LayoutManager.cs` | `NotifyLayoutPassCompleted` in the `finally` block of `UpdateLayout`, before `UIRenderer.ProcessRenderQueue(true)`. |
+| `Runtime/System.Windows/ResponsiveExpression.cs` | `NotifyResponsiveValueChanged` in `OnSourceElementSizeChanged`, after the new value is applied, when it differs from the previous one. |
 | `Runtime/Runtime.OpenSilver.csproj` | Compiles `LayoutObserver.cs`. |
 | `Scripts/cshtml5.js` | `osjs.createVisual` skips children marked `data-os-foreign` when it resolves an insertion index. |
 
@@ -49,6 +51,9 @@ What each hook guarantees:
   - It is not in a `finally` block, so an exception during an arrange leaves an `OnArranging` without its pair. The pass still ends with `OnLayoutPassCompleted`, which resets the library.
 - **`OnVisibilityChanged`** is called after the DOM display has changed, before the element's next layout pass. The library uses it to recognize elements shown again (see "Elements that appear"). Phase 3 (Appear and Disappear) will use it for disappearances too.
 - **`OnDetaching`**: the library only forgets the element's running animation there for now. When it is called, the DOM of the element still exists, and its removal runs after any JavaScript the observer queues, which phase 3 needs for ghosts.
+- **`OnResponsiveValueChanged(element, target, property)`** is called when a `{Responsive}` value switches because the width it watches crossed a breakpoint, after the new value is applied. Its first value, and a recomputation that gives the same value, are not reported.
+  - `element` is the element the value applies to, or the element that owns its target, for example the Grid of a ColumnDefinition.
+  - It runs in the `SizeChanged` handler of the watched element (the Window, or the `ElementName`/`RelativeSource` element). So it is inside `UpdateLayout`, between two layout rounds, when no element is being arranged.
 - **`OnLayoutPassCompleted`** is called once per `UpdateLayout`, before the pending JavaScript is flushed. So JavaScript queued there with `ExecuteJavaScriptVoidAsync` runs in the same flush as the layout's own writes: the browser never paints the new layout without its animations.
 - The measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. Observers only record data there. Anything that needs the dispatcher, such as raising the `Logged` event, is posted with `BeginInvoke`.
 
@@ -146,7 +151,7 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - The time it appeared is stored in `_appeared`, for the settling rule below.
   - An element shown again still has the box it had before it was collapsed, so its own rects say nothing. When it is a measure origin, its parent becomes the origin instead: showing the details of an option is a change of the form that holds them.
 - **Scrolled elements** get `Scrolled`.
-- **Origins** get `Origin`: a measure origin, or an element arranged again in the same rect without being measured (an arrange-only change, such as `Grid.Column` or an alignment). A window-resize pass has no origins at all (see below).
+- **Origins** get `Origin`: a measure origin, or an element arranged again in the same rect without being measured (an arrange-only change, such as `Grid.Column` or an alignment), or an element where a `{Responsive}` value switched. A window-resize pass has no origins at all, except for these switches (see below).
 
 `OnArranged` pops the record.
 
@@ -171,7 +176,7 @@ When the stack is empty, the arrange session is over. `EndArrangeSession` walks 
    - `IsEnabled` is false;
    - a designer;
    - reduced motion, real (the `prefers-reduced-motion` media query, if `RespectReducedMotion`) or simulated (`SimulateReducedMotion`);
-   - `BrowserBridge.IsDragging`.
+   - `BrowserBridge.IsDragging`, except for the groups of `{Responsive}` switches (see below).
 2. **Buckets.** For each record that changed or is an origin, except appearing ones:
    - without a group, a change snaps;
    - otherwise it goes into its group's bucket, as an origin and/or a member (a member is a record whose rect changed).
@@ -241,6 +246,21 @@ Phase 3 brings effects that the app chooses. Until then, an element that appears
 
 In such a pass there are no origins: everything follows the window. Only the elements that set `AlsoOnWindowResize`, and their content, form WindowResize groups. Without this rule, the scroll bar parts that measure again in a resize pass would look like changes. Their group would climb to the root and snap the whole page, or animate it.
 
+### `{Responsive}` switches
+
+A `{Responsive}` value that switches is a change, like a click, even in the middle of a resize: a layout that switches at a width animates, while the rest of the resize snaps. `OnResponsiveValueChanged` adds the element the value applies to, and its visual parent, to `_switches`, because a value like `Grid.Row` or `Margin` changes where the parent puts its children. `OnArranging` makes them origins, and messages start with "{Responsive} switched the Orientation of StackPanel".
+
+In a pass that isn't following anything, that's all: the switches are origins like the others. In a **following pass**, a window resize or a pass while something is dragged, the first switch splits the pass:
+
+- **The part before the switch** follows the resize. Its records are completed as a pass of their own (`CompletePass(releaseHeld: false)`, the held elements wait for the end of the real pass), then reset (`ResetRecords`).
+- **The rest of the pass is switch-only** (`_switchOnly`):
+  - only the switches are origins: no measure origins, arrange-only changes or shown parents;
+  - the dragging reason doesn't stop a group that has origins;
+  - `Decide` only uses the settings found going up from the origins, at any level, and never the nearest member: in a resize, the members also follow the resize, so their settings say nothing about the switch;
+  - the elements whose settings are found are the **owners** (`_owners`). Only the members and the appearing elements inside an owner animate (`KeepInsideOwners`); the others snap, like the rest of the resize. With several owners, each switch with its own setting animates, like the three shapes of chapter 13;
+  - `InvolvesSettings` only looks at the origins, so switches with no settings around them, like the gallery's own font sizes and paddings, write no message.
+- **The animations go on through the resize.** `_runningUntil` remembers which animations came from a switch (`FromSwitch`). In the next following passes, such an element is not cancelled when it snaps (`_keepRunning`): its size animation is retargeted to its new size instead (`AddRetarget`, batch key `s`). So it follows the resize at once, and what is left of the switch plays on top. Other animations are cancelled as before, so the elements that were animating when the drag started follow the edge.
+
 ### Wave
 
 When the timing has `Wave > 0`, each member gets a delay.
@@ -256,9 +276,9 @@ When the timing has `Wave > 0`, each member gets a delay.
 
 ### Running animations and cancels
 
-`_runningUntil` remembers, for each animated element, when its animation ends (delay plus duration plus 50 ms).
+`_runningUntil` remembers, for each animated element, when its animation ends (delay plus duration plus 50 ms), and whether it came from a `{Responsive}` switch.
 
-- When such an element changes again and snaps, its animation is cancelled in the same batch, so it doesn't fight the new position.
+- When such an element changes again and snaps, its animation is cancelled in the same batch, so it doesn't fight the new position. The exception is an animation of a switch while a resize goes on: it is retargeted (see "`{Responsive}` switches").
 - Entries are removed on detach, and swept every 2 s.
 - In the browser, a new animation on an element that is still animating starts from where the element is on screen.
 
@@ -269,6 +289,7 @@ Messages are produced only when `LogForDebugging` is on or `Logged` has handlers
 - **An animated group:** "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
   - With elements that appear: "FormFields changed size; 27 elements animate together, and TwoStepDetails wipes in (Smooth, 0.25 s, from the EverythingInside of SettingsForm)." Several give "3 elements wipe in", "fade in" or "wipe or fade in".
 - **A window-resize group:** "The window was resized; FollowingTiles follows it (Smooth, 0.25 s, from the AlsoOnWindowResize of FollowingTiles)." At most one per second.
+- **A switch:** "{Responsive} switched the Orientation of StackPanel; 17 elements animate together (Smooth, 0.25 s, from the EverythingInside of ProfilePanel)." For a target that isn't an element: "{Responsive} switched the Width of a ColumnDefinition in ProfileGrid".
 - **A snap:** "SliderBar changed size; nothing animated because something is being dragged."
   - Only snaps that would otherwise have animated are explained: inside `Animate.Changes`, or when an origin or a member has an effective setting (`InvolvesSettings`).
   - Scroll chrome and settling snap silently.
@@ -303,11 +324,12 @@ These are at the top of `LayoutAnimator`:
   m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags] ],
   a: [ [id, timingIndex, delayMs, edge] ],
   c: [ ids to cancel ],
+  s: [ [id, newWidth, newHeight] ],
   o: [ [id, durationMs, delayMs, isOrigin] ],
   r: [ ids to release ] }
 ```
 
-They run in this order: cancels, moves, reveals, outlines, releases. `osAnimations.hold(id)` is called on its own, from `OnVisibilityChanged`.
+They run in this order: cancels, retargets, moves, reveals, outlines, releases. `osAnimations.hold(id)` is called on its own, from `OnVisibilityChanged`.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
@@ -318,6 +340,8 @@ They run in this order: cancels, moves, reveals, outlines, releases. `osAnimatio
   - `1` (`ClipOwnBox`): the element's clip is exactly its own box, as with `ClipToBounds` or a `ScrollContentPresenter`: a `RectangleGeometry` the size of the element, with no transform or an identity one. The size animation holds `clip-path: inset(0px)` so that the clip follows the animated box. Without the flag, the core's clip has the final size at once: a sidebar that narrows looks like it snaps, and the content of a dialog that narrows is cut.
   - `2` (`Rectangle`) and `4` (`Ellipse`): a shape with `Stretch=Fill`. Its SVG geometry (`width`/`height`, or `rx`/`ry`/`cx`/`cy`) is animated too, where the browser supports these CSS properties. `Path` geometry always snaps.
 - **Curves.** A CSS easing (`cubic-bezier`, `linear`), or samples. Samples play as CSS `linear(...)` where supported, and are otherwise baked into keyframe offsets. `Bouncy` moves use spring samples, and its sizes use the Smooth cubic-bezier (`se`), so content doesn't wobble.
+- **Start time.** Every new animation starts at the next frame (`startAtNextFrame`): its `startTime` is set when it is made, then again in the next `requestAnimationFrame`. Without this, the browser dates it from the frame its batch runs in. A batch can run late in a frame, after a long window resize, or in the middle of a long task, when OpenSilver flushes its pending JavaScript before a synchronous call. The browser then counted that time as played, and a 0.25 s animation that came after a 0.4 s layout pass ended before it was ever painted.
+- **Retargets.** The element snapped to a new size while its size animation goes on. Both ends of the size keyframes move by the difference (`effect.setKeyframes`), as do the shape's. Where `setKeyframes` isn't supported, the animation is cancelled.
 - **Interruptions.** Running animations are kept per element in a `WeakMap`. A new animation reads the eased progress of the previous one (`getComputedTiming().progress`) and starts from the current offset and size, then cancels the previous one.
 - **Reveals.** The edge is `0` for a fade, then `1` to `4` for a wipe from the top, left, bottom or right. A wipe animates `clip-path: inset(...)` and a fade animates `opacity` up to the element's current opacity, both with the size curve and `fill: 'backwards'`. A reveal first releases the element's hold.
 - **Holds.** `hold` runs an opacity 0 animation of one second on the element, kept in a `WeakMap`; `release` cancels it.

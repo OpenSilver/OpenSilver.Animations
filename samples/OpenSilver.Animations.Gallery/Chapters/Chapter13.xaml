@@ -10,7 +10,7 @@
         <TextBlock Text="CHAPTER 13" Style="{StaticResource OverlineText}" />
         <TextBlock Text="What never animates, and why" Style="{StaticResource ChapterTitleText}" />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="Some changes must follow your hand, or the page would feel slow: scrolling, dragging, typing and resizing the window. They never animate, even inside an area with ApplyTo=EverythingInside, and you have nothing to do for that." />
+                   Text="Some changes must follow your hand, or the page would feel slow: scrolling, dragging, typing and resizing the window. They never animate, even inside an area with ApplyTo=EverythingInside, and you have nothing to do for that. The one exception is a layout that switches with {Responsive} at some width: the switch animates, even while you drag or resize." />
         <TextBlock Style="{StaticResource IntroText}"
                    Text="Each demo below has a button that makes the same kind of change from code, which does animate." />
 
@@ -32,7 +32,7 @@
 
         <!-- 2. GridSplitter -->
         <controls:DemoCard Title="Dragging a splitter"
-                           Description="The two panes are in a Grid with ApplyTo=EverythingInside. Drag the handle between them: the panes follow the pointer exactly. Reset the split: they glide back."
+                           Description="The two panes are in a Grid with ApplyTo=EverythingInside. Drag the handle between them: the panes follow the pointer exactly. Reset the split: they glide back. If a pane switched its layout with {Responsive} at some width, that switch would animate, as in chapter 8."
                            Xaml='&lt;Grid anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;sdk:GridSplitter Grid.Column="1" /&gt;'
                            Expectations="• While you drag, nothing lags behind the pointer.&#10;• Reset the split: both panes glide to their original widths.">
             <StackPanel>
@@ -93,8 +93,8 @@
 
         <!-- 5. Window resize -->
         <controls:DemoCard Title="Resizing the browser window"
-                           Description="Make your browser window narrower: the whole tour reflows at once, although several of its elements have MoveAndResize. Elements can opt in with AlsoOnWindowResize=True.">
-            <Button Content="See chapter 8: Following the browser window" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="Chapter8_Click" />
+                           Description="Make your browser window narrower: the whole tour reflows at once, although several of its elements have MoveAndResize. Elements can opt in with AlsoOnWindowResize=True. Only the values that switch with {Responsive} animate, when the window crosses their breakpoint, like the shapes below at 960 pixels.">
+            <Button Content="See chapter 8: When the window or a panel is resized" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="Chapter8_Click" />
         </controls:DemoCard>
 
         <!-- 6. Budget -->

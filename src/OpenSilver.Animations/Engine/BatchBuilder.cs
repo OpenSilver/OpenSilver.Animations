@@ -6,7 +6,7 @@ namespace OpenSilver.Animations.Engine
 {
     /// <summary>
     /// Builds the JavaScript object read by <c>osAnimations.run</c>:
-    /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags]], a: [[id, timing, delay, edge]], c: [ids], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>.
+    /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags]], a: [[id, timing, delay, edge]], c: [ids], s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>.
     /// </summary>
     internal sealed class BatchBuilder
     {
@@ -24,10 +24,11 @@ namespace OpenSilver.Animations.Engine
         private readonly StringBuilder _moves = new StringBuilder();
         private readonly StringBuilder _reveals = new StringBuilder();
         private readonly StringBuilder _cancels = new StringBuilder();
+        private readonly StringBuilder _retargets = new StringBuilder();
         private readonly StringBuilder _outlines = new StringBuilder();
         private readonly StringBuilder _releases = new StringBuilder();
 
-        public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _cancels.Length == 0 && _outlines.Length == 0 && _releases.Length == 0;
+        public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _cancels.Length == 0 && _retargets.Length == 0 && _outlines.Length == 0 && _releases.Length == 0;
 
         public int AddTiming(Timing timing)
         {
@@ -90,6 +91,27 @@ namespace OpenSilver.Animations.Engine
         public void AddCancel(UIElement element) => AddId(_cancels, element);
 
         /// <summary>
+        /// Moves the end of the running size animation of an element to its new size, which the
+        /// element got without animating, like the rest of a resize it follows.
+        /// </summary>
+        public void AddRetarget(string id, double newWidth, double newHeight)
+        {
+            StringBuilder sb = _retargets;
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append('[');
+            BrowserBridge.AppendString(sb, id);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, newWidth);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, newHeight);
+            sb.Append(']');
+        }
+
+        /// <summary>
         /// Shows an element hidden by <see cref="BrowserBridge.Hold"/>.
         /// </summary>
         public void AddRelease(UIElement element) => AddId(_releases, element);
@@ -140,7 +162,7 @@ namespace OpenSilver.Animations.Engine
                 _timings[i].AppendJson(sb);
             }
 
-            sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],c:[").Append(_cancels).Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("]}");
+            sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],c:[").Append(_cancels).Append("],s:[").Append(_retargets).Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("]}");
             return sb.ToString();
         }
     }
