@@ -4,7 +4,7 @@
 
 | Path | What it is |
 | --- | --- |
-| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/layout-observer`. It holds the core changes (see [architecture.md](architecture.md)), in commit `547adac2`. |
+| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/layout-observer`. It holds the core changes (see [architecture.md](architecture.md)). |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations` | This repository (remote `github.com/OpenSilver/OpenSilver.Animations`). It sits inside the OpenSilver folder but is a separate git repository. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Themes.Modern` | Another library repository, the model for this repository's layout and build scripts. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase` | The Showcase, ported to this library on branch `feat/use-new-animations-library` (see "Run the Showcase on the local library"). Its own animation project is removed there. |
@@ -19,7 +19,7 @@ The three nested folders show up as untracked in the OpenSilver repository. They
 
 ## The OpenSilver packages with the hooks
 
-The library needs `OpenSilver.LayoutObserver`, which is not in a published OpenSilver package yet. So OpenSilver is built locally:
+The library needs `OpenSilver.LayoutObserver`, an internal class of OpenSilver that it sees through `InternalsVisibleTo("OpenSilver.Animations")`. It is not in a published OpenSilver package yet, so OpenSilver is built locally:
 
 ```bat
 build\Build_Local_OpenSilver.bat C:\VSProjects\UserwareSource\OpenSilver

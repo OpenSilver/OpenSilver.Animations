@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <!--
-      The library needs OpenSilver's LayoutObserver API. Until an OpenSilver build that includes it
+      The library needs OpenSilver's LayoutObserver hooks, which are internal and visible to this library
+      through InternalsVisibleTo. Until an OpenSilver build that includes them
       is published, build it locally with build\Build_Local_OpenSilver.bat (it fills build\local-packages).
     -->
     <OpenSilverVersion Condition=" '$(OpenSilverVersion)' == '' ">3.4.0-preview-animations-local</OpenSilverVersion>

@@ -22,6 +22,7 @@ Read these before working:
 - **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository (branch `feat/layout-observer`).
 - **Beginners first.** Names read as "When it ...". Parameters use plain words (`StartAfter`, not Delay; `Bouncy`, not Spring; `Wave`, not Ripple). Messages and gallery text are plain, complete sentences.
 - **Keep OpenSilver changes minimal**: hooks only, with no behavior change. Everything else goes in this library.
+- **The hooks are internal.** `LayoutObserver` is visible to this library only, through `InternalsVisibleTo("OpenSilver.Animations")`, as the OpenSilver owner asked while the API is not stable. Don't make it public, and keep the assembly name `OpenSilver.Animations`.
 - **No compatibility layer** with the Showcase's old animation project, which will be removed.
 - **No XAML.io designer tab for now**, but keep `design.md`'s designer section in mind when shaping the API (`AnimationCatalog` and `AnimationDesign` come in phase 4).
 - **Ask** when a decision is the product owner's to make.

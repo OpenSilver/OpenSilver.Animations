@@ -30,12 +30,15 @@ flowchart LR
 
 ## The OpenSilver core changes
 
-They are on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`): commit `547adac2`, then the `{Responsive}` hook. They don't change any behavior when no observer is registered: each call site is one null check.
+They are on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`): commit `547adac2`, then the `{Responsive}` hook, then the change that made them internal. They don't change any behavior when no observer is registered: each call site is one null check.
+
+`LayoutObserver` is internal. OpenSilver's `Properties/AssemblyInfo.cs` has `[assembly: InternalsVisibleTo("OpenSilver.Animations")]`, as the OpenSilver owner asked while the API is not stable, so the library is the only assembly outside OpenSilver that sees it. Its overrides are `protected internal override`. OpenSilver isn't strong-named, so the attribute names the assembly without a public key, and the library's assembly name must stay `OpenSilver.Animations`.
 
 
 | File (under `src/Runtime/`)                            | Change                                                                                                                                                                |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Runtime/OpenSilver/LayoutObserver.cs`                 | New public abstract class with virtual no-op methods. `Register(observer)` returns an `IDisposable` that unregisters it. Observers are kept in a copy-on-write array. |
+| `Runtime/OpenSilver/LayoutObserver.cs`                 | New internal abstract class with virtual no-op methods. `Register(observer)` registers it for the lifetime of the app. Observers are kept in a copy-on-write array.   |
+| `Runtime/Properties/AssemblyInfo.cs`                   | `InternalsVisibleTo("OpenSilver.Animations")`.                                                                                                                        |
 | `Runtime/System.Windows/UIElement.Layout.cs`           | `NotifyMeasured` in `Measure`, `NotifyArranging` and `NotifyArranged` in `Arrange`.                                                                                   |
 | `Runtime/System.Windows/UIElement.cs`                  | `NotifyVisibilityChanged` at the very end of `OnVisibilityChanged`.                                                                                                   |
 | `Runtime/Core/Rendering/INTERNAL_VisualTreeManager.cs` | `NotifyDetaching` in `DetachVisualChildIfNotNull`, before `InternalDetachVisual`.                                                                                     |
@@ -47,7 +50,7 @@ They are on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSPr
 
 What each hook guarantees:
 
-- `OnMeasured(element, availableSize, sameAvailableSize, previousDesiredSize, isFirstMeasure)` is called only when the element was really measured, right after its new `DesiredSize` is stored.
+- `OnMeasured(element, sameAvailableSize, previousDesiredSize, isFirstMeasure)` is called only when the element was really measured, right after its new `DesiredSize` is stored. The library uses each parameter: `isFirstMeasure` leaves new elements out, `sameAvailableSize` tells a change that starts inside the element from its parent giving it a new size, and `previousDesiredSize` tells whether the change goes up to the parent.
   - Collapsed elements return earlier and are never reported.
   - Neither are elements whose measure is still valid for the same size.
 - `OnArranging(element, finalRect, previousFinalRect, isFirstArrange)` is called only when the arrange is invalid or the final rect changed, just before `ArrangeCore`. An element whose parent arranges it again in the same rect, without its arrange being invalid, is not reported.

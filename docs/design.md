@@ -32,15 +32,14 @@ flowchart LR
 
 ## Core change 1: `LayoutObserver` (C#, about 60 lines)
 
-It uses only public types, costs a single null check when no observer is registered, and doesn't change behavior.
+It costs a single null check when no observer is registered, and doesn't change behavior. It's internal, and visible to this library only, through `[assembly: InternalsVisibleTo("OpenSilver.Animations")]` in OpenSilver's `AssemblyInfo.cs`: the OpenSilver owner asked for that while the API is not stable, so that OpenSilver doesn't commit to a public API. The library overrides its methods with `protected internal override`, which is what C# requires across assemblies with `InternalsVisibleTo`.
 
 ```csharp
-[EditorBrowsable(EditorBrowsableState.Never)]
-public abstract class LayoutObserver
+internal abstract class LayoutObserver
 {
-    public static IDisposable Register(LayoutObserver observer);
+    internal static void Register(LayoutObserver observer); // for the lifetime of the app
 
-    protected internal virtual void OnMeasured(UIElement element, Size availableSize, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure) { }
+    protected internal virtual void OnMeasured(UIElement element, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure) { }
     protected internal virtual void OnArranging(UIElement element, Rect finalRect, Rect previousFinalRect, bool isFirstArrange) { }
     protected internal virtual void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered) { }
     protected internal virtual void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue) { }
