@@ -12,6 +12,55 @@
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
+
+        <!-- An easing choice: a square tile with the curve of the easing named by its Content -->
+        <Style x:Key="CurveChoice" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,4,8,4" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Width="72" Height="72">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="MouseOver">
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverTile" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed" />
+                                    <VisualState x:Name="Disabled" />
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Checked">
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SelectedTile" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Indeterminate" />
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="FocusStates">
+                                    <VisualState x:Name="Focused" />
+                                    <VisualState x:Name="Unfocused" />
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Border Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" />
+                            <Border x:Name="HoverTile" BorderBrush="#C9CCD8" BorderThickness="1" CornerRadius="10" Opacity="0" />
+                            <Border x:Name="SelectedTile" Background="{StaticResource AccentLightBrush}" BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
+                                    CornerRadius="10" Opacity="0" />
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <controls:EasingCurve EasingName="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
+                                <ContentPresenter HorizontalAlignment="Center" Margin="0,5,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </sdk:Page.Resources>
 
     <StackPanel Style="{StaticResource ChapterRoot}">
@@ -25,7 +74,7 @@
         <!-- 1. Every effect -->
         <controls:DemoCard x:Name="EffectDemo" Title="Every effect"
                            Description="Choose an effect and its parameters, then hide and show the card. The text below the card makes room for it and fills its space with the duration of the effect."
-                           Expectations="• Each effect plays when the card is shown, and again, the other way around, when it is hidden.&#10;• Slide and Wipe follow the side you choose: the card comes from it, and goes back to it.&#10;• Slide follows the distance you choose: at 100%, the card starts a whole card height away (a whole width from the left or the right).&#10;• Zoom follows the size you choose: the card starts from that size, and goes back to it. At 120%, it shrinks into place.&#10;• With Fade set to No, Slide and Zoom don't fade: the card is fully visible while it moves or grows.&#10;• With Bouncy, or with Pop, the card bounces, but it fades in without bouncing, and the text below moves smoothly.&#10;• With Overshoot, the card goes a little past its place or its size, and comes back, once. The text below moves with EaseOut, without overshooting.&#10;• With EaseIn, the card starts slowly and leaves fast. With EaseOut, it starts fast and ends slowly.&#10;• With Text below set to 1 s, the text takes 1 second to make room or to fill the space, whatever the duration of the card.&#10;• Hide and show the card quickly: it never jumps.">
+                           Expectations="• Each effect plays when the card is shown, and again, the other way around, when it is hidden.&#10;• Slide and Wipe follow the side you choose: the card comes from it, and goes back to it.&#10;• Slide follows the distance you choose: at 100%, the card starts a whole card height away (a whole width from the left or the right).&#10;• Zoom follows the size you choose: the card starts from that size, and goes back to it. At 120%, it shrinks into place.&#10;• With Fade set to No, Slide and Zoom don't fade: the card is fully visible while it moves or grows.&#10;• With Bouncy, or with Pop, the card bounces, but it fades in without bouncing, and the text below moves smoothly.&#10;• With Overshoot, the card goes a little past its place or its size, and comes back, once. The text below moves with EaseOut, without overshooting.&#10;• With EaseIn, the card starts slowly and leaves fast. With EaseOut, it starts fast and ends slowly.&#10;• Each easing shows its curve, on the same scale: Linear is a straight line, EaseIn starts flat, EaseOut ends flat, and Bouncy and Overshoot go above the top dotted line before they come back to it.&#10;• With Text below set to 1 s, the text takes 1 second to make room or to fill the space, whatever the duration of the card.&#10;• Hide and show the card quickly: it never jumps.">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -109,18 +158,22 @@
                         <RadioButton Content="1 s" Tag="1s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" />
                     </WrapPanel>
 
-                    <!-- Pop always bounces -->
-                    <TextBlock x:Name="EasingLabel" Grid.Row="7" Text="Easing" Style="{StaticResource SliderLabel}" />
-                    <WrapPanel x:Name="EasingChoices" Grid.Row="7" Grid.Column="1">
-                        <RadioButton Content="Smooth" GroupName="Easing" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="Gentle" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Linear" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Bouncy" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="EaseOut" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="EaseIn" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="EaseInOut" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Overshoot" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
+                    <!-- Pop always bounces. The label is beside the first row of tiles. -->
+                    <TextBlock x:Name="EasingLabel" Grid.Row="7" Text="Easing" Style="{StaticResource SliderLabel}" VerticalAlignment="Top" Margin="0,30,0,0" />
+                    <StackPanel Grid.Row="7" Grid.Column="1">
+                        <WrapPanel x:Name="EasingChoices">
+                            <RadioButton Content="Smooth" GroupName="Easing" Style="{StaticResource CurveChoice}" IsChecked="True" Checked="Option_Checked" />
+                            <RadioButton Content="Gentle" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                            <RadioButton Content="Linear" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                            <RadioButton Content="Bouncy" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                            <RadioButton Content="EaseOut" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                            <RadioButton Content="EaseIn" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                            <RadioButton Content="EaseInOut" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                            <RadioButton Content="Overshoot" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0"
+                                   Text="Each drawing shows how the card moves: the time goes from left to right, and the card goes from where it starts, the bottom dotted line, to where it ends, the top one." />
+                    </StackPanel>
                 </Grid>
 
                 <StackPanel MaxWidth="360" HorizontalAlignment="Left" Margin="0,20,0,0">

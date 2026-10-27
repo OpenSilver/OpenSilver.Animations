@@ -54,6 +54,11 @@ namespace OpenSilver.Animations.Gallery
             }
         }
 
+        private void Home_Click(object sender, RoutedEventArgs e)
+        {
+            ContentFrame.Navigate(new Uri("/", UriKind.Relative));
+        }
+
         private void OnLogged(object sender, AnimationLoggedEventArgs e)
         {
             _log.Insert(0, new LogEntry(e.Message, e.Time));

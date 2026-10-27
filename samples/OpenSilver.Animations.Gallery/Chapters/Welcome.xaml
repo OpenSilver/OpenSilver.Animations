@@ -58,6 +58,6 @@
             </StackPanel>
         </Border>
 
-        <Button Content="Start with chapter 1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="Start_Click" />
+        <Button Content="Start with chapter 1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,24,0,0" Click="Start_Click" />
     </StackPanel>
 </sdk:Page>
