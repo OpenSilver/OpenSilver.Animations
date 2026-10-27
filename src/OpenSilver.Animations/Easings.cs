@@ -191,13 +191,27 @@ namespace OpenSilver.Animations
         private readonly double _omegaD;
 
         public SpringEasing(string name, double bounciness)
+            : this(name, bounciness, b => 1 - 0.8 * b, 1000)
+        {
+        }
+
+        private SpringEasing(string name, double bounciness, Func<double, double> dampingRatio, double settle)
         {
             Name = name;
             Bounciness = Math.Max(0.1, Math.Min(1, bounciness));
-            _zeta = 1 - 0.8 * Bounciness;
-            _omega = Math.Log(1000) / _zeta;
+            _zeta = dampingRatio(Bounciness);
+            _omega = Math.Log(settle) / _zeta;
             _omegaD = _omega * Math.Sqrt(1 - _zeta * _zeta);
         }
+
+        /// <summary>
+        /// The spring of hover and press reactions. They change the element by a few pixels, so
+        /// the spring of moves would overshoot by less than a pixel: this one overshoots by a third
+        /// of the change at the default bounciness. It settles to 2% of the change, which is less
+        /// than a pixel there, so that it doesn't ring faster when it bounces more.
+        /// </summary>
+        public static SpringEasing ForReaction(double bounciness) =>
+            new SpringEasing("Bouncy", bounciness, b => 0.45 - 0.25 * b, 50);
 
         public string Name { get; }
 

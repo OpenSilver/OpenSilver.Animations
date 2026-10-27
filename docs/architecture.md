@@ -1,6 +1,6 @@
 # Architecture: how the built part works
 
-This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the first three steps of phase 3 (Appear and Disappear with their presets and OthersMove, the automatic effects of elements that appear or disappear inside an area, StartAfter and OnPageOpen, and the item properties). The full specification, including the phases not built yet, is in [design.md](design.md).
+This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the first four steps of phase 3 (Appear and Disappear with their presets and OthersMove, the automatic effects of elements that appear or disappear inside an area, StartAfter and OnPageOpen, the item properties, and Hover and Press). The full specification, including the phases not built yet, is in [design.md](design.md).
 
 ## The two halves
 
@@ -70,7 +70,8 @@ The library repository gets these changes through locally built OpenSilver packa
 
 | File (under `src/OpenSilver.Animations/`) | Role                                                                                                                                                      |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Animate.Changes` and `Animate.Skip`. |
+| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Hover` and `Press`, `Animate.Changes` and `Animate.Skip`. |
+| `Reaction.cs`                             | `Reaction` (abstract, a `MarkupExtension`), the presets `Grow`, `Lift`, `Shrink` and `Nudge`, `Reaction.None` and `ReactionConverter`.                   |
 | `Movement.cs`                             | `Movement` (abstract, a `MarkupExtension`), `Smooth`, `Bouncy`, `Movement.None`, `MovementConverter`, the `AnimationScope` enum.                          |
 | `Transition.cs`                           | `Transition` (abstract, a `MarkupExtension`), the presets `Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur` and `Custom`, `Transition.None`, `TransitionConverter`, the `Side`, `OthersMove` and `PageOpen` enums, the `Distance` struct and its converter, and the internal `EffectLook`. |
 | `AnimationTime.cs`                        | A readable duration (`0.3s`, `300ms`, `300`), with its type converter.                                                                                    |
@@ -79,11 +80,12 @@ The library repository gets these changes through locally built OpenSilver packa
 | `AssemblyInfo.cs`                         | `XmlnsDefinition` and `XmlnsPrefix` for `http://opensilver.net/animations` with the prefix `anim`.                                                        |
 | `Engine/LayoutAnimator.cs`                | The `LayoutObserver`. It collects the pass, groups, decides, culls, emits and logs. Most of the logic is here.                                            |
 | `Engine/PageOpenHolds.cs`                 | Holds the elements with `OnPageOpen=PushOthers` out of the layout while their page opens, and releases them after their `StartAfter`.                     |
+| `Engine/Reactions.cs`                     | Sends the `Hover` and `Press` of elements to the script, again when they are loaded or enabled or disabled, and the settings they use.                   |
 | `Engine/Timing.cs`                        | The duration and curve of a group, and their JSON form.                                                                                                   |
 | `Engine/BatchBuilder.cs`                  | Builds the JavaScript object sent once per pass.                                                                                                          |
 | `Engine/BrowserBridge.cs`                 | Loads `animations.js` and runs the batch. It keeps `IsDragging` and `PrefersReducedMotion` up to date through JavaScript callbacks.                       |
 | `Engine/ElementNames.cs`                  | Names elements in messages: their `x:Name`, or their type and a bit of their text. Items are named by their text and their list: `Item "Buy milk" of Tasks`. |
-| `Scripts/animations.js`                   | Embedded resource (`OpenSilver.Animations.animations.js`). It plays the batch with Web Animations, and tracks dragging and reduced motion.                |
+| `Scripts/animations.js`                   | Embedded resource (`OpenSilver.Animations.animations.js`). It plays the batch with Web Animations, plays the hover and press reactions, and tracks dragging and reduced motion. |
 
 
 
@@ -107,6 +109,9 @@ The library repository gets these changes through locally built OpenSilver packa
     <ItemsControl anim:Animate.ItemAppear="{anim:Slide From=Top, Distance=Short}" anim:Animate.ItemDisappear="Fade"
                   anim:Animate.ItemMoveAndResize="Smooth" anim:Animate.ItemCascade="0.05s" />
     <StackPanel anim:Animate.ItemAppear="{anim:Slide From=Right}" />  <!-- the children of a Panel are its items -->
+    <Button anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" />
+    <Border anim:Animate.Hover="{anim:Lift Distance=6}" />
+    <Border anim:Animate.Hover="{anim:Nudge Distance=6, Tilt=5}" />
 </UserControl>
 ```
 
@@ -115,6 +120,7 @@ Animate.SetMoveAndResize(card, new Smooth { Duration = AnimationTime.FromSeconds
 Animate.SetMoveAndResize(card, "Smooth");                  // implicit conversion from string
 Animate.SetAppear(note, new Slide { From = Side.Left, Distance = 60 });
 Animate.SetDisappear(note, "Fade");
+Animate.SetHover(icon, new Nudge { Distance = 6, Tilt = 5 });
 Animate.Changes(() => Details.Visibility = Visibility.Collapsed);          // animates everything
 Animate.Changes(() => Box.Width = 400, AnimationTime.FromSeconds(0.6));
 Animate.Skip(() => RestoreLayout());                       // nothing animates
@@ -143,6 +149,11 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - `ItemAppear` and `ItemDisappear` (`Transition`) work as if each item had this `Appear` or `Disappear`. `ItemMoveAndResize` (`Movement`) works as if each item had this `MoveAndResize`, without `ApplyTo`. An item's own setting wins.
   - `ItemCascade` (`AnimationTime`, default zero) is the time between items that play their effect in the same change, at most 0.3 s, and 0.6 s for the whole cascade.
   - Setting one turns on `LayoutAnimator.AnyItems`; a `Transition` also turns on `AnyEffects`, and `None` on `AnyAreas`, because each item is then carved out. `CheckItemSetting` warns about a value that doesn't apply.
+- `Animate.Hover` and `Animate.Press` (attached, type `Reaction`, not inherited) don't start the layout engine: they only load the script (`Reactions`).
+  - `Reaction` works like `Transition`: a string through `ReactionConverter` (`Grow`, `Lift`, `Shrink`, `Nudge`, `None`), a markup extension, an element or a resource.
+  - **Parameters** on every preset: `Duration`, `Easing` and `Bounciness`. `Grow` and `Shrink` have `Zoom` (0.5 to 2); `Lift` has `Distance`; `Nudge` has `Distance` (at most 20 px when used) and `Tilt` (0 to 15 degrees).
+  - `Reactions.Check` warns about `Nudge` on Press, `Easing` on Nudge and `Bounciness` without a bounce, with `LayoutAnimator.Warn`.
+  - `Timing.FromReaction` samples the reaction spring for `Easing=Bouncy` (see "Curves" below). It leaves the duration at 0 when none is set, and doesn't divide it by `Speed`: the script applies the default duration and the speed when a reaction plays, so that changing them in `AnimationSettings` applies at once.
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
 - **Nested scopes:** the inner one applies until it exits, then the outer one applies again.
@@ -156,6 +167,7 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - `Easings.Gentle` is `cubic-bezier(0.45, 0, 0.55, 1)`.
   - `Easings.Linear`.
   - `Easings.Bouncy` is a damped spring. Its damping ratio is `1 - 0.8 × Bounciness`, and it is within 0.1% of the target at the end of the duration.
+  - On Hover and Press, `Bouncy` is `SpringEasing.ForReaction`: a damping ratio of `0.45 - 0.25 × Bounciness`, within 2% of the target at the end. At the default 0.5 and 0.5 s, it peaks at 1.34 of the change at 140 ms, then 0.885 and 1.039. It settles to 2% rather than 0.1% so that it doesn't ring faster as it bounces more: about 6 times a second at Bounciness 1, instead of 10.
   - Any other `IEasingFunction` is sampled into 33 points.
 
 
@@ -341,7 +353,7 @@ In a pass that isn't following anything, that's all: the switches are origins li
   - only the switches are origins: no measure origins, arrange-only changes or shown parents;
   - the dragging reason doesn't stop a group that has origins;
   - `Decide` only uses the settings found going up from the origins, at any level, and never the nearest member: in a resize, the members also follow the resize, so their settings say nothing about the switch;
-  - the elements whose settings are found are the **owners** (`_owners`), each with the switches that found it. `EmitSwitches` gives each member and appearing element to the nearest owner that contains it, and the others snap, like the rest of the resize. Each owner then animates its part with its own timing, and writes its own message: at 960 px in chapter 13, the three shape boxes and the wrapping text box write four messages, each naming its own switch and setting. A part with several different switches says so: "{Responsive} switched the Width of RectangleBox, and 2 other values";
+  - the elements whose settings are found are the **owners** (`_owners`), each with the switches that found it. `EmitSwitches` gives each member and appearing element to the nearest owner that contains it, and the others snap, like the rest of the resize. Each owner then animates its part with its own timing, and writes its own message: at 960 px in chapter 14, the three shape boxes and the wrapping text box write four messages, each naming its own switch and setting. A part with several different switches says so: "{Responsive} switched the Width of RectangleBox, and 2 other values";
   - `InvolvesSettings` only looks at the origins, so switches with no settings around them, like the gallery's own font sizes and paddings, write no message.
 - **The animations go on through the resize.** `_runningUntil` remembers which animations came from a switch (`FromSwitch`). In the next following passes, such an element is not cancelled when it snaps (`_keepRunning`): its size animation is retargeted to its new size instead (`AddRetarget`, batch key `s`). So it follows the resize at once, and what is left of the switch plays on top. Other animations are cancelled as before, so the elements that were animating when the drag started follow the edge.
 
@@ -421,8 +433,8 @@ These are at the top of `LayoutAnimator`:
 
 `osAnimations.init(dragStarted, dragEnded, reducedMotionOn, reducedMotionOff)` runs once and installs:
 
-- **The drag tracker.** Capture listeners on `window` for `pointerdown`, `pointermove`, `pointerup` and `pointercancel`. A drag starts when a button is held and the pointer moved more than 4 px.
-- **The reduced-motion listener**, on `matchMedia('(prefers-reduced-motion: reduce)')`.
+- **The drag tracker.** Capture listeners on `window` for `pointerdown`, `pointermove`, `pointerup` and `pointercancel`. A drag starts when a button is held and the pointer moved more than 4 px. The same listeners press and release the elements that react, and record the last positions of the mouse or pen (`trail`), for Nudge.
+- **The reduced-motion listener**, on `matchMedia('(prefers-reduced-motion: reduce)')`. When it turns on, reactions go back to rest at once.
 
 `osAnimations.run(batch)` plays one pass. The batch is a JavaScript object literal built by `BatchBuilder`:
 
@@ -465,6 +477,22 @@ They run in this order: cancels, retargets, moves, reveals, effects, ghosts, gho
   - `ghostInView(ids)`, for a list that is refreshed, reads where all the elements are first, then copies those less than 100 px from the window (`VIEW_MARGIN`).
   - When the element appears again while its ghost plays, `appear` and `reveal` start from what the ghost showed (`takeGhost`).
 - **Outlines** (`ShowWhatAnimates`) animate `outline` on the element: orange for the origin, pink for members. They last at least 700 ms.
+
+**Hover and press.** `osAnimations.react(id, hover, press, enabled)` is called by `Reactions` when `Hover` or `Press` changes, when the element is loaded (its div is new each time), and when it is enabled or disabled. `osAnimations.reactSettings(on, speed, defaultMs, respect, simulate)` is called when `AnimationSettings` change.
+
+```text
+hover, press: { k: 1 Nudge | 2 Grow or Shrink | 3 Lift, t: timing (d is 0 for the default),
+                b: bounciness, bo?: 1 when Easing=Bouncy, z?: zoom, dist?: pixels, a?: tilt } or null
+```
+
+- **State.** Per element, in a `WeakMap`: the two reactions, whether the element is enabled and hovered, one level for the hover and one for the press, and the running nudge. A level is `{ from, to, animation, curve }`: 0 is the element at rest, 1 is its reaction. Elements found by `react` get `pointerenter` and `pointerleave` listeners; both reactions set to null remove them.
+- **Levels.** `setLevel` reads where the level is, from the eased progress of its animation, cancels it, and plays from there to the target with `composite: 'add'`. Grow and Shrink animate `scale`, and `translate` by `(1 - scale)` times the center, measured from the computed `transform-origin`. Lift animates `translate`. The levels of the hover and the press add up.
+  - A level held at 1 has `fill: 'forwards'` and is made persistent (`animation.persist()`). Otherwise the browser removes it as soon as a later animation of the same properties ends, like the press over a hover, although they add up.
+- **Hover.** `pointerenter` plays the hover, except for touch. `pointerleave` takes it back to 0, unless the pointer is still where the element rests (`isOverRestBox`), as when a lifted element leaves the pointer under it: the element is then `lingering` until a `pointermove` leaves that box, or the pointer leaves the window.
+- **Press.** `pointerdown` (on `window`) presses every element under the pointer, from the target up, whose press is set and which is enabled. `pointerup` and `pointercancel` release them all.
+- **Nudge.** On `pointerenter`, the velocity comes from the `trail` sample 20 to 150 ms before the event. The strength is the speed in px/ms, at most 1. The tilt is the cross product of the direction from the center to the entry point and the direction of the mouse. 24 sampled keyframes: out with a quadratic ease in 30% of the time, then back with a back ease (`1.6 × Bounciness`, 0.8 by default), with the rotation kept on the center.
+- **Durations.** `t.d`, or 400 ms for Nudge, or `defaultMs` (twice with `bo`), divided by `speed`.
+- **Off.** Under reduced motion (`respect` and the media query or `simulate`) and when `on` is false, nothing plays, and the elements that react go back to rest at once. A disabled element goes back to rest and ignores the pointer.
 
 
 

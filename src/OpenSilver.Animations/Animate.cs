@@ -5,7 +5,8 @@ using OpenSilver.Animations.Engine;
 namespace OpenSilver.Animations
 {
     /// <summary>
-    /// Makes elements animate when they appear, disappear, move or change size.
+    /// Makes elements animate when they appear, disappear, move or change size, and when the
+    /// mouse is over them or presses them.
     /// </summary>
     /// <example>
     /// <code>
@@ -13,6 +14,7 @@ namespace OpenSilver.Animations
     /// &lt;Button Content="Save" anim:Animate.MoveAndResize="Smooth" /&gt;
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
     /// &lt;ItemsControl anim:Animate.ItemAppear="Fade" anim:Animate.ItemDisappear="Fade" anim:Animate.ItemMoveAndResize="Smooth" /&gt;
+    /// &lt;Button Content="Buy" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;
     /// </code>
     /// </example>
     public static class Animate
@@ -337,6 +339,91 @@ namespace OpenSilver.Animations
 
             LayoutAnimator.EnsureStarted();
             LayoutAnimator.CheckItemSetting(e.Property, e.NewValue, element);
+        }
+
+        /// <summary>
+        /// Identifies the Hover attached property.
+        /// </summary>
+        public static readonly DependencyProperty HoverProperty =
+            DependencyProperty.RegisterAttached(
+                "Hover",
+                typeof(Reaction),
+                typeof(Animate),
+                new PropertyMetadata(null, OnReactionChanged));
+
+        /// <summary>
+        /// Gets what the element does when the mouse is over it.
+        /// </summary>
+        public static Reaction GetHover(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Reaction)element.GetValue(HoverProperty);
+        }
+
+        /// <summary>
+        /// Sets what the element does when the mouse is over it: <see cref="Grow"/>,
+        /// <see cref="Lift"/> or <see cref="Shrink"/> until the mouse leaves, or <see cref="Nudge"/>
+        /// once, when the mouse comes in. Nothing happens on a touch screen, which has no mouse, or
+        /// while the element is disabled.
+        /// </summary>
+        public static void SetHover(UIElement element, Reaction value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(HoverProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the Press attached property.
+        /// </summary>
+        public static readonly DependencyProperty PressProperty =
+            DependencyProperty.RegisterAttached(
+                "Press",
+                typeof(Reaction),
+                typeof(Animate),
+                new PropertyMetadata(null, OnReactionChanged));
+
+        /// <summary>
+        /// Gets what the element does while it is pressed.
+        /// </summary>
+        public static Reaction GetPress(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (Reaction)element.GetValue(PressProperty);
+        }
+
+        /// <summary>
+        /// Sets what the element does while it is pressed, with the mouse, a finger or a pen:
+        /// <see cref="Shrink"/>, <see cref="Grow"/> or <see cref="Lift"/>, until it is released.
+        /// Nothing happens while the element is disabled. <see cref="Nudge"/> is for Hover only.
+        /// </summary>
+        public static void SetPress(UIElement element, Reaction value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(PressProperty, value);
+        }
+
+        private static void OnReactionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is UIElement element)
+            {
+                Reactions.OnChanged(element, e.NewValue as Reaction, press: e.Property == PressProperty);
+            }
         }
 
         /// <summary>

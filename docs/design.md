@@ -91,6 +91,7 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
   - `Appear` is "When it appears", `Disappear` is "When it disappears", and `MoveAndResize` is "When it moves or changes size".
   - `ItemAppear`, `ItemDisappear` and `ItemMoveAndResize` are "When an item appears / disappears / moves or changes size", and `ItemCascade` is "Cascade".
   - `TextChange` is "When its text changes", and `MagicMove` is "Magic move".
+  - `Hover` is "When the mouse is over it", and `Press` is "When it is pressed".
   - For parameters, the label is the XAML name split into words: `StartAfter` is "Start after", `OthersMove` is "Other elements move", `OnPageOpen` is "When the page opens", `ApplyTo` is "Apply to", and `AlsoOnWindowResize` is "Also when the browser window is resized". `From`, `To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `Wave`, `Speed`, `Cursor` and `Travel` keep their names.
 - **Off by default.** Choosing an effect is enough; every parameter has a good default.
 - **Surrounding elements never overlap or jump.** When something animates, everything involved in the same change animates with it. That's not an option the developer has to understand.
@@ -100,7 +101,7 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
 
 ## Library API
 
-The NuGet package is `OpenSilver.Animations`, described as "Easy animations for OpenSilver" and tagged `animation` and `transition`. The XML namespace is `xmlns:anim="http://opensilver.net/animations"` (declared with `XmlnsDefinition`; the `clr-namespace:OpenSilver.Animations;assembly=OpenSilver.Animations` form also works). All properties are attached on `Animate` and are not inherited. The value types are `Movement` (the base of `Smooth`, `Bouncy` and `None`), `Transition` (the base of the Appear and Disappear presets, with `Transition.None`), `AnimationTime` for durations and `Distance` for Slide. `From` and `To` take a `Side`, and `OthersMove` is an enum of the same name. The curves `Smooth`, `Gentle`, `Linear` and `Bouncy` are on the `Easings` class.
+The NuGet package is `OpenSilver.Animations`, described as "Easy animations for OpenSilver" and tagged `animation` and `transition`. The XML namespace is `xmlns:anim="http://opensilver.net/animations"` (declared with `XmlnsDefinition`; the `clr-namespace:OpenSilver.Animations;assembly=OpenSilver.Animations` form also works). All properties are attached on `Animate` and are not inherited. The value types are `Movement` (the base of `Smooth`, `Bouncy` and `None`), `Transition` (the base of the Appear and Disappear presets, with `Transition.None`), `Reaction` (the base of the Hover and Press presets, with `Reaction.None`), `AnimationTime` for durations and `Distance` for Slide, Lift and Nudge. `From` and `To` take a `Side`, and `OthersMove` is an enum of the same name. The curves `Smooth`, `Gentle`, `Linear` and `Bouncy` are on the `Easings` class.
 
 - The base of the presets is named `Transition`, not `Effect`: every element already has an `Effect` property (`UIElement.Effect`), which would hide the type in code-behind.
 - `Distance` is a struct with a type converter, not a `double` with named values: the OpenSilver XAML compiler only accepts numbers for `double` properties.
@@ -117,6 +118,11 @@ The NuGet package is `OpenSilver.Animations`, described as "Easy animations for 
 <ListBox anim:Animate.ItemAppear="{anim:Slide From=Right}" anim:Animate.ItemDisappear="Fade"
          anim:Animate.ItemMoveAndResize="Smooth" anim:Animate.ItemCascade="0.04s" />
 <WrapPanel anim:Animate.ItemMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}" />
+
+<!-- When the mouse is over it / when it is pressed -->
+<Button Content="Buy now" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" />
+<Border anim:Animate.Hover="{anim:Lift Distance=6}" />
+<Border anim:Animate.Hover="Nudge" />
 
 <!-- Text -->
 <TextBlock Text="{Binding Count}" anim:Animate.TextChange="Roll" />
@@ -202,6 +208,21 @@ Animate.Skip(() => LoadInitialData());
     - The time is divided by `Speed`, like durations.
   - An item's own `Appear`, `Disappear` or `MoveAndResize` wins.
   - A value that doesn't apply writes a warning, like the effects do: an item setting on an element that is not a Panel or an ItemsControl, `ApplyTo` on `ItemMoveAndResize`, `OnPageOpen=PushOthers` on `ItemAppear`, and a cascade longer than 0.3 s.
+- **Animate.Hover and Animate.Press**: what an element does while the mouse is over it, and while it is pressed with the mouse, a finger or a pen. Any element can react, not only buttons.
+  - **Presets:**
+    - `Grow` (`Zoom`, 0.5 to 2, default 1.05) and `Shrink` (`Zoom`, default 0.96) zoom around the center.
+    - `Lift` (`Distance`, default 4 px) rises.
+    - `Nudge` (Hover only) pushes the element in the direction the mouse comes from, by up to `Distance` (0 to 20 px, default 3). It turns it like a lever by up to `Tilt` degrees (0 to 15, default 2), from where the mouse comes in, then springs it back. The push is in proportion to the speed of the mouse, at full strength from 1 pixel per millisecond. Nothing happens when the mouse is slower than 0.05 pixel per millisecond, while a mouse button is held, or while a nudge plays.
+    - `None`.
+  - **Parameters:** `Duration` (default `DefaultDuration`, twice that with `Easing=Bouncy`, and 0.4 s for Nudge), `Easing` (not used by Nudge), and `Bounciness` (Nudge, and `Easing=Bouncy`).
+  - **Bouncy springs more on Hover and Press than on moves.** A reaction changes the element by a few pixels, and the spring of moves overshoots by a tenth of the change at the default bounciness: less than a pixel on a button. Reactions use a looser spring, which overshoots by about a third of the change (about a quarter at Bounciness 0.1, and a half at 1), rings once or twice, and comes back the same way when the pointer leaves.
+  - **Grow, Lift and Shrink** play to their look while the mouse is over the element or while it is pressed, and back when it leaves or is released. An interruption goes on from where the element is. Hover and Press add up: `Grow` and `Shrink` together are about 1.008 while pressed.
+  - **The pointer leaving the element only counts when it leaves where the element rests.** An element that rises or shrinks away from a still pointer doesn't come back under it again and again.
+  - **No hover on touch screens.** A press is released when the pointer is released or cancelled, not when it leaves the element.
+  - **Nothing happens** while the element is disabled (it goes back to rest), under reduced motion, or when `AnimationSettings.IsEnabled` is false. `Speed` divides the durations.
+  - **Visual only.** The reaction plays on top of everything else, like the moves: it doesn't change `RenderTransform` or any other property, and the element keeps its place and size, so nothing around it moves.
+  - **Warnings.** `Nudge` on Press, `Easing` on Nudge, and `Bounciness` without Nudge or `Easing=Bouncy` write a warning, and are ignored.
+  - **No messages when they play.** Apart from these warnings, reactions don't write to the log: they happen too often to explain.
 - **Animate.TextChange** (TextBlock), used when `Text` changes while the TextBlock is visible:
   - `Roll`: `From=Bottom` (default) or `Top`, plus `Duration`.
   - `CrossFade`, `Scramble`: `Duration`.
@@ -228,6 +249,7 @@ Animate.Skip(() => LoadInitialData());
 - **Reduced motion.** When the user prefers reduced motion and `RespectReducedMotion` is on:
   - moves and resizes snap;
   - appear and disappear effects become a 0.15 s fade;
+  - hover and press reactions don't play;
   - text effects show the final text;
   - Magic move becomes a cross-fade in place.
 - **No compatibility layer.** The Showcase's own `OpenSilver.Animations` project will be removed. The Showcase is ported to this API.
@@ -525,28 +547,29 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
 9. **Text that moves.** Typewriter, Roll on a counter, Count up, Scramble and Retype, plus a live clock.
 10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
 11. **Magic move.** A segmented control with a selection pill, a tab underline, a list-to-detail photo, and a wizard with `MagicMoveByName`.
-12. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource) and reduced motion.
-13. **What never animates, and why.** Live proof that the following stay instant:
+12. **Hover and press.** `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, icons that the mouse nudges with Distance and Tilt sliders, and a button that doesn't react while it's disabled.
+13. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource) and reduced motion.
+14. **What never animates, and why.** Live proof that the following stay instant:
     - scrolling;
     - dragging a GridSplitter or a Slider;
     - typing;
     - window resizing, except the values that switch with `{Responsive}` (the shapes switch size at 960 px).
 
     Also the performance budget, and the known limitations shown live (text re-wrapping, `Path` shapes).
-14. **Putting it together.** A link to the Showcase port as the real-world example.
+15. **Putting it together.** A link to the Showcase port as the real-world example.
 
 ### When chapters are built
 
 Each chapter is added in the phase that implements its feature, so the gallery grows with the library and each phase ends with a working, testable story:
-- Phase 2: chapter 5, and the parts of chapter 13 about scrolling, dragging, typing and window resize.
-- Phase 3: chapters 1 to 4, 6, 7, 8 and 14.
+- Phase 2: chapter 5, and the parts of chapter 14 about scrolling, dragging, typing and window resize.
+- Phase 3: chapters 1 to 4, 6, 7, 8, 12 and 15.
 - Phase 4: the playgrounds, the live XAML and the summaries.
 - Phase 5: chapter 9.
 - Phase 6: chapter 10.
 - Phase 7: chapter 11.
-- Chapter 12 and the rest of chapter 13 are completed along the way.
+- Chapter 13 and the rest of chapter 14 are completed along the way.
 
-Chapters 1 to 8, 10, 12 and 13 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
+Chapters 1 to 8, 10 and 12 to 14 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
 
 ## Acceptance scenarios (covered by the gallery chapters)
 
@@ -729,6 +752,7 @@ Each line is what the developer sets, and what must happen.
 
 - **Straight swaps.** The effects map to `Appear` with `StartAfter`.
 - **AnimatedContentControl** becomes `OnPageOpen=PushOthers`.
+- **SpringEffect.IsEnabled** becomes `Hover=Nudge`, with the same defaults: 3 px, 2 degrees, 0.4 s, and the same spring back.
 - **Source-code pane.** The `PropertyAnimator` row code becomes `MoveAndResize` Smooth on the pane's row content.
 - **Known differences:**
   - The neighbors move with the effect's duration, instead of 1.5 times it.
@@ -748,6 +772,8 @@ Each line is what the developer sets, and what must happen.
 - Items are told apart with `Equals`. With equal items in the same list, like the same string twice, removing one while an equal one stays plays no disappear effect, and after a sort one of them can glide from the other's old place while the other appears like a new item.
 - An item shown again in a new place goes on from where its old container was on screen, but not from its size or opacity at that moment.
 - An element whose layout clip isn't its own box, like an items panel that overflows its list, moves its clip with it when it animates.
+- An element without a `Background` only reacts to Hover and Press while the pointer is over its content.
+- An Appear effect with an offset, a zoom or a rotation hides the element's hover or press until it ends, and a ghost starts from the element at rest.
 - In the Simulator, JS batches can arrive a frame apart.
 
 ## Phases
@@ -755,11 +781,11 @@ Each line is what the developer sets, and what must happen.
 - **Phase 0:** spike (the "Validate first" list).
 - **Phase 1:** core PR.
 - **Phase 2:** MoveAndResize (Smooth) with the grouping rules, the exclusions, the performance guards and the diagnostics; the gallery app shell with chapter 5.
-- **Phase 3:** Appear/Disappear, OnPageOpen and OthersMove, and Items, with their gallery chapters; then the Showcase port.
+- **Phase 3:** Appear/Disappear, OnPageOpen and OthersMove, Items, and Hover and Press, with their gallery chapters; then the Showcase port.
 - **Phase 4:** `AnimationCatalog` and `AnimationDesign` (library side), and the gallery playgrounds built on them.
 - **Phase 5:** text.
 - **Phase 6:** Bouncy and Wave (done early, together with phase 2).
 - **Phase 7:** Magic move.
-- **Later:** Hover, ContentTransition.
+- **Later:** ContentTransition.
 
 Not in these phases: the XAML.io Animate tab, which is built in the XAML.io repo from the "Designer panel" specification and the library's `AnimationCatalog`/`AnimationDesign`.

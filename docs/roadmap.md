@@ -1,6 +1,6 @@
 # Status and roadmap
 
-Last updated: October 26, 2026, after the third step of phase 3 (the item properties and chapter 6), and the fix for the empty frames of a refreshed list.
+Last updated: October 27, 2026, after the fourth step of phase 3 (Hover and Press, and chapter 12).
 
 ## Phases
 
@@ -10,12 +10,12 @@ Last updated: October 26, 2026, after the third step of phase 3 (the item proper
 | 0     | Spike: validate the risky parts                                                                    | Partly done (see below).                                                                                                        |
 | 1     | OpenSilver core changes: `LayoutObserver` and the insertion fix                                    | Done: commit `547adac2` on branch `feat/layout-observer`, then the `{Responsive}` hook (`OnResponsiveValueChanged`). No PR yet. |
 | 2     | `MoveAndResize` (Smooth), grouping, exclusions, performance guards, diagnostics; the gallery shell | Done. The product owner tested it; the first round of feedback is addressed and verified in Chromium (see "Verified").          |
-| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties; then the Showcase port | In progress, in four steps. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Step 2 is done: `StartAfter` and `OnPageOpen`, and chapter 4. Step 3 is done: `ItemAppear`, `ItemDisappear`, `ItemMoveAndResize` and `ItemCascade`, chapter 6, and the chapter 8 tiles. Next: hover and press, then the Showcase port. |
+| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties, `Hover` and `Press`; then the Showcase port | In progress, in four steps. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Step 2 is done: `StartAfter` and `OnPageOpen`, and chapter 4. Step 3 is done: `ItemAppear`, `ItemDisappear`, `ItemMoveAndResize` and `ItemCascade`, chapter 6, and the chapter 8 tiles. Step 4 is done: `Hover` and `Press` with `Grow`, `Lift`, `Shrink` and `Nudge`, and chapter 12. Next: the Showcase port, then chapter 15. |
 | 4     | `AnimationCatalog` and `AnimationDesign`, and the gallery playgrounds built on them                | Not started.                                                                                                                    |
 | 5     | Text effects (`TextChange`, Typewriter, ...)                                                       | Not started.                                                                                                                    |
 | 6     | Bouncy and Wave                                                                                    | Done early, with phase 2.                                                                                                       |
 | 7     | Magic move                                                                                         | Not started.                                                                                                                    |
-| Later | Hover, ContentTransition, custom curves for MoveAndResize                                          | Not started.                                                                                                                    |
+| Later | ContentTransition, custom curves for MoveAndResize                                                 | Not started.                                                                                                                    |
 
 
 The XAML.io "Animate" tab is not part of these phases: it's built later in the XAML.io repository, from the "Designer panel" section of [design.md](design.md).
@@ -45,10 +45,11 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | spike             | See above                                                              | In progress                                                                                                                                                                                                                                                                                                         |
 | core-observer     | `LayoutObserver` and its call sites, including `{Responsive}` switches | Done                                                                                                                                                                                                                                                                                                                |
 | core-js           | `createVisual` skips `data-os-foreign` children                        | Done                                                                                                                                                                                                                                                                                                                |
-| lib-api           | Public API                                                             | `MoveAndResize`, `Appear`, `Disappear` (presets, `From`/`To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter`, `OnPageOpen`), the `Item...` properties, `Changes`, `Skip`, `AnimationSettings` and the curves are done. `TextChange` and `MagicMove` are pending.                      |
+| lib-api           | Public API                                                             | `MoveAndResize`, `Appear`, `Disappear` (presets, `From`/`To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter`, `OnPageOpen`), the `Item...` properties, `Hover` and `Press` (`Grow`, `Lift`, `Shrink`, `Nudge`), `Changes`, `Skip`, `AnimationSettings` and the curves are done. `TextChange` and `MagicMove` are pending.                      |
 | lib-causality     | Origins, groups, areas, decisions, exclusions, guards                  | Done, including the rule that changes never cross `None`, `{Responsive}` switches that animate during a resize, the drag-to-reorder exception (the element holding the mouse capture snaps, the other items glide), and no effects for items that virtualization realizes or removes. |
 | lib-render        | Web Animations rendering                                               | Moves, sizes, clips, shapes, interruptions, effects with center compensation, ghosts, and the automatic wipe or fade of elements appearing or disappearing inside an area are done.                                                                                                                                 |
 | lib-appear        | Appear, Disappear, ghosts, holds, items                                | Done: effects, ghosts, `OthersMove`, `StartAfter`, `OnPageOpen` and its hold (a Storyboard on `Visibility`), the automatic disappear inside areas, the hold until the layout pass, and the items: their effects, cascades, and containers paired by data item.                                              |
+| lib-reactions     | Hover and Press                                                        | Done: the presets, hover and press that add up, the hover kept while the pointer is where the element rests, Nudge from the speed of the mouse, disabled elements, touch, `Speed` and reduced motion.                                                                                                              |
 | lib-diagnostics   | `ShowWhatAnimates`, `Logged`                                           | Done                                                                                                                                                                                                                                                                                                                |
 | designer-metadata | `AnimationCatalog`, `AnimationDesign`                                  | Pending                                                                                                                                                                                                                                                                                                             |
 | gallery-app       | The guided tour                                                        | In progress (see below)                                                                                                                                                                                                                                                                                             |
@@ -56,7 +57,7 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | lib-text          | Text effects                                                           | Pending                                                                                                                                                                                                                                                                                                             |
 | lib-bouncy        | Bouncy and Wave                                                        | Done                                                                                                                                                                                                                                                                                                                |
 | lib-magicmove     | Magic move                                                             | Pending                                                                                                                                                                                                                                                                                                             |
-| later             | Hover, ContentTransition                                               | Pending                                                                                                                                                                                                                                                                                                             |
+| later             | ContentTransition                                                      | Pending                                                                                                                                                                                                                                                                                                             |
 
 
 
@@ -78,9 +79,10 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | 9. Text that moves                       | Coming soon (phase 5)                                                                                                                                                                                                                                                                                                                                                    |
 | 10. Bouncy and Wave                      | Built: bouncy tab underline with Bounciness and Duration sliders, a growing card with a Wave slider.                                                                                                                                                                                                                                                                     |
 | 11. Magic move                           | Coming soon (phase 7)                                                                                                                                                                                                                                                                                                                                                    |
-| 12. From code                            | Built: `Animate.Changes` (default and 0.6 s), `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, IsEnabled), reset when leaving.                                                                                                                                                                                                                               |
-| 13. What never animates, and why         | Built: scrolling, GridSplitter, Slider, typing, window resize (links to chapter 8, with `{Responsive}` as the exception), the 300-element budget, wrapping text, shapes (which switch size with `{Responsive}` at 960 px).                                                                                                                                               |
-| 14. Putting it together                  | Coming soon (after the Showcase port)                                                                                                                                                                                                                                                                                                                                    |
+| 12. Hover and press                      | Built: buttons that grow and shrink, lift, only shrink, or grow with a bounce; cards that lift; icons that the mouse nudges, with Distance and Tilt sliders; a button that doesn't react while a switch disables it.                                                                                                                                                     |
+| 13. From code                            | Built: `Animate.Changes` (default and 0.6 s), `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, IsEnabled), reset when leaving.                                                                                                                                                                                                                               |
+| 14. What never animates, and why         | Built: scrolling, GridSplitter, Slider, typing, window resize (links to chapter 8, with `{Responsive}` as the exception), the 300-element budget, wrapping text, shapes (which switch size with `{Responsive}` at 960 px).                                                                                                                                               |
+| 15. Putting it together                  | Coming soon (after the Showcase port)                                                                                                                                                                                                                                                                                                                                    |
 
 
 Not built yet in the chapters: the playgrounds, the live XAML with Copy, and the summary sentences, which come with phase 4. Each demo has a "What should happen" expander (a chevron, closed by default) with its acceptance lines.
@@ -107,13 +109,13 @@ This was checked in Chromium, through the agent's browser, with the Debug build 
 - **Chapter 10.**
   - Bouncy overshoots by 15 px at Bounciness 0.5, and by 54 px at 1.
   - The wave delays range from 2 to 160 ms.
-- **Chapter 12.**
+- **Chapter 13.**
   - Direct changes jump; `Animate.Changes` glides in 0.25 s, or 0.6 s with a duration.
   - `Skip` logs its message.
   - Speed 0.5 makes it last about 0.48 s, and the log says "0.5 s"; a duration of 0.3 with speed 0.5 lasts 0.6 s.
   - With IsEnabled off, it snaps with a message.
   - Reset works, and the settings are reset when leaving the chapter.
-- **Chapter 13.**
+- **Chapter 14.**
   - Scrolling stays instant. Taller rows animate (37 elements).
   - A click on the slider track glides; a slider drag (tested once) snaps with "something is being dragged".
   - Typing snaps with "the change came from typing in AutoWidthBox"; "Add a word from code" glides.
@@ -143,7 +145,7 @@ Checked in the Debug build:
   - The menu drawer, with the options and the chapters, closes when a chapter is chosen or the dimmed page is tapped.
   - The log drawer opens from the Log button and closes with Close or a tap on the dimmed page. Its unread dot shows when a message arrives while it's closed.
   - Resizing with a drawer open goes to the right layout: the menu closes above 960 px, and the log returns beside the page at 1280 px.
-  - At 390 px nothing is wider than the window in chapters 2, 5, 7, 8, 10, 12 and 13, and their demos still animate (sidebar 150 to 64 px, search box, dialog at 12 px from each side, settings form, dashboard, boxes of chapters 12 and 13).
+  - At 390 px nothing is wider than the window in chapters 2, 5, 7, 8, 10, 13 and 14, and their demos still animate (sidebar 150 to 64 px, search box, dialog at 12 px from each side, settings form, dashboard, boxes of chapters 13 and 14).
 
 
 
@@ -156,7 +158,7 @@ Checked in the Debug build, at 1300 × 800 unless stated otherwise:
   - At 220 px, the content glides into its new layout in about 14 frames while the drag goes on (the name moves 60 px right and 51 px up), then follows the edge again. The log says "{Responsive} switched the Orientation of StackPanel; 17 elements animate together (Smooth, 0.25 s, from the EverythingInside of ProfilePanel)."
   - "Switch the layout from code" glides in 0.25 s.
 - **Chapter 8, the step cards**: crossing 1100 px both ways, the row becomes a column and back with an animation, which goes on through the next resize steps. The log says "...3 elements animate together (Smooth, 0.25 s, from the MoveAndResize of StackPanel)." Crossing 1280 px, where only the shell switches, writes no message.
-- **Chapter 13, the shapes**, crossing 960 px both ways between 940 and 980 px, where the shell switches to the phone layout too (73 switches in one pass): the three boxes resize between 50 and 80 px and their gaps change, in 0.25 s. The rest of the page follows the window at once.
+- **Chapter 14, the shapes**, crossing 960 px both ways between 940 and 980 px, where the shell switches to the phone layout too (73 switches in one pass): the three boxes resize between 50 and 80 px and their gaps change, in 0.25 s. The rest of the page follows the window at once.
 - **Start time.** That pass takes about 0.4 s and ends late in a frame, so before the fix of `startAtNextFrame` the shapes' animations ended before they were painted. Clicks and reveals still play in full with it: the chapter 8 switch button, and the settings form of chapter 7, both ways.
 - **Each switch with its own setting**, at 1000 × 900 then 940, with the shapes in view: the batch has four timings, one for each of RectangleBox, EllipseBox, PathBox and WrapBox, and the log has four messages, like "{Responsive} switched the Width of EllipseBox; 2 elements animate together (Smooth, 0.25 s, from the MoveAndResize of EllipseBox)." Before, the whole page shared one timing and one message, which named AutoWidthBox. Back at 1000 px, the boxes glide from 50 to 80 px and WrapBox from 260 to 520 px in about 0.24 s. The chapter 8 step cards still glide at 1100 px, with the same message as before.
 
@@ -180,7 +182,7 @@ Checked in the Debug build, at 1050 × 900 and 390 × 844. The agent's browser w
   - The accordion: the new section wipes in from its top while the headers below slide, and the old one rolls up toward its header in the same change ("Body1 appeared; it wipes in, Body0 wipes out, and 17 elements animate together"). Quick clicks end with one section open and no ghost.
 - **Chapter 7.** The settings form's details wipe in from the top and wipe out toward the top with the size curve ("…and EmailDetails wipes out"). Quick toggles of the three options end right, with nothing running. Under reduced motion, everything snaps and the ghost is removed at once.
 - **Media in a ghost.** With an iframe added by script to chapter 1's details, hiding them makes a ghost with an empty 50 × 20 box in its place, which fades out in 0.15 s and is then removed. The real iframe stays where it was.
-- **Regressions.** Chapters 5 (Save, badge, sidebar), 7 (columns), 8 (switch from code) and 13 (rows, word, width, shapes) animate and log as before.
+- **Regressions.** Chapters 5 (Save, badge, sidebar), 7 (columns), 8 (switch from code) and 14 (rows, word, width, shapes) animate and log as before.
 - **At 390 px**, chapters 1, 2 and 3 fit the window.
 
 ### StartAfter and OnPageOpen (phase 3, step 2)
@@ -210,7 +212,20 @@ Checked in the Debug build, at about 1024 × 576 and 1600 × 950, by reading the
 - **The streaming chat.** The question slides in and the content below moves down 43 px. Each new line of the answer pushes it 18 to 19 px: "TextBlock "OpenSilver runs your XAM…" changed size; 20 elements animate together (…, from the ItemMoveAndResize of Chat)". At the third question, the oldest question and answer fade out, the rest moves up 162 px, and the new question slides in. A click while an answer streams is ignored. "Start over" (a `Clear()`) fades the three messages out with their text, and the greeting slides in again.
 - **The long list.** Scrolling plays nothing: its batches only remove the copies of the rows it removed, in the same pass. Scrolling, "Add an order", "Move to the top" and "Remove" make no refresh copies, and neither do the to-do list and its removals. "Add an order" fades the new order in and slides 7 rows down, and the row pushed out at the bottom gets no copy. "Move to the top" glides the order 184 px. "Remove" fades it out, the rows below slide up, and the row realized at the bottom fades in.
 - **Chapter 8, with `ItemMoveAndResize`.** Going from 1600 to 1350 px, the 11 tiles of FollowingTiles that move glide, with one timing in the batch, and SnappingTiles snaps: "The window was resized; the items of FollowingTiles follow it (Smooth, 0.25 s, from the ItemMoveAndResize of FollowingTiles)." After quick resizes, nothing is left running or offset. Clicking a tile of SnappingTiles widens it from 150 to 312 px while the tiles after it glide, and back.
-- **Regressions.** Chapters 1 (details, note), 2 (card, sign up), 3 (new message), 4 (details), 5 (Save, sidebar), 7 (columns, Refresh with the carve-out), 8 (switch from code), 10 (tabs), 12 (`Animate.Changes`) and 13 (rows, word, shapes) animate and log as before, with no console errors.
+- **Regressions.** Chapters 1 (details, note), 2 (card, sign up), 3 (new message), 4 (details), 5 (Save, sidebar), 7 (columns, Refresh with the carve-out), 8 (switch from code), 10 (tabs), 13 (`Animate.Changes`) and 14 (rows, word, shapes) animate and log as before, with no console errors.
+
+### Hover and press (phase 3, step 4)
+
+Checked in the Debug build, with the mouse simulated by script (see "Hovering and pressing" in development.md), by reading the computed `scale`, `translate` and `rotate` of the elements and their running animations.
+
+- **Buttons.** "Buy now" grows to 1.05 around its center (translated by −2.18 and −0.93 px), and goes back to rest when the pointer leaves. The button next to it doesn't move. Pressed while hovered, it's at about 1.008 (1.05 × 0.96), and back at 1.05 when released. A quick click dips and comes back. "Cancel", with Press only, is at 0.96 while pressed. The bouncy one goes to 1.134 at 140 ms, 1.088 and 1.104, and settles at 1.1 in 0.5 s; when the pointer leaves, it goes to 0.966, 1.012 and 0.996, then 1. These were read by stepping the animation's time, because the tab painted once per second. Before the reaction spring, it only peaked at 1.109, which the product owner barely saw.
+- **Cards.** A card lifts 6 px. It stays up while the pointer moves in the strip at its bottom that it rose from, and comes down when the pointer goes below it.
+- **Nudge.** A fast sweep pushes an icon about 2.85 px, turns it 0.59 degrees, overshoots back by 0.78 px, and ends in about 320 ms. A slow sweep pushes it about 0.12 px. A click on the Distance slider at 4 sends the five icons their new Nudge.
+- **Disabled.** With the switch off, Send doesn't react to the pointer; switched on again, it grows.
+- **Settings.** Slow motion makes the grow last about 1 s. Reduce motion plays nothing.
+- **Touch.** No hover; a press shrinks to 0.96, then is released.
+- **Renumbered chapters.** Chapters 13, 14 and 15 have the right numbers and navigation, and chapter 10's Next goes to chapter 12.
+- **Regressions.** Chapter 1 (the details appear and disappear, with 28 moves) and chapter 14 (a GridSplitter drag of 80 px, with no batch during the drag), with no console errors.
 
 ## Not verified yet
 
@@ -219,7 +234,9 @@ Checked in the Debug build, at about 1024 × 576 and 1600 × 950, by reading the
 - Items: a `ListBox` with recycling virtualization (`VirtualizationMode=Recycling`), `ObservableCollection.Move` in a virtualized list that scrolls at the same time, nested lists, `ItemAppear` with `OnPageOpen=Skip`, and drags by hand on a touch screen.
 - `Visibility.Hidden` (no gallery demo uses it, also with `StartAfter`), the warnings of `CheckEffect`, and ghosts of a real `MediaElement` or `WebBrowser` (only an iframe added by script was tried).
 - `OnPageOpen=PushOthers` in a template created during Measure, in a `ChildWindow`, and on an element whose Appear is set in a Style.
-- The GridSplitter drag in chapter 13, and drags by hand in general. Synthetic pointer events start a GridSplitter's capture only with `setPointerCapture` patched, as in development.md.
+- Drags by hand, including the GridSplitter of chapter 14, which was only dragged with synthetic pointer events. They start a GridSplitter's capture only with `setPointerCapture` patched, as in development.md.
+- Hover and press with a real mouse, pen and finger: chapter 12 was tested with simulated pointer events only. How Nudge feels by hand.
+- Reactions in Safari and Firefox (`animation.persist()`, and `scale` and `rotate` with `composite: 'add'`), set in a Style or as a resource, and inside a `ChildWindow` or a `Popup`.
 - The Simulator, by hand.
 - Safari and Firefox: SVG geometry properties, the `linear()` fallback, `composite: 'add'`.
 - Touch devices: the drag tracker relies on `pointercancel` when the browser starts scrolling.
@@ -236,7 +253,7 @@ Checked in the Debug build, at about 1024 × 576 and 1600 × 950, by reading the
 
 ## Known limitations of what's built
 
-- **Wrapping text** wraps at the current box width during a width animation, so words hop between lines. Chapter 13 shows it.
+- **Wrapping text** wraps at the current box width during a width animation, so words hop between lines. Chapter 14 shows it.
 - `Path` **geometry** snaps inside an animated box, and so do Rectangle and Ellipse on browsers without the SVG geometry CSS properties.
 - **Clips** other than the element's own box snap to their final value.
 - **App code** that positions elements from `ActualWidth` or `SizeChanged` jumps, because those report final values at once.
@@ -250,6 +267,9 @@ Checked in the Debug build, at about 1024 × 576 and 1600 × 950, by reading the
 - **Equal items.** Items are told apart with `Equals`. With the same string twice in a list, removing one plays no disappear effect while the other stays, and a sort can make one glide from the other's place while the other appears like a new item.
 - **Paired moves carry the position only.** An item shown again in a new container while its old one was still moving goes on from where it was on screen, but its size and opacity at that moment are not carried over.
 - **Layout clips move with their element.** When an element whose layout clip isn't its own box animates, like an items panel that overflows its list, its clip moves with it. That's why the chapter 6 chat removes its oldest messages instead of scrolling.
+- **Reactions need something to hit.** An element without a `Background` only reacts while the pointer is over its content, because the browser doesn't hit the rest of its box.
+- **Appear effects hide reactions while they play.** An effect with an offset, a zoom or a rotation replaces the element's hover or press until it ends. A ghost is a copy of the element at rest, so an element that disappears while hovered starts from its rest size.
+- **A disabled button doesn't always look disabled.** In the PrimaryButton style of the gallery, a button disabled while the mouse is elsewhere keeps its normal look, even without reactions. That's an OpenSilver issue; chapter 12 says that the button doesn't react rather than showing it dimmed.
 - **The Simulator:** JavaScript batches can arrive a frame apart.
 
 
@@ -291,15 +311,22 @@ Checked in the Debug build, at about 1024 × 576 and 1600 × 950, by reading the
 - **At most three toasts.** A fourth one makes the oldest one fade out at once, which also shows ItemDisappear and the others gliding in the same change.
 - **The chat's button isn't disabled while an answer streams.** It ignores clicks instead: when a button is enabled again with the mouse over it, OpenSilver keeps its Disabled look until the mouse leaves. That's an OpenSilver issue, unrelated to the library.
 - **Chapter 8's tiles use `ItemMoveAndResize`**, as the acceptance scenario of design.md says, instead of `ApplyTo=EverythingInside` on the WrapPanel. Each tile that follows the window makes its own group, and the message names the list: "the items of FollowingTiles follow it".
-- **Hover and press effects** will be proposed to the product owner before the Showcase port, which needs them.
+- **`Animate.Hover` and `Animate.Press`, with the base class `Reaction`**, chosen by the product owner, with four presets: `Grow`, `Lift`, `Shrink` and `Nudge`. They were built together, in a chapter of their own (12), and the chapters after it were renumbered.
+- **Reactions play in the browser**, on pointer events, without the layout engine. A hover changes nothing in the layout, and a round trip through C# on every pointer event would lag. C# only sends the reactions, the settings, and whether the element is enabled.
+- **Reactions play on top**, with `composite: 'add'`, like the moves. The Showcase's `SpringEffect` replaced the element's `RenderTransform`, which broke any transform the app had set.
+- **Hover and Press add up**, so that a button that grows on hover and shrinks when pressed dips from its hovered size, and comes back to it when released.
+- **Bouncy springs more on Hover and Press.** With the spring of moves, a bouncy Grow overshot by less than a pixel, and the product owner barely noticed it. A higher default Bounciness wasn't enough, because that spring always dies out by the end of the duration: less damping made it ring about 10 times a second. Reactions use their own spring, looser and settling to 2% of the change, with the same `Bounciness` parameter and duration.
+- **Leaving counts from where the element rests.** Otherwise a lifted card, or a button that shrinks, leaves the pointer outside it, comes back under it, and flickers.
+- **Nudge is for Hover only**: a press has no direction. It keeps the `SpringEffect` defaults (3 px, 2 degrees, 0.4 s, the same spring back), so the Showcase looks the same after the port. It doesn't use `Easing`, because its curve is its spring.
+- **No hover on touch screens.** A finger's `pointerenter` comes with the press, so a hover would play with every tap.
 
 
 
 ## Next steps
 
-1. **The product owner checks the fix** for the empty frames in chapter 6: "Sort and filter", and "Start over" in the chat.
+1. **The product owner tests chapter 12** with a real mouse and a touch screen.
 2. **The OpenSilver PR.** Open the PR from `feat/layout-observer`, and get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
-3. **The rest of phase 3**, step 4: propose a hover and press API, then port the Showcase, and build chapter 14. The core hooks it needs already exist.
+3. **The end of phase 3:** port the Showcase (`SpringEffect` becomes `Hover=Nudge`, `Animation.OnAppear` becomes `Appear`, `AnimatedContentControl` becomes `OnPageOpen=PushOthers`, and `PropertyAnimator` becomes `MoveAndResize`), then build chapter 15. The core hooks it needs already exist.
 4. **Phase 4:** `AnimationCatalog` and `AnimationDesign`, then the playgrounds, the live XAML and the summaries in every chapter.
 5. **Phase 5** (text, chapter 9), then **phase 7** (Magic move, chapter 11).
 

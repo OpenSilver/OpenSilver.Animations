@@ -97,6 +97,29 @@ namespace OpenSilver.Animations.Engine
             Interop.ExecuteJavaScriptVoidAsync(sb.Append("])").ToString());
         }
 
+        /// <summary>
+        /// Sets what an element does when the mouse is over it and when it is pressed. A null
+        /// reaction does nothing.
+        /// </summary>
+        public static void React(string id, string hover, string press, bool enabled)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.react(");
+            AppendString(sb, id);
+            sb.Append(',').Append(hover ?? "null").Append(',').Append(press ?? "null").Append(',').Append(enabled ? '1' : '0');
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
+        public static void SetReactionSettings(bool enabled, double speed, double defaultMs, bool respectReducedMotion, bool simulateReducedMotion)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.reactSettings(");
+            sb.Append(enabled ? '1' : '0').Append(',');
+            AppendNumber(sb, speed);
+            sb.Append(',');
+            AppendNumber(sb, defaultMs);
+            sb.Append(',').Append(respectReducedMotion ? '1' : '0').Append(',').Append(simulateReducedMotion ? '1' : '0');
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
         public static void WriteToConsole(string message)
         {
             Interop.ExecuteJavaScriptVoidAsync("console.log($0)", "[OpenSilver.Animations] " + message);

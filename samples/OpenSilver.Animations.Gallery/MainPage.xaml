@@ -95,6 +95,7 @@
                         <sdk:UriMapping Uri="/chapter/10" MappedUri="/Chapters/Chapter10.xaml" />
                         <sdk:UriMapping Uri="/chapter/12" MappedUri="/Chapters/Chapter12.xaml" />
                         <sdk:UriMapping Uri="/chapter/13" MappedUri="/Chapters/Chapter13.xaml" />
+                        <sdk:UriMapping Uri="/chapter/14" MappedUri="/Chapters/Chapter14.xaml" />
                         <sdk:UriMapping Uri="/chapter/{number}" MappedUri="/Chapters/ComingSoon.xaml?chapter={number}" />
                     </sdk:UriMapper>
                 </sdk:Frame.UriMapper>

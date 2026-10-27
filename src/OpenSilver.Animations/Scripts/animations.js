@@ -611,12 +611,337 @@
         }
     }
 
+    // Hover and press reactions, per element: { hover, press, enabled, hovered, levels, nudge }.
+    // hover and press are what the element does: { k: kind, t: timing, b: bounciness, bo: 1 when
+    // bouncy, dist, a: tilt, z: zoom }. levels has one entry for the hover and one for the press:
+    // { from, to, animation, curve }, where 0 is the element at rest and 1 is the reaction. They
+    // play on top of everything else, like moves, so that the element keeps its place.
+    const reactions = new WeakMap();
+    const HOVER = 0, PRESS = 1;
+    const KIND_NUDGE = 1, KIND_ZOOM = 2, KIND_LIFT = 3;
+
+    // The elements whose reaction shows or plays, the elements pressed until the pointer is
+    // released, and the elements the pointer left that it is still over without their reaction.
+    const reacting = new Set();
+    const pressed = new Set();
+    const lingering = new Set();
+
+    let reactionSettings = { on: true, speed: 1, defaultMs: 250, respect: true, simulate: false };
+    let prefersReducedMotion = false;
+
+    // The last positions of the mouse or pen, to know where it goes, and how fast, when it comes
+    // over an element.
+    const trail = [];
+
+    function reactionsAllowed() {
+        const s = reactionSettings;
+        return s.on && !(s.respect && (prefersReducedMotion || s.simulate));
+    }
+
+    function reactionMs(spec) {
+        const d = spec.t.d || (spec.k === KIND_NUDGE ? 400 : reactionSettings.defaultMs * (spec.bo ? 2 : 1));
+        return Math.max(1, d / reactionSettings.speed);
+    }
+
+    // The point the element turns and zooms around, from its transform origin: its center.
+    function pivotOf(element) {
+        const origin = (getComputedStyle(element).transformOrigin || '').split(' ');
+        return {
+            x: (element.offsetWidth || 0) / 2 - (parseFloat(origin[0]) || 0),
+            y: (element.offsetHeight || 0) / 2 - (parseFloat(origin[1]) || 0),
+        };
+    }
+
+    function levelFrame(spec, pivot, v) {
+        if (spec.k === KIND_LIFT) return { translate: '0px ' + px(-spec.dist * v) };
+        const s = 1 + (spec.z - 1) * v;
+        return { translate: px((1 - s) * pivot.x) + ' ' + px((1 - s) * pivot.y), scale: String(Math.round(s * 10000) / 10000) };
+    }
+
+    function levelOf(level) {
+        if (!level) return 0;
+        if (!level.animation) return level.to;
+        return level.from + (level.to - level.from) * progressOf(level.animation, level.curve);
+    }
+
+    function isAtRest(r) {
+        return !r.levels[HOVER] && !r.levels[PRESS] && !(r.nudge && r.nudge.playState === 'running');
+    }
+
+    // Plays the hover or the press from where it is to the target level.
+    function setLevel(element, r, slot, target) {
+        const spec = slot === HOVER ? r.hover : r.press;
+        const level = r.levels[slot];
+        if (level ? level.to === target : target === 0) return;
+
+        const from = levelOf(level);
+        if (level) level.animation.cancel();
+        r.levels[slot] = null;
+        if (!spec || spec.k === KIND_NUDGE || (target === 0 && Math.abs(from) < 0.001)) {
+            if (isAtRest(r)) reacting.delete(element);
+            return;
+        }
+
+        const curve = curveOf(spec.t, false);
+        const pivot = pivotOf(element);
+        const animation = element.animate(
+            lerpKeyframes(curve, (p) => levelFrame(spec, pivot, from + (target - from) * p)),
+            { duration: reactionMs(spec), easing: curve.easing, fill: target > 0 ? 'forwards' : 'none', composite: 'add' });
+        const entry = { from, to: target, animation, curve };
+        r.levels[slot] = entry;
+        reacting.add(element);
+        // Otherwise the browser removes a hover that is held once a press on the same
+        // properties ends, although they add up.
+        if (target > 0 && animation.persist) animation.persist();
+        if (target === 0) {
+            animation.addEventListener('finish', () => {
+                if (r.levels[slot] !== entry) return;
+                r.levels[slot] = null;
+                if (isAtRest(r)) reacting.delete(element);
+            });
+        }
+    }
+
+    // Brings the element back at rest at once.
+    function stopReaction(element, r) {
+        for (const slot of [HOVER, PRESS]) {
+            if (r.levels[slot]) r.levels[slot].animation.cancel();
+            r.levels[slot] = null;
+        }
+        if (r.nudge) r.nudge.cancel();
+        r.nudge = null;
+        reacting.delete(element);
+        pressed.delete(element);
+        lingering.delete(element);
+    }
+
+    function trackPointer(e) {
+        if (e.pointerType === 'touch') return;
+        trail.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
+        if (trail.length > 8) trail.shift();
+        if (lingering.size > 0) {
+            for (const element of lingering) {
+                const r = reactions.get(element);
+                if (!r || !element.isConnected || !isOverRestBox(element, r, e)) {
+                    lingering.delete(element);
+                    if (r) setLevel(element, r, HOVER, 0);
+                }
+            }
+        }
+    }
+
+    // The pointer left the window.
+    function onPointerOut(e) {
+        if (e.relatedTarget || lingering.size === 0) return;
+        for (const element of lingering) {
+            const r = reactions.get(element);
+            if (r) setLevel(element, r, HOVER, 0);
+        }
+        lingering.clear();
+    }
+
+    // How fast the pointer comes, in pixels per millisecond, from where it was 20 to 150
+    // milliseconds before the event.
+    function pointerVelocity(e) {
+        for (let i = trail.length - 1; i >= 0; i--) {
+            const p = trail[i], dt = e.timeStamp - p.t;
+            if (dt > 150) break;
+            if (dt >= 20) return { x: (e.clientX - p.x) / dt, y: (e.clientY - p.y) / dt };
+        }
+        return null;
+    }
+
+    // Whether the pointer is over where the element is without its hover, so that an element
+    // that rises or shrinks away from the pointer doesn't come back under it, again and again.
+    function isOverRestBox(element, r, e) {
+        const rect = element.getBoundingClientRect();
+        let left = rect.left, top = rect.top, right = rect.right, bottom = rect.bottom;
+        const spec = r.hover, v = levelOf(r.levels[HOVER]);
+        if (spec && v !== 0) {
+            if (spec.k === KIND_LIFT) {
+                top += spec.dist * v;
+                bottom += spec.dist * v;
+            } else if (spec.k === KIND_ZOOM) {
+                const s = 1 + (spec.z - 1) * v;
+                const cx = (left + right) / 2, cy = (top + bottom) / 2, hw = (right - left) / 2 / s, hh = (bottom - top) / 2 / s;
+                left = cx - hw; right = cx + hw; top = cy - hh; bottom = cy + hh;
+            }
+        }
+        return e.clientX >= left && e.clientX < right && e.clientY >= top && e.clientY < bottom;
+    }
+
+    // Pushes the element in the direction the pointer comes from, turns it like a lever around
+    // its center, from where the pointer comes in, and springs it back. The faster the pointer,
+    // the more it moves.
+    function nudge(element, r, e) {
+        const spec = r.hover;
+        if ((r.nudge && r.nudge.playState === 'running') || e.buttons) return;
+        const v = pointerVelocity(e);
+        const speed = v ? Math.hypot(v.x, v.y) : 0;
+        if (speed < 0.05) return;
+
+        const k = Math.min(speed, 1), dirX = v.x / speed, dirY = v.y / speed;
+        const rect = element.getBoundingClientRect();
+        let ex = e.clientX - (rect.left + rect.right) / 2, ey = e.clientY - (rect.top + rect.bottom) / 2;
+        const length = Math.hypot(ex, ey);
+        ex = length > 0.001 ? ex / length : 0;
+        ey = length > 0.001 ? ey / length : 0;
+        const angle = (ex * dirY - ey * dirX) * spec.a * k;
+        const dx = dirX * k * spec.dist, dy = dirY * k * spec.dist;
+        const pivot = pivotOf(element);
+        const back = 1.6 * spec.b;
+
+        // Out in 30% of the time, then back, past the place where it rests, and back to it.
+        const make = (t) => {
+            let f;
+            if (t < 0.3) {
+                const u = t / 0.3;
+                f = u * (2 - u);
+            } else {
+                const u = 1 - (t - 0.3) / 0.7;
+                f = u * u * u - u * back * Math.sin(Math.PI * u);
+            }
+            const deg = angle * f, rad = deg * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+            return {
+                translate: px(dx * f + pivot.x - (cos * pivot.x - sin * pivot.y)) + ' ' +
+                           px(dy * f + pivot.y - (sin * pivot.x + cos * pivot.y)),
+                rotate: (Math.round(deg * 100) / 100) + 'deg',
+            };
+        };
+
+        const frames = [];
+        for (let i = 0; i <= 24; i++) {
+            const frame = make(i / 24);
+            frame.offset = i / 24;
+            frames.push(frame);
+        }
+
+        const animation = element.animate(frames, { duration: reactionMs(spec), composite: 'add' });
+        r.nudge = animation;
+        reacting.add(element);
+        animation.addEventListener('finish', () => {
+            if (r.nudge === animation && isAtRest(r)) reacting.delete(element);
+        });
+    }
+
+    function onReactionEnter(e) {
+        const element = e.currentTarget;
+        const r = reactions.get(element);
+        if (!r || e.pointerType === 'touch') return;
+        r.hovered = true;
+        lingering.delete(element);
+        if (!r.hover || !r.enabled || !reactionsAllowed()) return;
+        if (r.hover.k === KIND_NUDGE) nudge(element, r, e);
+        else setLevel(element, r, HOVER, 1);
+    }
+
+    function onReactionLeave(e) {
+        const element = e.currentTarget;
+        const r = reactions.get(element);
+        if (!r || e.pointerType === 'touch') return;
+        r.hovered = false;
+        if (r.levels[HOVER] && r.levels[HOVER].to === 1 && isOverRestBox(element, r, e)) lingering.add(element);
+        else setLevel(element, r, HOVER, 0);
+    }
+
+    // Presses the element under the pointer, and the elements it is in that react when pressed.
+    function pressAt(e) {
+        if (!reactionsAllowed()) return;
+        for (let node = e.target; node && node.nodeType === 1; node = node.parentNode) {
+            const r = reactions.get(node);
+            if (r && r.press && r.enabled) {
+                pressed.add(node);
+                setLevel(node, r, PRESS, 1);
+            }
+        }
+    }
+
+    function releasePressed() {
+        if (pressed.size === 0) return;
+        for (const element of pressed) {
+            const r = reactions.get(element);
+            if (r) setLevel(element, r, PRESS, 0);
+        }
+        pressed.clear();
+    }
+
+    // Sets what the element does when the pointer is over it, and when it is pressed. Called
+    // again when the element is enabled or disabled, and each time it is shown in a page.
+    function react(id, hover, press, enabled) {
+        for (const element of reacting) {
+            if (!element.isConnected) {
+                reacting.delete(element);
+                pressed.delete(element);
+                lingering.delete(element);
+            }
+        }
+
+        const element = document.getElementById(id);
+        if (!element) return;
+        let r = reactions.get(element);
+        if (!hover && !press) {
+            if (r) {
+                stopReaction(element, r);
+                element.removeEventListener('pointerenter', onReactionEnter);
+                element.removeEventListener('pointerleave', onReactionLeave);
+                reactions.delete(element);
+            }
+            return;
+        }
+
+        if (!r) {
+            r = { hover: null, press: null, enabled: true, hovered: false, levels: [null, null], nudge: null };
+            reactions.set(element, r);
+            element.addEventListener('pointerenter', onReactionEnter);
+            element.addEventListener('pointerleave', onReactionLeave);
+        }
+
+        const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+        if (!same(hover, r.hover)) {
+            if (r.levels[HOVER]) r.levels[HOVER].animation.cancel();
+            r.levels[HOVER] = null;
+            if (r.nudge) r.nudge.cancel();
+            r.nudge = null;
+            lingering.delete(element);
+            r.hover = hover;
+        }
+        if (!same(press, r.press)) {
+            if (r.levels[PRESS]) r.levels[PRESS].animation.cancel();
+            r.levels[PRESS] = null;
+            r.press = press;
+            if (!press) pressed.delete(element);
+        }
+        if (isAtRest(r)) reacting.delete(element);
+
+        r.enabled = !!enabled;
+        const on = r.enabled && reactionsAllowed();
+        setLevel(element, r, HOVER, on && r.hovered ? 1 : 0);
+        setLevel(element, r, PRESS, on && pressed.has(element) ? 1 : 0);
+        if (!on) pressed.delete(element);
+    }
+
+    function reactSettings(on, speed, defaultMs, respect, simulate) {
+        reactionSettings = { on: !!on, speed: speed > 0 ? speed : 1, defaultMs: defaultMs > 0 ? defaultMs : 250, respect: !!respect, simulate: !!simulate };
+        if (!reactionsAllowed()) stopAllReactions();
+    }
+
+    function stopAllReactions() {
+        for (const element of [...reacting]) {
+            const r = reactions.get(element);
+            if (r) stopReaction(element, r);
+        }
+        reacting.clear();
+        pressed.clear();
+        lingering.clear();
+    }
+
     // Dragging: a pointer button is held and the pointer moved by more than 4 pixels.
     let dragStarted = null, dragEnded = null, pointerDown = null, dragging = false;
 
     function onPointerDown(e) {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         pointerDown = { x: e.clientX, y: e.clientY };
+        pressAt(e);
     }
 
     function onPointerMove(e) {
@@ -630,6 +955,7 @@
 
     function onPointerUp() {
         pointerDown = null;
+        releasePressed();
         if (dragging) {
             dragging = false;
             if (dragEnded) dragEnded();
@@ -640,17 +966,27 @@
         dragStarted = onDragStarted;
         dragEnded = onDragEnded;
         window.addEventListener('pointerdown', onPointerDown, true);
+        window.addEventListener('pointermove', trackPointer, true);
         window.addEventListener('pointermove', onPointerMove, true);
         window.addEventListener('pointerup', onPointerUp, true);
         window.addEventListener('pointercancel', onPointerUp, true);
+        window.addEventListener('pointerout', onPointerOut, true);
 
         const query = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
         if (query) {
-            const notify = (matches) => { if (matches) onReducedMotionOn(); else onReducedMotionOff(); };
+            const notify = (matches) => {
+                prefersReducedMotion = matches;
+                if (matches) {
+                    stopAllReactions();
+                    onReducedMotionOn();
+                } else {
+                    onReducedMotionOff();
+                }
+            };
             if (query.addEventListener) query.addEventListener('change', e => notify(e.matches));
             notify(query.matches);
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView });
+    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView, react, reactSettings });
 })();

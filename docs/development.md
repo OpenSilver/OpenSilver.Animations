@@ -292,10 +292,21 @@ Then dispatch every event on the splitter's div (`[class*="GridSplitter"]`, Debu
 2. One `pointermove` per animation frame (`await` a `requestAnimationFrame` between them), with `button: -1, buttons: 1` and a growing `clientX`. Record positions in the same loop.
 3. `pointerup` and `mouseup` with `buttons: 0`.
 
+### Hovering and pressing
+
+`browser_mouse_click_xy` dispatches synthetic events on the element under the point only: `pointerenter` never reaches its ancestors, so the element that reacts, usually an outer div, never gets it. Simulate the mouse instead, as chapter 12 was tested:
+
+1. Keep the chain of the element under the pointer (`document.elementFromPoint`, then its ancestors).
+2. On each move, dispatch `pointerout` on the old target, `pointerleave` on each element left (non-bubbling), `pointerover` on the new target, `pointerenter` on each element entered, from the outside in (non-bubbling), then a bubbling `pointermove` on the target. Wait 16 to 30 ms between moves, so that Nudge can measure a speed.
+3. Press with a bubbling `pointerdown` on the target, `buttons: 1`, and release with `pointerup`, `buttons: 0`. `pointerType: 'touch'` checks that hover doesn't play.
+4. Read `getComputedStyle(element).scale`, `translate` and `rotate` on the element that reacts, and `getAnimations()`.
+
+Scroll with the page's ScrollViewer (wheel events), never with `scrollIntoView`: it scrolls the OpenSilver root out of the window, and `elementFromPoint` then finds nothing.
+
 ### Recording frames and batches
 
 - **Frames.** A `requestAnimationFrame` loop that pushes `[time, rects..., animation count]` into a `window` array, stopped by time rather than by a number of frames, so that it's still running when the next tool call resizes the window. Keep only the frames that differ from the previous one before returning them.
-- **Batches.** `globalThis.osAnimations` is frozen, but the global itself can be replaced by a wrapper whose `run` records the batch, then calls the real one. That's how the shapes of chapter 13 turned out to be animated, but ended before they were painted (see "Start time" in [architecture.md](architecture.md)).
+- **Batches.** `globalThis.osAnimations` is frozen, but the global itself can be replaced by a wrapper whose `run` records the batch, then calls the real one. That's how the shapes of chapter 14 turned out to be animated, but ended before they were painted (see "Start time" in [architecture.md](architecture.md)).
 - **Batches from the first frame**, for page intros. Register an init script (`Page.addScriptToEvaluateOnNewDocument`) that defines `globalThis.osAnimations` as an accessor: its setter receives the real object from `animations.js` and stores a frozen wrapper whose `run` and `hold` push copies of their arguments into `window` arrays before calling the real ones. When the page opens, changes below the fold are culled: emulate a tall window (1600 × 2600) to see their moves.
 - **Messages below 1280 px.** The log is then a closed drawer, and new entries only show in the DOM once it is opened. Open it with the Log button, or test messages at 1280 px or more.
 

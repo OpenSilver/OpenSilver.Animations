@@ -4,164 +4,102 @@
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
           xmlns:anim="http://opensilver.net/animations"
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
-          Title="What never animates, and why">
+          Title="From code">
 
     <StackPanel Style="{StaticResource ChapterRoot}">
         <TextBlock Text="CHAPTER 13" Style="{StaticResource OverlineText}" />
-        <TextBlock Text="What never animates, and why" Style="{StaticResource ChapterTitleText}" />
+        <TextBlock Text="From code" Style="{StaticResource ChapterTitleText}" />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="Some changes must follow your hand, or the page would feel slow: scrolling, dragging, typing and resizing the window. They never animate, even inside an area with ApplyTo=EverythingInside, and you have nothing to do for that. The one exception is a layout that switches with {Responsive} at some width: the switch animates, even while you drag or resize." />
-        <TextBlock Style="{StaticResource IntroText}"
-                   Text="Each demo below has a button that makes the same kind of change from code, which does animate." />
+                   Text="Most of the time, a setting in XAML is all you need. From code, you can also animate one particular change, make one change instant, and adjust every animation of the application at once." />
 
-        <!-- 1. Scrolling -->
-        <controls:DemoCard Title="Scrolling"
-                           Description="This list is inside an area with ApplyTo=EverythingInside. Scroll it: the rows move with the scroll bar, at once. Then make the rows taller."
-                           Xaml='&lt;ScrollViewer Height="220" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;'
-                           Expectations="• Scrolling, with the wheel or the scroll bar, follows your hand exactly.&#10;• Make the rows taller: the rows grow smoothly, and the scroll bar adjusts.">
+        <!-- 1. Animate.Changes -->
+        <controls:DemoCard Title="Animate one change: Animate.Changes"
+                           Description="This box has no setting. Changed directly, it jumps. Changed inside Animate.Changes, it glides, together with everything the change moves."
+                           Xaml='// Jumps: the box has no setting&#10;ChangesBox.Width = 360;&#10;&#10;// Glides, with the default duration or the one you give&#10;Animate.Changes(() =&gt; ChangesBox.Width = 360);&#10;Animate.Changes(() =&gt; ChangesBox.Width = 360, AnimationTime.FromSeconds(0.6));'
+                           Expectations="• Change it directly: the box and the label next to it jump.&#10;• Inside Animate.Changes: both glide.&#10;• With 0.6 s: they glide more slowly.">
             <StackPanel>
-                <Border Style="{StaticResource Card}" Padding="0" Width="{Responsive Mobile=NaN, Tablet=420}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}" ClipToBounds="True">
-                    <ScrollViewer Height="220" BorderThickness="0" Padding="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
-                        <StackPanel x:Name="ScrollRows" />
-                    </ScrollViewer>
-                </Border>
-                <Button x:Name="RowsButton" Content="Make the rows taller" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="Rows_Click" />
-            </StackPanel>
-        </controls:DemoCard>
-
-        <!-- 2. GridSplitter -->
-        <controls:DemoCard Title="Dragging a splitter"
-                           Description="The two panes are in a Grid with ApplyTo=EverythingInside. Drag the handle between them: the panes follow the pointer exactly. Reset the split: they glide back. If a pane switched its layout with {Responsive} at some width, that switch would animate, as in chapter 8."
-                           Xaml='&lt;Grid anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;sdk:GridSplitter Grid.Column="1" /&gt;'
-                           Expectations="• While you drag, nothing lags behind the pointer.&#10;• Reset the split: both panes glide to their original widths.">
-            <StackPanel>
-                <Grid Height="150" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="LeftColumn" Width="220" MinWidth="80" />
-                        <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="*" MinWidth="80" />
-                    </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Text="Folders" FontWeight="SemiBold" />
-                            <TextBlock Text="Inbox" Style="{StaticResource BodyText}" Margin="0,8,0,0" />
-                            <TextBlock Text="Drafts" Style="{StaticResource BodyText}" />
-                            <TextBlock Text="Sent" Style="{StaticResource BodyText}" />
-                        </StackPanel>
+                <StackPanel x:Name="ChangesRow" Orientation="Horizontal">
+                    <Border x:Name="ChangesBox" Width="{Responsive Mobile=110, Tablet=140}" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0">
+                        <TextBlock Text="No setting" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </Border>
-                    <sdk:GridSplitter Grid.Column="1" Width="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="False" />
-                    <Border Grid.Column="1" Width="4" Height="40" CornerRadius="2" Background="#C9CCD8" IsHitTestVisible="False" />
-                    <Border Grid.Column="2" Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Text="Messages" FontWeight="SemiBold" />
-                            <TextBlock Text="The pane on the left keeps the width you give it. This one takes the rest." Style="{StaticResource BodyText}" Margin="0,8,0,0" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
-                <Button Content="Reset the split" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="ResetSplit_Click" />
-            </StackPanel>
-        </controls:DemoCard>
-
-        <!-- 3. Slider -->
-        <controls:DemoCard Title="Dragging a slider"
-                           Description="The width of the bar follows the slider, and the bar has MoveAndResize=Smooth. Drag the thumb, then click on the track on either side of it."
-                           Xaml='&lt;Border x:Name="Bar" Width="{Binding Value, ElementName=BarSlider}" anim:Animate.MoveAndResize="Smooth" /&gt;'
-                           Expectations="• Drag the thumb: the bar follows it exactly.&#10;• Click on the track: the value jumps, and the bar glides to its new width. The thumb glides with it, because it moved in the same change.">
-            <StackPanel>
-                <Slider x:Name="BarSlider" Width="{Responsive Mobile=240, Tablet=420}" HorizontalAlignment="Left" Minimum="40" Maximum="{Responsive Mobile=240, Tablet=420}" Value="160" SmallChange="10" LargeChange="80"
-                        ValueChanged="BarSlider_ValueChanged" />
-                <Border x:Name="SliderBar" Width="160" Height="28" CornerRadius="8" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left" Margin="0,12,0,0"
-                        anim:Animate.MoveAndResize="Smooth" />
-            </StackPanel>
-        </controls:DemoCard>
-
-        <!-- 4. Typing -->
-        <controls:DemoCard Title="Typing"
-                           Description="This text box grows with its text, and has MoveAndResize=Smooth. Type in it: it grows at once, and the Send button stays right next to it. Then add a word from code."
-                           Xaml='&lt;TextBox MinWidth="120" MaxWidth="440" anim:Animate.MoveAndResize="Smooth" /&gt;'
-                           Expectations="• While you type, the text box and the Send button follow every letter at once.&#10;• Add a word from code: the text box grows smoothly, and the Send button slides.">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="AutoWidthBox" Text="Type here" MinWidth="120" MaxWidth="{Responsive Mobile=160, Tablet=440}" VerticalAlignment="Center"
-                             anim:Animate.MoveAndResize="Smooth" />
-                    <Button Content="Send" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" />
+                    <TextBlock x:Name="FollowerText" Text="{Responsive Mobile='I follow', Tablet='I follow the box'}" Style="{StaticResource BodyText}" VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
-                <Button Content="Add a word from code" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="AddWord_Click" />
+                <WrapPanel Margin="0,16,0,0">
+                    <Button Content="Change it directly" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeDirectly_Click" />
+                    <Button Content="Inside Animate.Changes" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeAnimated_Click" />
+                    <Button Content="With 0.6 s" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeSlowly_Click" />
+                </WrapPanel>
             </StackPanel>
         </controls:DemoCard>
 
-        <!-- 5. Window resize -->
-        <controls:DemoCard Title="Resizing the browser window"
-                           Description="Make your browser window narrower: the whole tour reflows at once, although several of its elements have MoveAndResize. Elements can opt in with AlsoOnWindowResize=True. Only the values that switch with {Responsive} animate, when the window crosses their breakpoint, like the shapes below at 960 pixels.">
-            <Button Content="See chapter 8: When the window or a panel is resized" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="Chapter8_Click" />
-        </controls:DemoCard>
-
-        <!-- 6. Budget -->
-        <controls:DemoCard Title="Too many elements at once"
-                           Description="When more than 300 elements would animate together, the whole change happens at once instead, because animating that many would be slow. Elements outside the window don't count."
-                           Xaml='&lt;WrapPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;!-- 100 or 400 tiles --&gt;&#10;&lt;/WrapPanel&gt;'
-                           Expectations="• With 100 tiles, they all grow smoothly.&#10;• With 400 tiles, they all grow at once, and the What just happened log says why.">
-            <StackPanel>
-                <WrapPanel x:Name="BudgetTiles" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}" />
+        <!-- 2. Animate.Skip -->
+        <controls:DemoCard Title="Make one change instant: Animate.Skip"
+                           Description="This panel has MoveAndResize=Smooth, so its changes animate. A change made inside Animate.Skip is simply there, for example when a saved layout is restored or a form is reset."
+                           Xaml='// Glides: the panel has MoveAndResize=Smooth&#10;SkipPanel.Width = 400;&#10;&#10;// Instant&#10;Animate.Skip(() =&gt; SkipPanel.Width = 400);'
+                           Expectations="• Change it: the panel glides.&#10;• Inside Animate.Skip: it jumps, although it has a setting.">
+            <StackPanel x:Name="SkipStage">
+                <Border x:Name="SkipPanel" Width="{Responsive Mobile=120, Tablet=220}" Height="56" CornerRadius="10" Background="{StaticResource DarkPanelBrush}" Padding="14,0" HorizontalAlignment="Left"
+                        anim:Animate.MoveAndResize="Smooth">
+                    <TextBlock Text="{Responsive Mobile=Smooth, Tablet='MoveAndResize=Smooth'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Border>
                 <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                    <Button x:Name="TileCountButton" Content="Use 400 tiles" Style="{StaticResource SecondaryButton}" Click="TileCount_Click" />
-                    <Button Content="Grow the tiles" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="GrowTiles_Click" />
+                    <Button Content="Change it" Style="{StaticResource SecondaryButton}" Click="SkipChange_Click" />
+                    <Button Content="Inside Animate.Skip" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SkipChangeInstant_Click" />
                 </StackPanel>
             </StackPanel>
         </controls:DemoCard>
 
-        <!-- 7. Limits -->
-        <TextBlock Text="Two limits to know" Style="{StaticResource HeadingText}" FontSize="22" Margin="0,16,0,6" />
-        <TextBlock Style="{StaticResource IntroText}"
-                   Text="These are not choices: the browser decides how text and some shapes are drawn while their box animates." />
+        <!-- 3. AnimationSettings -->
+        <controls:DemoCard Title="Adjust everything at once: AnimationSettings"
+                           Description="AnimationSettings.Current applies to every animation of the application. Declare it in the resources of App.xaml, or change it from code at any time. Move the sliders, then try."
+                           Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" DefaultDuration="0.3s" /&gt;&#10;&#10;// From code&#10;AnimationSettings.Current.Speed = 0.5;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.4);&#10;AnimationSettings.Current.IsEnabled = false;'
+                           Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• These settings are reset when you leave this chapter.">
+            <StackPanel x:Name="SettingsStage">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" MaxWidth="370" />
+                        <ColumnDefinition Width="70" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Speed" Style="{StaticResource SliderLabel}" />
+                    <Slider x:Name="SpeedSlider" Grid.Column="1" Minimum="0.25" Maximum="2" Value="1" SmallChange="0.25" LargeChange="0.25" ValueChanged="Slider_ValueChanged" />
+                    <TextBlock x:Name="SpeedText" Grid.Column="2" Text="1" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock Grid.Row="1" Text="Default duration" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
+                    <Slider x:Name="DurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.1" Maximum="1" Value="0.25" SmallChange="0.05" LargeChange="0.05" Margin="0,8,0,0" ValueChanged="Slider_ValueChanged" />
+                    <TextBlock x:Name="DurationText" Grid.Row="1" Grid.Column="2" Text="0.25 s" VerticalAlignment="Center" Margin="12,8,0,0" />
+                    <CheckBox x:Name="EnabledSwitch" Grid.Row="2" Grid.ColumnSpan="3" Content="Animations are on (IsEnabled)" Style="{StaticResource SwitchCheckBox}" IsChecked="True"
+                              Margin="-8,8,0,0" HorizontalAlignment="Left" Checked="EnabledSwitch_Changed" Unchecked="EnabledSwitch_Changed" />
+                </Grid>
 
-        <controls:DemoCard Title="Text that wraps"
-                           Description="This box has MoveAndResize=Smooth and changes width. The box glides, but the text inside it is laid out again by the browser at every step, so words hop from one line to the next while it resizes."
-                           Xaml='&lt;Border Width="520" anim:Animate.MoveAndResize="Smooth"&gt;&#10;    &lt;TextBlock TextWrapping="Wrap" /&gt;&#10;&lt;/Border&gt;'
-                           Expectations="• The box resizes smoothly.&#10;• The words move to their new lines during the animation; the text is always readable when it ends.&#10;• Tip: animate the width of text only when it doesn't wrap, or when the change is small.">
-            <StackPanel>
-                <Border x:Name="WrapBox" Width="{Responsive Mobile=260, Tablet=520}" Style="{StaticResource Card}" HorizontalAlignment="Left" anim:Animate.MoveAndResize="Smooth">
-                    <TextBlock Style="{StaticResource BodyText}"
-                               Text="OpenSilver runs your C# and XAML in the browser, with no plugin. The same code runs on the web, on the desktop and on mobile, and the layout of this paragraph is recomputed each time its box changes width." />
+                <Border x:Name="SettingsBox" Width="{Responsive Mobile=120, Tablet=220}" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0" HorizontalAlignment="Left" Margin="0,20,0,0"
+                        anim:Animate.MoveAndResize="Smooth">
+                    <TextBlock Text="{Responsive Mobile=Smooth, Tablet='MoveAndResize=Smooth'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </Border>
-                <Button Content="Change the width" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="WrapBox_Click" />
+                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                    <Button Content="Try it" Style="{StaticResource PrimaryButton}" Click="TrySettings_Click" />
+                    <Button Content="Reset the settings" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ResetSettings_Click" />
+                </StackPanel>
             </StackPanel>
         </controls:DemoCard>
 
-        <controls:DemoCard Title="Shapes drawn with Path"
-                           Description="Each box has MoveAndResize=Smooth and holds a shape that fills it. The Rectangle and the Ellipse are redrawn at every step. A Path is drawn once, at its final size."
-                           Xaml='&lt;Rectangle Fill="..." /&gt;     &lt;!-- follows the box --&gt;&#10;&lt;Ellipse Fill="..." /&gt;       &lt;!-- follows the box --&gt;&#10;&lt;Path Stretch="Fill" Data="..." /&gt;   &lt;!-- jumps to its final size --&gt;'
-                           Expectations="• The rectangle and the circle grow and shrink smoothly with their boxes.&#10;• The star jumps to its final size at once, while its box glides.">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Height="{Responsive Mobile=90, Tablet=160}">
-                    <Border x:Name="RectangleBox" Width="{Responsive Mobile=50, Tablet=80}" Height="{Responsive Mobile=50, Tablet=80}" VerticalAlignment="Top" anim:Animate.MoveAndResize="Smooth">
-                        <Rectangle Fill="{StaticResource AccentBrush}" RadiusX="10" RadiusY="10" />
-                    </Border>
-                    <Border x:Name="EllipseBox" Width="{Responsive Mobile=50, Tablet=80}" Height="{Responsive Mobile=50, Tablet=80}" VerticalAlignment="Top"
-                            Margin="{Responsive Mobile='12,0,0,0', Tablet='24,0,0,0'}" anim:Animate.MoveAndResize="Smooth">
-                        <Ellipse Fill="#E07A1F" />
-                    </Border>
-                    <Border x:Name="PathBox" Width="{Responsive Mobile=50, Tablet=80}" Height="{Responsive Mobile=50, Tablet=80}" VerticalAlignment="Top"
-                            Margin="{Responsive Mobile='12,0,0,0', Tablet='24,0,0,0'}" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="6"
-                            anim:Animate.MoveAndResize="Smooth">
-                        <Path Fill="#239B6A" Stretch="Fill" Margin="6"
-                              Data="M 50,0 L 61,35 L 98,35 L 68,57 L 79,91 L 50,70 L 21,91 L 32,57 L 2,35 L 39,35 Z" />
-                    </Border>
-                </StackPanel>
-                <Button Content="Resize the shapes" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Shapes_Click" />
-            </StackPanel>
+        <!-- 4. Logging and reduced motion -->
+        <controls:DemoCard Title="Why did it animate, or not?"
+                           Description="The What just happened log lists the messages of the AnimationSettings.Logged event. Use it in your own app, or turn on LogForDebugging to write them to the browser console."
+                           Xaml='AnimationSettings.Logged += (sender, e) =&gt; Debug.WriteLine(e.Message);&#10;&#10;// Or, in the browser console&#10;AnimationSettings.Current.LogForDebugging = true;'>
+            <TextBlock Style="{StaticResource BodyText}"
+                       Text="Only the changes that involve a setting, or Animate.Changes, are explained, so the messages stay few and useful. When the window is resized, there is at most one message per second." />
         </controls:DemoCard>
 
         <Border Style="{StaticResource TipBox}">
             <StackPanel>
-                <TextBlock Text="Also instant" FontWeight="SemiBold" />
+                <TextBlock Text="Reduced motion" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• Every change, when the device asks for reduced motion, when AnimationSettings.IsEnabled is false, inside Animate.Skip, and in the Visual Studio designer." />
-                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• The changes that start inside an element with MoveAndResize=None." />
-                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• Elements that appear, outside an area with ApplyTo=EverythingInside: they are in their place at once, and only the others move. Inside such an area they are revealed, as in the settings form of chapter 7. Effects of your own for appearing and disappearing come with the next version." />
+                           Text="Some people ask their device for less motion, because animations make them dizzy. The library respects it by default (RespectReducedMotion): moves and resizes become instant. To see what they see, turn on Reduce motion in the toolbar, which sets SimulateReducedMotion." />
             </StackPanel>
         </Border>
 

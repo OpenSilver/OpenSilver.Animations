@@ -1,138 +1,137 @@
+using System;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using System.Windows.Navigation;
 using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
     public partial class Chapter13 : Page
     {
-        private const int RowCount = 30;
-        private const double ShortRow = 40;
-        private const double TallRow = 64;
-        private const int FewTiles = 100;
-        private const int ManyTiles = 400;
-        private const double SmallTile = 14;
-        private const double LargeTile = 20;
+        private static readonly AnimationTime DefaultDuration = AnimationTime.FromMilliseconds(250);
 
-        private static readonly string[] Words = { "quickly", "today", "please", "and", "the", "report", "after", "lunch", "thanks" };
-        private static readonly Brush RowLineBrush = new SolidColorBrush(Color.FromArgb(255, 0xE9, 0xEB, 0xF3));
-        private static readonly Brush TileBrush = new SolidColorBrush(Color.FromArgb(255, 0x5B, 0x5B, 0xD6));
-
-        private int _wordIndex;
+        private bool _loading = true;
 
         public Chapter13()
         {
             InitializeComponent();
+        }
 
-            for (int i = 1; i <= RowCount; i++)
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            LoadSettings();
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            ResetSettings();
+        }
+
+        private void ChangeDirectly_Click(object sender, RoutedEventArgs e)
+        {
+            ChangesBox.Width = NextChangesWidth();
+        }
+
+        private void ChangeAnimated_Click(object sender, RoutedEventArgs e)
+        {
+            double width = NextChangesWidth();
+            Animate.Changes(() => ChangesBox.Width = width);
+        }
+
+        private void ChangeSlowly_Click(object sender, RoutedEventArgs e)
+        {
+            double width = NextChangesWidth();
+            Animate.Changes(() => ChangesBox.Width = width, AnimationTime.FromSeconds(0.6));
+        }
+
+        private double NextChangesWidth()
+        {
+            double narrow = WindowSize.IsPhone ? 110 : 140;
+            double room = ChangesRow.ActualWidth - FollowerText.ActualWidth - FollowerText.Margin.Left;
+            return ChangesBox.Width > narrow ? narrow : Math.Max(narrow, Math.Min(360, room));
+        }
+
+        private void SkipChange_Click(object sender, RoutedEventArgs e)
+        {
+            SkipPanel.Width = NextSkipWidth();
+        }
+
+        private void SkipChangeInstant_Click(object sender, RoutedEventArgs e)
+        {
+            double width = NextSkipWidth();
+            Animate.Skip(() => SkipPanel.Width = width);
+        }
+
+        private double NextSkipWidth() => NextBoxWidth(SkipPanel, SkipStage);
+
+        private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => SaveSettings();
+
+        private void EnabledSwitch_Changed(object sender, RoutedEventArgs e) => SaveSettings();
+
+        private void TrySettings_Click(object sender, RoutedEventArgs e)
+        {
+            double width = NextBoxWidth(SettingsBox, SettingsStage);
+            SettingsBox.HorizontalAlignment = width > SettingsBox.Width ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+            SettingsBox.Width = width;
+        }
+
+        /// <summary>
+        /// The other width of a box that goes from narrow to wide: 420 pixels, or the width of the
+        /// demo on a small screen.
+        /// </summary>
+        private static double NextBoxWidth(FrameworkElement box, FrameworkElement stage)
+        {
+            double narrow = WindowSize.IsPhone ? 120 : 220;
+            return box.Width > narrow ? narrow : Math.Max(narrow, Math.Min(420, stage.ActualWidth));
+        }
+
+        private void ResetSettings_Click(object sender, RoutedEventArgs e)
+        {
+            ResetSettings();
+            LoadSettings();
+        }
+
+        private void LoadSettings()
+        {
+            AnimationSettings settings = AnimationSettings.Current;
+            _loading = true;
+            SpeedSlider.Value = settings.Speed;
+            DurationSlider.Value = settings.DefaultDuration.Seconds;
+            EnabledSwitch.IsChecked = settings.IsEnabled;
+            _loading = false;
+            UpdateLabels();
+        }
+
+        private void SaveSettings()
+        {
+            if (_loading)
             {
-                ScrollRows.Children.Add(new Border
-                {
-                    Height = ShortRow,
-                    Padding = new Thickness(16, 0, 16, 0),
-                    BorderBrush = RowLineBrush,
-                    BorderThickness = new Thickness(0, 0, 0, 1),
-                    Child = new TextBlock
-                    {
-                        Text = "Message " + i.ToString(CultureInfo.InvariantCulture),
-                        VerticalAlignment = VerticalAlignment.Center,
-                    },
-                });
+                return;
             }
 
-            SetTileCount(FewTiles);
-            LeftColumn.Width = new GridLength(LeftPaneWidth);
+            AnimationSettings settings = AnimationSettings.Current;
+            settings.Speed = Math.Round(SpeedSlider.Value * 4) / 4;
+            settings.DefaultDuration = AnimationTime.FromSeconds(Math.Round(DurationSlider.Value * 20) / 20);
+            settings.IsEnabled = EnabledSwitch.IsChecked == true;
+            UpdateLabels();
         }
 
-        private static double LeftPaneWidth => WindowSize.IsPhone ? 120 : 220;
-
-        private void Rows_Click(object sender, RoutedEventArgs e)
+        private static void ResetSettings()
         {
-            bool taller = ((FrameworkElement)ScrollRows.Children[0]).Height < TallRow;
-            foreach (UIElement row in ScrollRows.Children)
-            {
-                ((FrameworkElement)row).Height = taller ? TallRow : ShortRow;
-            }
-            RowsButton.Content = taller ? "Make the rows shorter" : "Make the rows taller";
+            AnimationSettings settings = AnimationSettings.Current;
+            settings.DefaultDuration = DefaultDuration;
+            settings.IsEnabled = true;
+            MainPage.Current?.ApplySlowMotion();
         }
 
-        private void ResetSplit_Click(object sender, RoutedEventArgs e)
+        private void UpdateLabels()
         {
-            LeftColumn.Width = new GridLength(LeftPaneWidth);
-        }
-
-        private void BarSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            if (SliderBar != null)
-            {
-                SliderBar.Width = e.NewValue;
-            }
-        }
-
-        private void AddWord_Click(object sender, RoutedEventArgs e)
-        {
-            AutoWidthBox.Text += " " + Words[_wordIndex];
-            _wordIndex = (_wordIndex + 1) % Words.Length;
-        }
-
-        private void Chapter8_Click(object sender, RoutedEventArgs e)
-        {
-            MainPage.Current?.Navigate(Tour.Get(8));
-        }
-
-        private void TileCount_Click(object sender, RoutedEventArgs e)
-        {
-            bool many = BudgetTiles.Children.Count < ManyTiles;
-            SetTileCount(many ? ManyTiles : FewTiles);
-            TileCountButton.Content = many ? "Use 100 tiles" : "Use 400 tiles";
-        }
-
-        private void SetTileCount(int count)
-        {
-            double size = BudgetTiles.Children.Count > 0 ? ((FrameworkElement)BudgetTiles.Children[0]).Width : SmallTile;
-            BudgetTiles.Children.Clear();
-            for (int i = 0; i < count; i++)
-            {
-                BudgetTiles.Children.Add(new Border
-                {
-                    Width = size,
-                    Height = size,
-                    Margin = new Thickness(0, 0, 3, 3),
-                    CornerRadius = new CornerRadius(3),
-                    Background = TileBrush,
-                });
-            }
-        }
-
-        private void GrowTiles_Click(object sender, RoutedEventArgs e)
-        {
-            bool grow = ((FrameworkElement)BudgetTiles.Children[0]).Width < LargeTile;
-            foreach (UIElement tile in BudgetTiles.Children)
-            {
-                ((FrameworkElement)tile).Width = grow ? LargeTile : SmallTile;
-                ((FrameworkElement)tile).Height = grow ? LargeTile : SmallTile;
-            }
-        }
-
-        private void WrapBox_Click(object sender, RoutedEventArgs e)
-        {
-            bool phone = WindowSize.IsPhone;
-            double narrow = phone ? 160 : 300;
-            WrapBox.Width = WrapBox.Width > narrow ? narrow : phone ? 260 : 520;
-        }
-
-        private void Shapes_Click(object sender, RoutedEventArgs e)
-        {
-            bool phone = WindowSize.IsPhone;
-            double small = phone ? 50 : 80;
-            double size = RectangleBox.Width > small ? small : phone ? 80 : 150;
-            foreach (FrameworkElement box in new FrameworkElement[] { RectangleBox, EllipseBox, PathBox })
-            {
-                box.Width = size;
-                box.Height = size;
-            }
+            AnimationSettings settings = AnimationSettings.Current;
+            SpeedText.Text = settings.Speed.ToString(CultureInfo.InvariantCulture);
+            DurationText.Text = settings.DefaultDuration.Seconds.ToString(CultureInfo.InvariantCulture) + " s";
         }
     }
 }

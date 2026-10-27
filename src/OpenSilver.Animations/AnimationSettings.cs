@@ -61,7 +61,11 @@ namespace OpenSilver.Animations
 
                 return _current;
             }
-            set => _current = value ?? throw new ArgumentNullException(nameof(value));
+            set
+            {
+                _current = value ?? throw new ArgumentNullException(nameof(value));
+                Engine.Reactions.OnSettingsReplaced();
+            }
         }
 
         private static AnimationSettings Defaults { get; } = new AnimationSettings();

@@ -391,7 +391,7 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
-        private static void Warn(string property, UIElement element, string problem)
+        internal static void Warn(string property, UIElement element, string problem)
         {
             // Later, so that the element has its name, and the app had time to turn on the log.
             Deployment.Current.Dispatcher.BeginInvoke(() =>

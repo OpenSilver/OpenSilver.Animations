@@ -82,9 +82,10 @@ namespace OpenSilver.Animations.Gallery.Shell
             new ChapterInfo(9, "Text that moves", "Typewriter, Roll, Count up, Scramble and Retype.", false),
             new ChapterInfo(10, "Bouncy and Wave", "A bouncy tab underline, and cards that move like a wave.", true),
             new ChapterInfo(11, "Magic move", "Elements that travel from one place to another.", false),
-            new ChapterInfo(12, "From code", "Animate.Changes, Animate.Skip and AnimationSettings.", true),
-            new ChapterInfo(13, "What never animates, and why", "Scrolling, dragging, typing, resizing the window, and the limits.", true),
-            new ChapterInfo(14, "Putting it together", "A real application built with all of this.", false),
+            new ChapterInfo(12, "Hover and press", "Hover and Press on buttons, cards and icons: Grow, Lift, Shrink and Nudge.", true),
+            new ChapterInfo(13, "From code", "Animate.Changes, Animate.Skip and AnimationSettings.", true),
+            new ChapterInfo(14, "What never animates, and why", "Scrolling, dragging, typing, resizing the window, and the limits.", true),
+            new ChapterInfo(15, "Putting it together", "A real application built with all of this.", false),
         };
 
         public static ChapterInfo Get(int number) => All.FirstOrDefault(c => c.Number == number);

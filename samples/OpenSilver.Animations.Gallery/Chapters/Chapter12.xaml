@@ -4,102 +4,131 @@
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
           xmlns:anim="http://opensilver.net/animations"
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
-          Title="From code">
+          Title="Hover and press">
 
     <StackPanel Style="{StaticResource ChapterRoot}">
         <TextBlock Text="CHAPTER 12" Style="{StaticResource OverlineText}" />
-        <TextBlock Text="From code" Style="{StaticResource ChapterTitleText}" />
+        <TextBlock Text="Hover and press" Style="{StaticResource ChapterTitleText}" />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="Most of the time, a setting in XAML is all you need. From code, you can also animate one particular change, make one change instant, and adjust every animation of the application at once." />
+                   Text="Hover says what an element does while the mouse is over it, and Press what it does while it is pressed. Elements that react a little feel alive and tell people what they can click. Nothing else moves: the element keeps its place and its size." />
 
-        <!-- 1. Animate.Changes -->
-        <controls:DemoCard Title="Animate one change: Animate.Changes"
-                           Description="This box has no setting. Changed directly, it jumps. Changed inside Animate.Changes, it glides, together with everything the change moves."
-                           Xaml='// Jumps: the box has no setting&#10;ChangesBox.Width = 360;&#10;&#10;// Glides, with the default duration or the one you give&#10;Animate.Changes(() =&gt; ChangesBox.Width = 360);&#10;Animate.Changes(() =&gt; ChangesBox.Width = 360, AnimationTime.FromSeconds(0.6));'
-                           Expectations="• Change it directly: the box and the label next to it jump.&#10;• Inside Animate.Changes: both glide.&#10;• With 0.6 s: they glide more slowly.">
-            <StackPanel>
-                <StackPanel x:Name="ChangesRow" Orientation="Horizontal">
-                    <Border x:Name="ChangesBox" Width="{Responsive Mobile=110, Tablet=140}" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0">
-                        <TextBlock Text="No setting" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock x:Name="FollowerText" Text="{Responsive Mobile='I follow', Tablet='I follow the box'}" Style="{StaticResource BodyText}" VerticalAlignment="Center" Margin="14,0,0,0" />
-                </StackPanel>
-                <WrapPanel Margin="0,16,0,0">
-                    <Button Content="Change it directly" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeDirectly_Click" />
-                    <Button Content="Inside Animate.Changes" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeAnimated_Click" />
-                    <Button Content="With 0.6 s" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ChangeSlowly_Click" />
-                </WrapPanel>
-            </StackPanel>
+        <!-- 1. Buttons -->
+        <controls:DemoCard Title="Buttons that react"
+                           Description="Move the mouse over these buttons, then press them. Grow makes an element a little bigger, Lift raises it, and Shrink makes it a little smaller, like a button pushed in."
+                           Xaml='&lt;Button Content="Buy now" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;&#10;&lt;Button Content="Save" anim:Animate.Hover="Lift" /&gt;&#10;&lt;Button Content="Cancel" anim:Animate.Press="Shrink" /&gt;&#10;&#10;&lt;!-- With parameters --&gt;&#10;&lt;Button Content="Bouncy" anim:Animate.Hover="{anim:Grow Zoom=1.1, Easing=Bouncy}" /&gt;'
+                           Expectations="• Buy now grows while the mouse is over it, and shrinks back a little while you press it.&#10;• Save rises a little. Cancel only reacts when you press it.&#10;• Bouncy grows more, overshoots and settles.&#10;• The other buttons never move.">
+            <WrapPanel>
+                <Button Content="Buy now" Style="{StaticResource PrimaryButton}" Margin="0,0,12,12"
+                        anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" />
+                <Button Content="Save" Style="{StaticResource SecondaryButton}" Margin="0,0,12,12"
+                        anim:Animate.Hover="Lift" />
+                <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Margin="0,0,12,12"
+                        anim:Animate.Press="Shrink" />
+                <Button Content="Bouncy" Style="{StaticResource PrimaryButton}" Margin="0,0,12,12"
+                        anim:Animate.Hover="{anim:Grow Zoom=1.1, Easing=Bouncy}" anim:Animate.Press="Shrink" />
+            </WrapPanel>
         </controls:DemoCard>
 
-        <!-- 2. Animate.Skip -->
-        <controls:DemoCard Title="Make one change instant: Animate.Skip"
-                           Description="This panel has MoveAndResize=Smooth, so its changes animate. A change made inside Animate.Skip is simply there, for example when a saved layout is restored or a form is reset."
-                           Xaml='// Glides: the panel has MoveAndResize=Smooth&#10;SkipPanel.Width = 400;&#10;&#10;// Instant&#10;Animate.Skip(() =&gt; SkipPanel.Width = 400);'
-                           Expectations="• Change it: the panel glides.&#10;• Inside Animate.Skip: it jumps, although it has a setting.">
-            <StackPanel x:Name="SkipStage">
-                <Border x:Name="SkipPanel" Width="{Responsive Mobile=120, Tablet=220}" Height="56" CornerRadius="10" Background="{StaticResource DarkPanelBrush}" Padding="14,0" HorizontalAlignment="Left"
-                        anim:Animate.MoveAndResize="Smooth">
-                    <TextBlock Text="{Responsive Mobile=Smooth, Tablet='MoveAndResize=Smooth'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <!-- 2. Cards -->
+        <controls:DemoCard Title="Cards that lift"
+                           Description="Any element can react, not only buttons. These cards rise when the mouse is over them, and sink back a little when you press them."
+                           Xaml='&lt;Border Style="{StaticResource Card}"&#10;        anim:Animate.Hover="{anim:Lift Distance=6}" anim:Animate.Press="Shrink"&gt;'
+                           Expectations="• A card rises while the mouse is over it, and comes down when the mouse leaves.&#10;• Move the mouse slowly along the bottom edge of a card: it stays up, it doesn't go up and down.&#10;• On a touch screen, cards only react when you press them.">
+            <WrapPanel Margin="0,8,0,0">
+                <Border Style="{StaticResource Card}" Width="{Responsive Mobile=NaN, Tablet=200}" Margin="0,0,12,12"
+                        anim:Animate.Hover="{anim:Lift Distance=6}" anim:Animate.Press="Shrink">
+                    <StackPanel>
+                        <TextBlock Text="Invoices" FontWeight="SemiBold" />
+                        <TextBlock Text="12 waiting for payment" Style="{StaticResource BodyText}" Margin="0,4,0,0" />
+                    </StackPanel>
                 </Border>
-                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                    <Button Content="Change it" Style="{StaticResource SecondaryButton}" Click="SkipChange_Click" />
-                    <Button Content="Inside Animate.Skip" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SkipChangeInstant_Click" />
-                </StackPanel>
-            </StackPanel>
+                <Border Style="{StaticResource Card}" Width="{Responsive Mobile=NaN, Tablet=200}" Margin="0,0,12,12"
+                        anim:Animate.Hover="{anim:Lift Distance=6}" anim:Animate.Press="Shrink">
+                    <StackPanel>
+                        <TextBlock Text="Team calendar" FontWeight="SemiBold" />
+                        <TextBlock Text="3 meetings today" Style="{StaticResource BodyText}" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Width="{Responsive Mobile=NaN, Tablet=200}" Margin="0,0,12,12"
+                        anim:Animate.Hover="{anim:Lift Distance=6}" anim:Animate.Press="Shrink">
+                    <StackPanel>
+                        <TextBlock Text="Support tickets" FontWeight="SemiBold" />
+                        <TextBlock Text="All answered" Style="{StaticResource BodyText}" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
         </controls:DemoCard>
 
-        <!-- 3. AnimationSettings -->
-        <controls:DemoCard Title="Adjust everything at once: AnimationSettings"
-                           Description="AnimationSettings.Current applies to every animation of the application. Declare it in the resources of App.xaml, or change it from code at any time. Move the sliders, then try."
-                           Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" DefaultDuration="0.3s" /&gt;&#10;&#10;// From code&#10;AnimationSettings.Current.Speed = 0.5;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.4);&#10;AnimationSettings.Current.IsEnabled = false;'
-                           Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• These settings are reset when you leave this chapter.">
-            <StackPanel x:Name="SettingsStage">
-                <Grid>
+        <!-- 3. Nudge -->
+        <controls:DemoCard Title="Icons that the mouse nudges"
+                           Description="Sweep the mouse quickly across these icons. Each one is pushed a little in the direction the mouse goes, turns a little if the mouse comes near a corner, and springs back. The faster the mouse, the more it moves."
+                           Xaml='&lt;Border anim:Animate.Hover="Nudge" /&gt;&#10;&#10;&lt;!-- With parameters --&gt;&#10;&lt;Border anim:Animate.Hover="{anim:Nudge Distance=6, Tilt=5}" /&gt;'
+                           Expectations="• A fast sweep pushes each icon in the direction of the mouse; a slow one barely moves them.&#10;• Each icon springs back past its place, and settles.&#10;• Move the sliders for a stronger push and more turn.">
+            <StackPanel>
+                <WrapPanel x:Name="NudgeIcons">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#5B5BD6" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                        <TextBlock Text="M" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#E07A1F" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                        <TextBlock Text="C" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#239B6A" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                        <TextBlock Text="P" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#D6455B" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                        <TextBlock Text="N" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#23263A" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                        <TextBlock Text="S" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </WrapPanel>
+
+                <Grid Margin="0,8,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" MaxWidth="370" />
-                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="*" MaxWidth="340" />
+                        <ColumnDefinition Width="60" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Speed" Style="{StaticResource SliderLabel}" />
-                    <Slider x:Name="SpeedSlider" Grid.Column="1" Minimum="0.25" Maximum="2" Value="1" SmallChange="0.25" LargeChange="0.25" ValueChanged="Slider_ValueChanged" />
-                    <TextBlock x:Name="SpeedText" Grid.Column="2" Text="1" VerticalAlignment="Center" Margin="12,0,0,0" />
-                    <TextBlock Grid.Row="1" Text="Default duration" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
-                    <Slider x:Name="DurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.1" Maximum="1" Value="0.25" SmallChange="0.05" LargeChange="0.05" Margin="0,8,0,0" ValueChanged="Slider_ValueChanged" />
-                    <TextBlock x:Name="DurationText" Grid.Row="1" Grid.Column="2" Text="0.25 s" VerticalAlignment="Center" Margin="12,8,0,0" />
-                    <CheckBox x:Name="EnabledSwitch" Grid.Row="2" Grid.ColumnSpan="3" Content="Animations are on (IsEnabled)" Style="{StaticResource SwitchCheckBox}" IsChecked="True"
-                              Margin="-8,8,0,0" HorizontalAlignment="Left" Checked="EnabledSwitch_Changed" Unchecked="EnabledSwitch_Changed" />
+                    <TextBlock Text="Distance" Style="{StaticResource SliderLabel}" />
+                    <Slider x:Name="NudgeDistanceSlider" Grid.Column="1" Minimum="0" Maximum="20" Value="3" SmallChange="1" LargeChange="1"
+                            ValueChanged="NudgeSettings_Changed" />
+                    <TextBlock x:Name="NudgeDistanceText" Grid.Column="2" Text="3 px" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock Grid.Row="1" Text="Tilt" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
+                    <Slider x:Name="NudgeTiltSlider" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="15" Value="2" SmallChange="1" LargeChange="1" Margin="0,8,0,0"
+                            ValueChanged="NudgeSettings_Changed" />
+                    <TextBlock x:Name="NudgeTiltText" Grid.Row="1" Grid.Column="2" Text="2°" VerticalAlignment="Center" Margin="12,8,0,0" />
                 </Grid>
-
-                <Border x:Name="SettingsBox" Width="{Responsive Mobile=120, Tablet=220}" Height="56" CornerRadius="10" Background="{StaticResource AccentBrush}" Padding="14,0" HorizontalAlignment="Left" Margin="0,20,0,0"
-                        anim:Animate.MoveAndResize="Smooth">
-                    <TextBlock Text="{Responsive Mobile=Smooth, Tablet='MoveAndResize=Smooth'}" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                    <Button Content="Try it" Style="{StaticResource PrimaryButton}" Click="TrySettings_Click" />
-                    <Button Content="Reset the settings" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ResetSettings_Click" />
-                </StackPanel>
             </StackPanel>
         </controls:DemoCard>
 
-        <!-- 4. Logging and reduced motion -->
-        <controls:DemoCard Title="Why did it animate, or not?"
-                           Description="The What just happened log lists the messages of the AnimationSettings.Logged event. Use it in your own app, or turn on LogForDebugging to write them to the browser console."
-                           Xaml='AnimationSettings.Logged += (sender, e) =&gt; Debug.WriteLine(e.Message);&#10;&#10;// Or, in the browser console&#10;AnimationSettings.Current.LogForDebugging = true;'>
-            <TextBlock Style="{StaticResource BodyText}"
-                       Text="Only the changes that involve a setting, or Animate.Changes, are explained, so the messages stay few and useful. When the window is resized, there is at most one message per second." />
+        <!-- 4. Disabled -->
+        <controls:DemoCard Title="Disabled elements don't react"
+                           Description="This button grows and shrinks like Buy now. Turn it off with the switch: while it is disabled, it doesn't react, because it can't be clicked. Then turn it on again."
+                           Xaml='&lt;Button Content="Send" IsEnabled="False" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;'
+                           Expectations="• While the button is on, it grows and shrinks.&#10;• While it is off, it stays as it is, even with the mouse over it.">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="SendButton" Content="Send" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center"
+                        anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" />
+                <CheckBox x:Name="SendSwitch" Content="The button is on (IsEnabled)" Style="{StaticResource SwitchCheckBox}" IsChecked="True" VerticalAlignment="Center"
+                          Margin="16,0,0,0" Checked="SendSwitch_Changed" Unchecked="SendSwitch_Changed" />
+            </StackPanel>
         </controls:DemoCard>
 
         <Border Style="{StaticResource TipBox}">
             <StackPanel>
-                <TextBlock Text="Reduced motion" FontWeight="SemiBold" />
+                <TextBlock Text="Good to know" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="Some people ask their device for less motion, because animations make them dizzy. The library respects it by default (RespectReducedMotion): moves and resizes become instant. To see what they see, turn on Reduce motion in the toolbar, which sets SimulateReducedMotion." />
+                           Text="• Hover never plays on a touch screen, which has no mouse. Press works everywhere: with the mouse, a finger or a pen." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• An element reacts when the mouse is over a part of it that can be clicked. Give a Border or a Panel a Background, even Transparent, so that all of it counts." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• The reaction plays on top of everything else. It doesn't change RenderTransform or any other property, so your own transforms and animations keep working, and the element can move with MoveAndResize at the same time." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• Speed and Slow motion apply to it. When the device asks for reduced motion, or when animations are turned off, nothing happens." />
             </StackPanel>
         </Border>
 

@@ -117,6 +117,24 @@ namespace OpenSilver.Animations.Engine
             return timing;
         }
 
+        /// <summary>
+        /// The timing of a hover or press reaction. The script applies the speed, and the default
+        /// duration when <see cref="DurationMs"/> is 0, when it plays: they can change at any time.
+        /// </summary>
+        public static Timing FromReaction(Reaction reaction)
+        {
+            var timing = new Timing { DurationMs = reaction.Duration is AnimationTime duration ? Clamp(duration.Seconds) * 1000 : 0 };
+            if (reaction.IsBouncy)
+            {
+                timing.Samples = Sample(SpringEasing.ForReaction(reaction.Bounciness ?? 0.5), SpringSamples);
+            }
+            else
+            {
+                timing.SetCurve(reaction.Easing ?? Easings.Smooth, 0.5);
+            }
+            return timing;
+        }
+
         public static Timing FromDuration(AnimationTime? duration, AnimationSettings settings)
         {
             double seconds = duration?.Seconds ?? settings.DefaultDuration.Seconds;
