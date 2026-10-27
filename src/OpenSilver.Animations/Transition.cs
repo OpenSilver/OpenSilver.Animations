@@ -30,22 +30,32 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How long the effect lasts, from 0.05 to 3 seconds. The elements around it that move to make
-        /// room or to fill the space take the same time. The default is
-        /// <see cref="AnimationSettings.DefaultDuration"/> (twice that for <see cref="Pop"/> and
-        /// <c>Easing=Bouncy</c>).
+        /// room or to fill the space take the same time, unless you set <see cref="OthersDuration"/>.
+        /// The default is <see cref="AnimationSettings.DefaultDuration"/> (twice that for
+        /// <see cref="Pop"/> and <c>Easing=Bouncy</c>).
         /// </summary>
         public AnimationTime? Duration { get; set; }
 
         /// <summary>
-        /// How it speeds up and slows down: Smooth (the default), Gentle, Linear or Bouncy, or any
-        /// <see cref="IEasingFunction"/>. With Bouncy, the elements around it still move smoothly.
+        /// How long the elements around it take to move to make room or to fill the space, from
+        /// 0.05 to 3 seconds. The default is the <see cref="Duration"/> of the effect. A little
+        /// longer makes them follow it softly.
+        /// </summary>
+        public AnimationTime? OthersDuration { get; set; }
+
+        /// <summary>
+        /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, Bouncy, EaseOut,
+        /// EaseIn, EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. With Bouncy, it
+        /// fades without bouncing, and the elements around it move smoothly. With Overshoot, it
+        /// fades, and they move, with EaseOut.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }
 
         /// <summary>
         /// How much it bounces, from 0.1 (a little) to 1 (a lot). The default is 0.5. Used by
-        /// <see cref="Pop"/>, and by every effect with <c>Easing=Bouncy</c>.
+        /// <see cref="Pop"/>, by every effect with <c>Easing=Bouncy</c>, and by
+        /// <c>Easing=Overshoot</c>, where it says how far it goes past the end.
         /// </summary>
         public double? Bounciness
         {
@@ -85,9 +95,18 @@ namespace OpenSilver.Animations
 
         internal bool IsBouncy => this is Pop || Easing is SpringEasing;
 
+        internal bool UsesBounciness => IsBouncy || Easing is OvershootEasing;
+
         internal virtual bool HasFrom => false;
 
         internal virtual bool HasTo => false;
+
+        /// <summary>
+        /// The warning for a To on an Appear, or a From on a Disappear.
+        /// </summary>
+        internal virtual string MisplacedFromOrTo(bool appear) => appear
+            ? "To is for Disappear, so it comes from the bottom. Use From to choose the side it comes from"
+            : "From is for Appear, so it goes to the bottom. Use To to choose the side it goes to";
 
         /// <summary>
         /// The look the element starts from when it appears, or ends with when it disappears.
@@ -183,7 +202,8 @@ namespace OpenSilver.Animations
     }
 
     /// <summary>
-    /// Fades in while sliding in from a side, or fades out while sliding out to a side.
+    /// Fades in while sliding in from a side, or fades out while sliding out to a side. Set
+    /// <see cref="Fade"/> to false to only slide.
     /// </summary>
     public sealed class Slide : Transition
     {
@@ -214,16 +234,31 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How far it slides: Short (10 pixels), Medium (30 pixels, the default), Long (100 pixels),
-        /// or a number of pixels.
+        /// a number of pixels, or a percent of its own size: <c>100%</c> slides it by its whole
+        /// width from the left or the right, or by its whole height from the top or the bottom.
         /// </summary>
         public Distance Distance { get; set; } = Distance.Medium;
+
+        /// <summary>
+        /// Whether it fades in or out while it slides: true (the default), or false to only slide,
+        /// for example to come in from the edge of the window.
+        /// </summary>
+        public bool Fade { get; set; } = true;
 
         internal override string PresetName => "Slide";
 
         internal override EffectLook GetLook(bool appear)
         {
-            double x = DistanceOf(appear ? From : To, Distance.Pixels, out double y);
-            return new EffectLook { Opacity = 0, X = x, Y = y };
+            Side side = appear ? From : To;
+            double opacity = Fade ? 0 : 1;
+            if (Distance.IsPercent)
+            {
+                double relX = DistanceOf(side, Distance.Percent / 100, out double relY);
+                return new EffectLook { Opacity = opacity, RelX = relX, RelY = relY };
+            }
+
+            double x = DistanceOf(side, Distance.Pixels, out double y);
+            return new EffectLook { Opacity = opacity, X = x, Y = y };
         }
 
         internal override string Describe(bool appear) => appear ? "slides in" : "slides out";
@@ -231,14 +266,57 @@ namespace OpenSilver.Animations
 
     /// <summary>
     /// Fades in while growing from 90% of its size, or fades out while shrinking to 90%.
+    /// <see cref="From"/> and <see cref="To"/> choose another size, and <see cref="Fade"/> set to
+    /// false makes it only grow or shrink.
     /// </summary>
     public sealed class Zoom : Transition
     {
+        private const double DefaultSize = 0.9;
+
+        private double? _from;
+        private double? _to;
+
+        /// <summary>
+        /// The size it grows from when it appears, from 0 to 3: 0.9 (90% of its size, the default),
+        /// 0.5 for half its size, or more than 1 to shrink into place.
+        /// </summary>
+        public double From
+        {
+            get => _from ?? DefaultSize;
+            set => _from = SizeOf(value);
+        }
+
+        /// <summary>
+        /// The size it shrinks to when it disappears, from 0 to 3: 0.9 (90% of its size, the default),
+        /// 0.5 for half its size, or more than 1 to grow away.
+        /// </summary>
+        public double To
+        {
+            get => _to ?? DefaultSize;
+            set => _to = SizeOf(value);
+        }
+
+        /// <summary>
+        /// Whether it fades in or out while it grows or shrinks: true (the default), or false to
+        /// only grow or shrink.
+        /// </summary>
+        public bool Fade { get; set; } = true;
+
+        internal override bool HasFrom => _from.HasValue;
+
+        internal override bool HasTo => _to.HasValue;
+
         internal override string PresetName => "Zoom";
 
-        internal override EffectLook GetLook(bool appear) => new EffectLook { Opacity = 0, Scale = 0.9 };
+        internal override EffectLook GetLook(bool appear) => new EffectLook { Opacity = Fade ? 0 : 1, Scale = appear ? From : To };
 
         internal override string Describe(bool appear) => appear ? "zooms in" : "zooms out";
+
+        internal override string MisplacedFromOrTo(bool appear) => appear
+            ? "To is for Disappear, so it grows from 90% of its size. Use From to choose the size it grows from"
+            : "From is for Appear, so it shrinks to 90% of its size. Use To to choose the size it shrinks to";
+
+        private static double SizeOf(double value) => double.IsNaN(value) ? DefaultSize : Math.Max(0, Math.Min(3, value));
     }
 
     /// <summary>
@@ -460,7 +538,8 @@ namespace OpenSilver.Animations
 
     /// <summary>
     /// How far an element slides. In XAML, write <c>Short</c> (10 pixels), <c>Medium</c> (30 pixels),
-    /// <c>Long</c> (100 pixels), or a number of pixels (<c>40</c> or <c>40px</c>).
+    /// <c>Long</c> (100 pixels), a number of pixels (<c>40</c> or <c>40px</c>), or, for
+    /// <see cref="Slide"/>, a percent of the element's own size (<c>50%</c>).
     /// </summary>
     [TypeConverter(typeof(DistanceConverter))]
     public readonly struct Distance : IEquatable<Distance>
@@ -471,7 +550,22 @@ namespace OpenSilver.Animations
         public Distance(double pixels)
         {
             Pixels = double.IsNaN(pixels) ? 0 : Math.Max(0, Math.Min(2000, pixels));
+            Percent = 0;
         }
+
+        private Distance(double pixels, double percent)
+        {
+            Pixels = pixels;
+            Percent = percent;
+        }
+
+        /// <summary>
+        /// Creates a distance that is a percent of the element's own size, from 0 to 1000: of its
+        /// width when it slides from the left or the right, and of its height when it slides from
+        /// the top or the bottom. 100 slides it by its whole size.
+        /// </summary>
+        public static Distance FromPercent(double percent)
+            => new Distance(0, double.IsNaN(percent) ? 0 : Math.Max(0, Math.Min(1000, percent)));
 
         /// <summary>
         /// 10 pixels.
@@ -489,12 +583,20 @@ namespace OpenSilver.Animations
         public static Distance Long => new Distance(100);
 
         /// <summary>
-        /// Gets the distance in pixels.
+        /// Gets the distance in pixels, or 0 when it is a percent of the element's size.
         /// </summary>
         public double Pixels { get; }
 
         /// <summary>
-        /// Reads a distance written as Short, Medium, Long, or a number of pixels (<c>40</c> or <c>40px</c>).
+        /// Gets the percent of the element's size, or 0 when it is a number of pixels.
+        /// </summary>
+        public double Percent { get; }
+
+        internal bool IsPercent => Percent > 0;
+
+        /// <summary>
+        /// Reads a distance written as Short, Medium, Long, a number of pixels (<c>40</c> or
+        /// <c>40px</c>), or a percent of the element's size (<c>50%</c>).
         /// </summary>
         /// <exception cref="FormatException">
         /// The text is not a distance.
@@ -512,17 +614,22 @@ namespace OpenSilver.Animations
             }
 
             string number = text?.Trim() ?? string.Empty;
-            if (number.EndsWith("px", StringComparison.OrdinalIgnoreCase))
+            bool percent = number.EndsWith("%", StringComparison.Ordinal);
+            if (percent)
+            {
+                number = number.Substring(0, number.Length - 1);
+            }
+            else if (number.EndsWith("px", StringComparison.OrdinalIgnoreCase))
             {
                 number = number.Substring(0, number.Length - 2);
             }
 
-            if (double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double pixels) && !double.IsInfinity(pixels))
+            if (double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && !double.IsInfinity(value))
             {
-                return new Distance(pixels);
+                return percent ? FromPercent(value) : new Distance(value);
             }
 
-            throw new FormatException($"'{text}' is not a distance. Use Short, Medium, Long, or a number of pixels.");
+            throw new FormatException($"'{text}' is not a distance. Use Short, Medium, Long, a number of pixels, or a percent of the element's size, like 50%.");
         }
 
         /// <summary>
@@ -531,13 +638,13 @@ namespace OpenSilver.Animations
         public static implicit operator Distance(double pixels) => new Distance(pixels);
 
         /// <inheritdoc />
-        public bool Equals(Distance other) => Pixels == other.Pixels;
+        public bool Equals(Distance other) => Pixels == other.Pixels && Percent == other.Percent;
 
         /// <inheritdoc />
         public override bool Equals(object obj) => obj is Distance other && Equals(other);
 
         /// <inheritdoc />
-        public override int GetHashCode() => Pixels.GetHashCode();
+        public override int GetHashCode() => Pixels.GetHashCode() ^ (Percent.GetHashCode() * 397);
 
         /// <summary>
         /// Compares two distances.
@@ -550,13 +657,16 @@ namespace OpenSilver.Animations
         public static bool operator !=(Distance left, Distance right) => !left.Equals(right);
 
         /// <summary>
-        /// Returns the distance in pixels, for example <c>30px</c>.
+        /// Returns the distance, for example <c>30px</c> or <c>50%</c>.
         /// </summary>
-        public override string ToString() => Pixels.ToString(CultureInfo.InvariantCulture) + "px";
+        public override string ToString() => IsPercent
+            ? Percent.ToString(CultureInfo.InvariantCulture) + "%"
+            : Pixels.ToString(CultureInfo.InvariantCulture) + "px";
     }
 
     /// <summary>
-    /// Converts Short (10), Medium (30) and Long (100), or a number of pixels, to a <see cref="Distance"/>.
+    /// Converts Short (10), Medium (30) and Long (100), a number of pixels, or a percent like
+    /// <c>50%</c>, to a <see cref="Distance"/>.
     /// </summary>
     public sealed class DistanceConverter : TypeConverter
     {
@@ -604,6 +714,16 @@ namespace OpenSilver.Animations
         public double X;
 
         public double Y;
+
+        /// <summary>
+        /// A fraction of the element's own width, added to <see cref="X"/>.
+        /// </summary>
+        public double RelX;
+
+        /// <summary>
+        /// A fraction of the element's own height, added to <see cref="Y"/>.
+        /// </summary>
+        public double RelY;
 
         public double Scale
         {

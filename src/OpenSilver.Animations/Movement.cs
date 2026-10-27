@@ -33,14 +33,15 @@ namespace OpenSilver.Animations
         public AnimationTime? Duration { get; set; }
 
         /// <summary>
-        /// How it speeds up and slows down: Smooth (the default), Gentle or Linear, or any
-        /// <see cref="IEasingFunction"/>. Used by <see cref="Smooth"/>.
+        /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, EaseOut, EaseIn,
+        /// EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. Used by <see cref="Smooth"/>.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }
 
         /// <summary>
-        /// How much it bounces, from 0.1 (a little) to 1 (a lot). The default is 0.5. Used by <see cref="Bouncy"/>.
+        /// How much it bounces, from 0.1 (a little) to 1 (a lot). The default is 0.5. Used by
+        /// <see cref="Bouncy"/>, and by <c>Easing=Overshoot</c>, where it says how far it goes past.
         /// </summary>
         public double? Bounciness
         {

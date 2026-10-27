@@ -7,9 +7,10 @@ namespace OpenSilver.Animations.Engine
     /// <summary>
     /// Builds the JavaScript object read by <c>osAnimations.run</c>:
     /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags, fromGhost?]], a: [[id, timing, delay, edge]],
-    /// e: [[id, timing, delay, look..., raise]], g: [[id, timing, delay, look..., sizeCurve]], x: [ids], c: [ids],
-    /// s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>, where a look is
-    /// <c>opacity, x, y, scale, rotate, blur, wipe</c>.
+    /// e: [[id, timing, delay, look..., raise]], k: [[id, timing, delay, dx, dy]], g: [[id, timing, delay, look..., sizeCurve]],
+    /// x: [ids], c: [ids], s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>, where a look is
+    /// <c>opacity, x, y, scale, rotate, blur, wipe, relX, relY</c>, relX and relY being fractions of the
+    /// element's own width and height added to x and y.
     /// </summary>
     internal sealed class BatchBuilder
     {
@@ -27,6 +28,7 @@ namespace OpenSilver.Animations.Engine
         private readonly StringBuilder _moves = new StringBuilder();
         private readonly StringBuilder _reveals = new StringBuilder();
         private readonly StringBuilder _effects = new StringBuilder();
+        private readonly StringBuilder _keeps = new StringBuilder();
         private readonly StringBuilder _ghosts = new StringBuilder();
         private readonly StringBuilder _ghostRemovals = new StringBuilder();
         private readonly StringBuilder _cancels = new StringBuilder();
@@ -34,7 +36,7 @@ namespace OpenSilver.Animations.Engine
         private readonly StringBuilder _outlines = new StringBuilder();
         private readonly StringBuilder _releases = new StringBuilder();
 
-        public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _effects.Length == 0 && _ghosts.Length == 0 &&
+        public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _effects.Length == 0 && _keeps.Length == 0 && _ghosts.Length == 0 &&
                                _ghostRemovals.Length == 0 && _cancels.Length == 0 && _retargets.Length == 0 &&
                                _outlines.Length == 0 && _releases.Length == 0;
 
@@ -118,6 +120,30 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
+        /// Moves an element that appears by (<paramref name="dx"/>, <paramref name="dy"/>) back to
+        /// its place, on top of its effect, against the move of the containers it makes grow, so
+        /// that it stays where it ends on screen.
+        /// </summary>
+        public void AddKeepInPlace(string id, int timing, double delay, double dx, double dy)
+        {
+            StringBuilder sb = _keeps;
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append('[');
+            BrowserBridge.AppendString(sb, id);
+            sb.Append(',').Append(timing).Append(',');
+            BrowserBridge.AppendNumber(sb, delay);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, dx);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, dy);
+            sb.Append(']');
+        }
+
+        /// <summary>
         /// Plays the effect of an element that disappears on its ghost, the copy made when it
         /// disappeared, to <paramref name="look"/>, then removes the ghost. <paramref name="sizeCurve"/>
         /// uses the curve of the sizes, so that a wipe keeps up with the elements that fill its place.
@@ -164,7 +190,10 @@ namespace OpenSilver.Animations.Engine
             BrowserBridge.AppendNumber(sb, look.Rotate);
             sb.Append(',');
             BrowserBridge.AppendNumber(sb, look.Blur);
-            sb.Append(',').Append(look.Wipe);
+            sb.Append(',').Append(look.Wipe).Append(',');
+            BrowserBridge.AppendNumber(sb, look.RelX);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.RelY);
         }
 
         public void AddCancel(UIElement element) => AddId(_cancels, element);
@@ -241,7 +270,8 @@ namespace OpenSilver.Animations.Engine
                 _timings[i].AppendJson(sb);
             }
 
-            sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],e:[").Append(_effects).Append("],g:[").Append(_ghosts)
+            sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],e:[").Append(_effects).Append("],k:[").Append(_keeps)
+              .Append("],g:[").Append(_ghosts)
               .Append("],x:[").Append(_ghostRemovals).Append("],c:[").Append(_cancels).Append("],s:[").Append(_retargets)
               .Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("]}");
             return sb.ToString();

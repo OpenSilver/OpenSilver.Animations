@@ -126,7 +126,7 @@ namespace OpenSilver.Animations.Engine
             {
                 case Nudge nudge:
                     sb.Append(KindNudge).Append(",dist:");
-                    BrowserBridge.AppendNumber(sb, Math.Min(MaxNudgeDistance, nudge.Distance.Pixels));
+                    BrowserBridge.AppendNumber(sb, nudge.Distance.IsPercent ? Nudge.DefaultPixels : Math.Min(MaxNudgeDistance, nudge.Distance.Pixels));
                     sb.Append(",a:");
                     BrowserBridge.AppendNumber(sb, nudge.Tilt);
                     break;
@@ -140,7 +140,7 @@ namespace OpenSilver.Animations.Engine
                     break;
                 case Lift lift:
                     sb.Append(KindLift).Append(",dist:");
-                    BrowserBridge.AppendNumber(sb, lift.Distance.Pixels);
+                    BrowserBridge.AppendNumber(sb, lift.Distance.IsPercent ? Lift.DefaultPixels : lift.Distance.Pixels);
                     break;
                 default:
                     return null;
@@ -174,9 +174,13 @@ namespace OpenSilver.Animations.Engine
             {
                 problem = "Easing is not used by Nudge, which always springs back";
             }
-            else if (reaction.Bounciness != null && !(reaction is Nudge) && !reaction.IsBouncy)
+            else if (reaction.Bounciness != null && !(reaction is Nudge) && !reaction.IsBouncy && !(reaction.Easing is OvershootEasing))
             {
-                problem = "Bounciness is only used by Nudge and by Easing=Bouncy";
+                problem = "Bounciness is only used by Nudge, Easing=Bouncy and Easing=Overshoot";
+            }
+            else if ((reaction as Lift)?.Distance.IsPercent == true || (reaction as Nudge)?.Distance.IsPercent == true)
+            {
+                problem = "A Distance in percent is for Slide only, so it moves by its default distance";
             }
 
             if (problem != null)

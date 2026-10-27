@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,6 +11,8 @@ namespace OpenSilver.Animations.Gallery.Chapters
     public partial class Chapter02 : Page
     {
         private const string CustomParameters = "Opacity=0, OffsetY=20, Zoom=0.8, Rotate=-6";
+        private const double DefaultZoomSize = 0.9;
+        private const string DefaultDistance = "Medium";
 
         private readonly bool _ready;
 
@@ -31,39 +34,88 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private void ApplyEffect()
         {
             string name = (string)Selected(EffectChoices).Content;
-            var side = (Side)Enum.Parse(typeof(Side), (string)Selected(SideChoices).Content);
-            string duration = (string)Selected(DurationChoices).Tag;
-            string easing = (string)Selected(EasingChoices).Content;
+            var choices = new Choices
+            {
+                Side = (Side)Enum.Parse(typeof(Side), (string)Selected(SideChoices).Content),
+                Distance = (string)Selected(DistanceChoices).Tag,
+                Size = double.Parse((string)Selected(SizeChoices).Tag, CultureInfo.InvariantCulture),
+                Fade = bool.Parse((string)Selected(FadeChoices).Tag),
+                Duration = (string)Selected(DurationChoices).Tag,
+                OthersDuration = (string)Selected(OthersDurationChoices).Tag,
+                Easing = (string)Selected(EasingChoices).Content,
+            };
 
             bool hasSide = name == "Slide" || name == "Wipe";
             SideLabel.Visibility = SideChoices.Visibility = hasSide ? Visibility.Visible : Visibility.Collapsed;
+
+            bool hasDistance = name == "Slide";
+            DistanceLabel.Visibility = DistanceChoices.Visibility = hasDistance ? Visibility.Visible : Visibility.Collapsed;
+
+            bool hasSize = name == "Zoom";
+            SizeLabel.Visibility = SizeChoices.Visibility = hasSize ? Visibility.Visible : Visibility.Collapsed;
+
+            bool hasFade = name == "Slide" || name == "Zoom";
+            FadeLabel.Visibility = FadeChoices.Visibility = hasFade ? Visibility.Visible : Visibility.Collapsed;
 
             bool hasEasing = name != "Pop";
             EasingChoices.IsEnabled = hasEasing;
             EasingLabel.Opacity = EasingChoices.Opacity = hasEasing ? 1 : 0.45;
 
-            // Pop is for appearing: the card disappears with Zoom.
+            // Pop is for appearing: the card disappears with Zoom, at its default size.
             string disappearName = name == "Pop" ? "Zoom" : name;
-            Transition appear = Create(name, side, appear: true, duration, hasEasing ? easing : "Smooth");
-            Transition disappear = Create(disappearName, side, appear: false, duration, hasEasing ? easing : "Smooth");
-            Animate.SetAppear(SampleCard, appear);
-            Animate.SetDisappear(SampleCard, disappear);
+            if (!hasSize)
+            {
+                choices.Size = DefaultZoomSize;
+            }
+            if (!hasDistance)
+            {
+                choices.Distance = DefaultDistance;
+            }
+            if (!hasFade)
+            {
+                choices.Fade = true;
+            }
+            if (!hasEasing)
+            {
+                choices.Easing = "Smooth";
+            }
+            Animate.SetAppear(SampleCard, Create(name, choices, appear: true));
+            Animate.SetDisappear(SampleCard, Create(disappearName, choices, appear: false));
 
             EffectDemo.Xaml =
-                "<Border anim:Animate.Appear=\"" + ToXaml(name, side, true, duration, hasEasing ? easing : "Smooth") + "\"\n" +
-                "        anim:Animate.Disappear=\"" + ToXaml(disappearName, side, false, duration, hasEasing ? easing : "Smooth") + "\">";
+                "<Border anim:Animate.Appear=\"" + ToXaml(name, choices, true) + "\"\n" +
+                "        anim:Animate.Disappear=\"" + ToXaml(disappearName, choices, false) + "\">";
         }
 
-        private static Transition Create(string name, Side side, bool appear, string duration, string easing)
+        private sealed class Choices
+        {
+            public Side Side;
+            public string Distance;
+            public double Size;
+            public bool Fade;
+            public string Duration;
+            public string OthersDuration;
+            public string Easing;
+        }
+
+        private static Transition Create(string name, Choices choices, bool appear)
         {
             Transition effect;
             switch (name)
             {
                 case "Slide":
-                    effect = appear ? new Slide { From = side } : new Slide { To = side };
+                    var slide = appear ? new Slide { From = choices.Side } : new Slide { To = choices.Side };
+                    slide.Distance = Distance.Parse(choices.Distance);
+                    slide.Fade = choices.Fade;
+                    effect = slide;
                     break;
                 case "Wipe":
-                    effect = appear ? new Wipe { From = side } : new Wipe { To = side };
+                    effect = appear ? new Wipe { From = choices.Side } : new Wipe { To = choices.Side };
+                    break;
+                case "Zoom":
+                    var zoom = choices.Size == DefaultZoomSize ? new Zoom() : appear ? new Zoom { From = choices.Size } : new Zoom { To = choices.Size };
+                    zoom.Fade = choices.Fade;
+                    effect = zoom;
                     break;
                 case "Custom":
                     effect = new Custom { Opacity = 0, OffsetY = 20, Zoom = 0.8, Rotate = -6 };
@@ -73,12 +125,16 @@ namespace OpenSilver.Animations.Gallery.Chapters
                     break;
             }
 
-            if (duration.Length > 0)
+            if (choices.Duration.Length > 0)
             {
-                effect.Duration = AnimationTime.Parse(duration);
+                effect.Duration = AnimationTime.Parse(choices.Duration);
+            }
+            if (choices.OthersDuration.Length > 0)
+            {
+                effect.OthersDuration = AnimationTime.Parse(choices.OthersDuration);
             }
 
-            effect.Easing = GetEasing(easing);
+            effect.Easing = GetEasing(choices.Easing);
             return effect;
         }
 
@@ -89,28 +145,48 @@ namespace OpenSilver.Animations.Gallery.Chapters
                 case "Gentle": return Easings.Gentle;
                 case "Linear": return Easings.Linear;
                 case "Bouncy": return Easings.Bouncy;
+                case "EaseOut": return Easings.EaseOut;
+                case "EaseIn": return Easings.EaseIn;
+                case "EaseInOut": return Easings.EaseInOut;
+                case "Overshoot": return Easings.Overshoot;
                 default: return null;
             }
         }
 
-        private static string ToXaml(string name, Side side, bool appear, string duration, string easing)
+        private static string ToXaml(string name, Choices choices, bool appear)
         {
             var parameters = new List<string>();
-            if ((name == "Slide" || name == "Wipe") && side != Side.Bottom)
+            if ((name == "Slide" || name == "Wipe") && choices.Side != Side.Bottom)
             {
-                parameters.Add((appear ? "From=" : "To=") + side);
+                parameters.Add((appear ? "From=" : "To=") + choices.Side);
+            }
+            if (name == "Slide" && choices.Distance != DefaultDistance)
+            {
+                parameters.Add("Distance=" + choices.Distance);
+            }
+            if (name == "Zoom" && choices.Size != DefaultZoomSize)
+            {
+                parameters.Add((appear ? "From=" : "To=") + choices.Size.ToString(CultureInfo.InvariantCulture));
+            }
+            if ((name == "Slide" || name == "Zoom") && !choices.Fade)
+            {
+                parameters.Add("Fade=False");
             }
             if (name == "Custom")
             {
                 parameters.Add(CustomParameters);
             }
-            if (duration.Length > 0)
+            if (choices.Duration.Length > 0)
             {
-                parameters.Add("Duration=" + duration);
+                parameters.Add("Duration=" + choices.Duration);
             }
-            if (easing != "Smooth")
+            if (choices.OthersDuration.Length > 0)
             {
-                parameters.Add("Easing=" + easing);
+                parameters.Add("OthersDuration=" + choices.OthersDuration);
+            }
+            if (choices.Easing != "Smooth")
+            {
+                parameters.Add("Easing=" + choices.Easing);
             }
 
             return parameters.Count == 0 ? name : "{anim:" + name + " " + string.Join(", ", parameters) + "}";

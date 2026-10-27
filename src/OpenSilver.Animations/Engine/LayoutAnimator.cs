@@ -144,6 +144,8 @@ namespace OpenSilver.Animations.Engine
         private readonly List<Disappearance> _disappearing = new List<Disappearance>();
         // The records of the elements that appear in this pass with an Appear of their own.
         private readonly List<int> _effectAppears = new List<int>();
+        // The records that move in the group being emitted, for KeepInPlace.
+        private readonly HashSet<int> _animatedNow = new HashSet<int>();
         private readonly Dictionary<Transition, Timing> _effectTimings = new Dictionary<Transition, Timing>();
         // The items that follow the window each make a group, with the same setting: one timing for all.
         private readonly Dictionary<Movement, Timing> _windowTimings = new Dictionary<Movement, Timing>();
@@ -252,6 +254,18 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
+        /// <summary>
+        /// Stops holding an element whose Appear no longer has OnPageOpen=PushOthers. It gets back
+        /// the Visibility the app gave it.
+        /// </summary>
+        public static void CancelHold(UIElement element)
+        {
+            if (AnyPushOthers && _instance is LayoutAnimator animator)
+            {
+                animator._pageOpenHolds.Cancel(element);
+            }
+        }
+
         private void StartHold(FrameworkElement element, Transition effect)
         {
             // Without animations, or with reduced motion, it simply appears in its place.
@@ -289,20 +303,27 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// Says whether an element held while its page opened appeared with its page or container,
-        /// rather than on its own: whether the nearest element arranged in this pass around it
-        /// appeared.
+        /// rather than on its own: whether an element arranged in this pass around it appeared.
+        /// The nearest ones can be arranged again in the same pass without appearing, like the
+        /// panel of a menu that the app shows while its page opens.
         /// </summary>
         private bool AppearsWithContainer(UIElement element)
         {
+            bool arranged = false;
             for (DependencyObject e = VisualTreeHelper.GetParent(element); e != null; e = VisualTreeHelper.GetParent(e))
             {
                 if (e is UIElement ancestor && _recordIndex.TryGetValue(ancestor, out int index))
                 {
-                    return (_records[index].Flags & RecordFlags.Appears) != 0;
+                    if ((_records[index].Flags & RecordFlags.Appears) != 0)
+                    {
+                        return true;
+                    }
+
+                    arranged = true;
                 }
             }
 
-            return true;
+            return !arranged;
         }
 
         /// <summary>
@@ -336,17 +357,13 @@ namespace OpenSilver.Animations.Engine
             {
                 problem = "OnPageOpen is for Appear, so it is ignored";
             }
-            else if (appear && effect.HasTo && !effect.HasFrom)
+            else if (appear ? effect.HasTo && !effect.HasFrom : effect.HasFrom && !effect.HasTo)
             {
-                problem = "To is for Disappear, so it comes from the bottom. Use From to choose the side it comes from";
+                problem = effect.MisplacedFromOrTo(appear);
             }
-            else if (!appear && effect.HasFrom && !effect.HasTo)
+            else if (effect.Bounciness != null && !effect.UsesBounciness)
             {
-                problem = "From is for Appear, so it goes to the bottom. Use To to choose the side it goes to";
-            }
-            else if (effect.Bounciness != null && !effect.IsBouncy)
-            {
-                problem = "Bounciness is only used by Pop and by Easing=Bouncy";
+                problem = "Bounciness is only used by Pop, Easing=Bouncy and Easing=Overshoot";
             }
 
             if (problem != null)
@@ -604,6 +621,12 @@ namespace OpenSilver.Animations.Engine
         {
             if (_pageOpenHolds.IsHolding(element))
             {
+                // The app showed it while it waits for its page to open: it stays out of the
+                // layout until its release.
+                if (newValue != Visibility.Collapsed)
+                {
+                    _pageOpenHolds.Reapply(element);
+                }
                 return;
             }
 
@@ -1623,7 +1646,7 @@ namespace OpenSilver.Animations.Engine
             // and the effect is the nearest setting.
             if (bucket.Effect != null && !_switchOnly)
             {
-                timing = Timing.ForOthers(GetEffectTiming(bucket.Effect, settings), bucket.Effect);
+                timing = Timing.ForOthers(GetEffectTiming(bucket.Effect, settings), bucket.Effect, settings);
                 source = DescribeEffectSource(bucket.EffectElement, bucket.Effect, bucket.EffectAppears, bucket.EffectParent, own: false);
                 firstOrigin = bucket.EffectElement;
                 return null;
@@ -2603,6 +2626,12 @@ namespace OpenSilver.Animations.Engine
                 bucket.Animated.RemoveAll(index => _capturedChain.Contains(_records[index].Element) || IsStrictDescendant(_records[index].Element, captured));
             }
 
+            _animatedNow.Clear();
+            if (bucket.Revealed.Count > 0)
+            {
+                _animatedNow.UnionWith(bucket.Animated);
+            }
+
             bucket.Wipes = bucket.Fades = bucket.GhostWipes = bucket.GhostFades = bucket.OtherEffects = 0;
             bucket.OtherEffect = null;
             bucket.EffectPlayed = false;
@@ -2626,6 +2655,7 @@ namespace OpenSilver.Animations.Engine
                     double effectDelay = (effect.OthersMove == OthersMove.Before && othersMove ? timing.DurationMs : 0) +
                                          NextCascadeDelay(_appearCascades, itemList, bucket, element, settings);
                     double wait = PlayAppearEffect(index, effect, effectDelay, raise: othersMove, settings, batch);
+                    KeepInPlace(index, timingIndex, wave ? timing.Wave : 0, originIndex, othersDelay, settings, batch);
                     CountEffect(bucket, element, null, effect, appears: true, wait);
                     continue;
                 }
@@ -2862,6 +2892,78 @@ namespace OpenSilver.Animations.Engine
             }
 
             return wait;
+        }
+
+        /// <summary>
+        /// An element that appears with an Appear of its own stays where it ends on screen while
+        /// the containers it makes grow move to stay centered, or aligned to the right or the
+        /// bottom: their moves are taken back from it, with their timing. It still moves with a
+        /// container that something else pushes.
+        /// </summary>
+        private void KeepInPlace(int index, int timingIndex, double wave, int originIndex, double othersDelay, AnimationSettings settings, BatchBuilder batch)
+        {
+            if (_quickFades || _animatedNow.Count == 0)
+            {
+                return;
+            }
+
+            double dx = 0, dy = 0;
+            int nearest = -1;
+            for (int parent = _records[index].Parent; parent >= 0; parent = _records[parent].Parent)
+            {
+                if (!_animatedNow.Contains(parent))
+                {
+                    continue;
+                }
+
+                ref Record container = ref _records[parent];
+                double x = GetAlignmentMove(container.Element, container.OldRect.X - container.NewRect.X, container.NewRect.Width - container.OldRect.Width, horizontal: true);
+                double y = GetAlignmentMove(container.Element, container.OldRect.Y - container.NewRect.Y, container.NewRect.Height - container.OldRect.Height, horizontal: false);
+                if (x != 0 || y != 0)
+                {
+                    dx += x;
+                    dy += y;
+                    if (nearest < 0)
+                    {
+                        nearest = parent;
+                    }
+                }
+            }
+
+            if (nearest < 0 || !IsAnimatable(_records[index].Element, out string id))
+            {
+                return;
+            }
+
+            double delay = (wave > 0 ? GetWaveDelay(nearest, originIndex, wave) / settings.Speed : 0) + othersDelay;
+            batch.AddKeepInPlace(id, timingIndex, delay, -dx, -dy);
+        }
+
+        /// <summary>
+        /// The move of an element on one axis (from its old place to its new one), when it only
+        /// comes from its new size where its alignment puts it: half of what it grew when it is
+        /// centered or stretched, all of it on the right or at the bottom. Otherwise 0, like when
+        /// it is pushed, or along the axis where a StackPanel or a Canvas places it.
+        /// </summary>
+        private static double GetAlignmentMove(UIElement element, double moved, double grew, bool horizontal)
+        {
+            if (Math.Abs(moved) < 0.5 || element is not FrameworkElement fe)
+            {
+                return 0;
+            }
+
+            DependencyObject parent = VisualTreeHelper.GetParent(fe);
+            if (parent is Canvas ||
+                (parent is StackPanel panel && (panel.Orientation == Orientation.Horizontal) == horizontal) ||
+                (parent is VirtualizingStackPanel list && (list.Orientation == Orientation.Horizontal) == horizontal))
+            {
+                return 0;
+            }
+
+            double share = horizontal
+                ? fe.HorizontalAlignment switch { HorizontalAlignment.Left => 0, HorizontalAlignment.Right => 1, _ => 0.5 }
+                : fe.VerticalAlignment switch { VerticalAlignment.Top => 0, VerticalAlignment.Bottom => 1, _ => 0.5 };
+            return share > 0 && Math.Abs(moved - share * grew) <= 1 ? moved : 0;
         }
 
         /// <summary>

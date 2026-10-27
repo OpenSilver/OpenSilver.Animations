@@ -33,15 +33,17 @@ namespace OpenSilver.Animations
         public AnimationTime? Duration { get; set; }
 
         /// <summary>
-        /// How it speeds up and slows down: Smooth (the default), Gentle, Linear or Bouncy, or any
-        /// <see cref="IEasingFunction"/>. Not used by <see cref="Nudge"/>, which always springs back.
+        /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, Bouncy, EaseOut,
+        /// EaseIn, EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. Not used by
+        /// <see cref="Nudge"/>, which always springs back.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }
 
         /// <summary>
         /// How much it bounces, from 0.1 (a little) to 1 (a lot). The default is 0.5. Used by
-        /// <see cref="Nudge"/>, and by every reaction with <c>Easing=Bouncy</c>.
+        /// <see cref="Nudge"/>, by every reaction with <c>Easing=Bouncy</c>, and by
+        /// <c>Easing=Overshoot</c>, where it says how far it goes past.
         /// </summary>
         public double? Bounciness
         {
@@ -129,10 +131,12 @@ namespace OpenSilver.Animations
     /// </summary>
     public sealed class Lift : Reaction
     {
+        internal const double DefaultPixels = 4;
+
         /// <summary>
         /// How far it rises: a number of pixels, 4 by default, or Short (10 pixels).
         /// </summary>
-        public Distance Distance { get; set; } = new Distance(4);
+        public Distance Distance { get; set; } = new Distance(DefaultPixels);
 
         internal override string PresetName => "Lift";
     }
@@ -163,12 +167,14 @@ namespace OpenSilver.Animations
     /// </summary>
     public sealed class Nudge : Reaction
     {
+        internal const double DefaultPixels = 3;
+
         private double _tilt = 2;
 
         /// <summary>
         /// How far it is pushed when the mouse comes fast: a number of pixels, 3 by default, from 0 to 20.
         /// </summary>
-        public Distance Distance { get; set; } = new Distance(3);
+        public Distance Distance { get; set; } = new Distance(DefaultPixels);
 
         /// <summary>
         /// How much it turns when the mouse comes fast near a corner, in degrees: from 0 to 15,

@@ -75,7 +75,7 @@ The library repository gets these changes through locally built OpenSilver packa
 | `Movement.cs`                             | `Movement` (abstract, a `MarkupExtension`), `Smooth`, `Bouncy`, `Movement.None`, `MovementConverter`, the `AnimationScope` enum.                          |
 | `Transition.cs`                           | `Transition` (abstract, a `MarkupExtension`), the presets `Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur` and `Custom`, `Transition.None`, `TransitionConverter`, the `Side`, `OthersMove` and `PageOpen` enums, the `Distance` struct and its converter, and the internal `EffectLook`. |
 | `AnimationTime.cs`                        | A readable duration (`0.3s`, `300ms`, `300`), with its type converter.                                                                                    |
-| `Easings.cs`                              | The curves `Smooth`, `Gentle`, `Linear` and `Bouncy`, and `EasingConverter`. The internal `CubicBezierEasing`, `LinearEasing` and `SpringEasing` classes. |
+| `Easings.cs`                              | The curves `Smooth`, `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut` and `Overshoot`, and `EasingConverter`. The internal `CubicBezierEasing`, `LinearEasing`, `SpringEasing` and `OvershootEasing` classes. |
 | `AnimationSettings.cs`                    | App-wide settings, the `Logged` event and `AnimationLoggedEventArgs`.                                                                                     |
 | `AssemblyInfo.cs`                         | `XmlnsDefinition` and `XmlnsPrefix` for `http://opensilver.net/animations` with the prefix `anim`.                                                        |
 | `Engine/LayoutAnimator.cs`                | The `LayoutObserver`. It collects the pass, groups, decides, culls, emits and logs. Most of the logic is here.                                            |
@@ -134,17 +134,20 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
 - `Movement` **parameters.**
   - `Duration` (`AnimationTime?`): clamped to 0.05 to 3 s when used. The default is `AnimationSettings.DefaultDuration`, doubled for `Bouncy`.
   - `Easing` (`IEasingFunction`, names through `EasingConverter`): used by `Smooth`.
-  - `Bounciness` (0.1 to 1, default 0.5): used by `Bouncy`, and by `Smooth` with `Easing=Bouncy`.
+  - `Bounciness` (0.1 to 1, default 0.5): used by `Bouncy`, and by `Smooth` with `Easing=Bouncy` or `Easing=Overshoot`.
   - `Wave` (0 to 1, default 0).
   - `ApplyTo` (`ThisElement` or `EverythingInside`).
   - `AlsoOnWindowResize` (default false).
 - **Value forms.** A `Movement` is a `MarkupExtension` whose `ProvideValue` returns itself. So it works as a string (`"Smooth"`, through `MovementConverter`), as a markup extension with parameters, as an element, and as a resource. `Movement.Parse` accepts `Smooth`, `Bouncy`, `None` and the empty string.
 - `Animate.Appear` and `Animate.Disappear` (attached, type `Transition`, not inherited).
-  - Setting one starts the engine and turns on the effect paths (`LayoutAnimator.AnyEffects`). The value is checked once (`CheckEffect`): a parameter that doesn't apply, like `OthersMove=After` on an Appear, `OnPageOpen` on a Disappear, `Pop` as a Disappear, `To` on an Appear or `Bounciness` without a bounce, writes a warning to the console and the `Logged` event, and is ignored.
+  - Setting one starts the engine and turns on the effect paths (`LayoutAnimator.AnyEffects`). The value is checked once (`CheckEffect`): a parameter that doesn't apply, like `OthersMove=After` on an Appear, `OnPageOpen` on a Disappear, `Pop` as a Disappear, `To` on an Appear or `Bounciness` without a bounce or an overshoot, writes a warning to the console and the `Logged` event, and is ignored.
   - `Transition` works like `Movement`: a string through `TransitionConverter` (`Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur`, `Custom`, `None`; an unknown name throws), a markup extension, an element or a resource.
-  - **Parameters** on every preset: `Duration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter` (clamped to 10 s when set) and `OnPageOpen` (`PageOpen.InPlace`, `PushOthers` or `Skip`). `Slide` has `From`, `To` and `Distance`; `Wipe` has `From` and `To`; `Custom` has `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate` and `Blur`.
-  - `Distance` is a struct: `Distance.Short` (10 px), `Medium` (30 px, the default) and `Long` (100 px), or a number of pixels, from XAML (`Distance=Short`, `Distance=60`) or from a `double`.
-  - **Duration.** The default is `AnimationSettings.DefaultDuration`, doubled for `Pop` and for `Easing=Bouncy`. Bouncy effects play a spring sampled with `Bounciness`; the elements around them move Smooth, with the same duration (`Timing.ForOthers`).
+  - **Parameters** on every preset: `Duration`, `OthersDuration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter` (clamped to 10 s when set) and `OnPageOpen` (`PageOpen.InPlace`, `PushOthers` or `Skip`). `Slide` has `From`, `To`, `Distance` and `Fade`; `Zoom` has `From` and `To` (sizes, 0 to 3, default 0.9) and `Fade`; `Wipe` has `From` and `To`; `Custom` has `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate` and `Blur`.
+  - `Distance` is a struct: `Distance.Short` (10 px), `Medium` (30 px, the default) and `Long` (100 px), a number of pixels, from XAML (`Distance=Short`, `Distance=60`) or from a `double`, or a percent of the element's size (`Distance=50%`, `Distance.FromPercent(50)`, 0 to 1000). A percent sets `Percent` and leaves `Pixels` at 0. Slide turns it into `EffectLook.RelX` or `RelY`, fractions of the element's width or height, which the script multiplies by the size of the element or its ghost. Lift and Nudge send their default pixels instead, with a warning from `Reactions.Check`.
+  - `Fade=False` on Slide and Zoom sets the look's opacity to 1, so the effect only moves or zooms.
+  - **Duration.** The default is `AnimationSettings.DefaultDuration`, doubled for `Pop` and for `Easing=Bouncy`. Bouncy effects play a spring sampled with `Bounciness`, and `Overshoot` a `BackEase` sampled with it.
+  - **The others' timing** (`Timing.ForOthers`). The elements around an effect take its timing, except that they never bounce or overshoot: Smooth next to a bouncy effect, EaseOut next to `Overshoot`. `OthersDuration`, when set, replaces the duration (clamped and divided by `Speed` like the others).
+  - **The fade curve.** `Timing.FromEffect` sets `FadeEasing` (`fe` in the JSON) to Smooth for a bouncy effect and to EaseOut for `Overshoot`. The script then plays the opacity in a second animation on that curve (see "The script" below).
 - **The item properties** (attached, not inherited), on a Panel for its children, or on an ItemsControl for its items. The engine reads them from the items panel, or else from the ItemsControl it hosts the items of, so setting them on the items panel in a template works too.
   - `ItemAppear` and `ItemDisappear` (`Transition`) work as if each item had this `Appear` or `Disappear`. `ItemMoveAndResize` (`Movement`) works as if each item had this `MoveAndResize`, without `ApplyTo`. An item's own setting wins.
   - `ItemCascade` (`AnimationTime`, default zero) is the time between items that play their effect in the same change, at most 0.3 s, and 0.6 s for the whole cascade.
@@ -152,7 +155,7 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
 - `Animate.Hover` and `Animate.Press` (attached, type `Reaction`, not inherited) don't start the layout engine: they only load the script (`Reactions`).
   - `Reaction` works like `Transition`: a string through `ReactionConverter` (`Grow`, `Lift`, `Shrink`, `Nudge`, `None`), a markup extension, an element or a resource.
   - **Parameters** on every preset: `Duration`, `Easing` and `Bounciness`. `Grow` and `Shrink` have `Zoom` (0.5 to 2); `Lift` has `Distance`; `Nudge` has `Distance` (at most 20 px when used) and `Tilt` (0 to 15 degrees).
-  - `Reactions.Check` warns about `Nudge` on Press, `Easing` on Nudge and `Bounciness` without a bounce, with `LayoutAnimator.Warn`.
+  - `Reactions.Check` warns about `Nudge` on Press, `Easing` on Nudge, `Bounciness` without a bounce or an overshoot, and a `Distance` in percent, with `LayoutAnimator.Warn`.
   - `Timing.FromReaction` samples the reaction spring for `Easing=Bouncy` (see "Curves" below). It leaves the duration at 0 when none is set, and doesn't divide it by `Speed`: the script applies the default duration and the speed when a reaction plays, so that changing them in `AnimationSettings` applies at once.
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
@@ -163,9 +166,11 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - It implements `INotifyPropertyChanged`, so the gallery's toolbar binds to it.
   - The static `Logged` event carries the same messages as `LogForDebugging`, raised with `BeginInvoke` after the pass.
 - **Curves.**
-  - `Easings.Smooth` is `cubic-bezier(0.2, 0, 0, 1)`, the default.
+  - `Easings.Smooth` is `cubic-bezier(0.2, 0, 0, 1)`, the default. It starts at zero speed: 16% of the way at 10% of the time, against 27% for `EaseOut`.
   - `Easings.Gentle` is `cubic-bezier(0.45, 0, 0.55, 1)`.
   - `Easings.Linear`.
+  - The classic curves, for apps that come from WPF or Silverlight, are the usual CSS approximations of `CubicEase`: `EaseOut` is `cubic-bezier(0.33, 1, 0.68, 1)`, `EaseIn` is `cubic-bezier(0.32, 0, 0.67, 0)` and `EaseInOut` is `cubic-bezier(0.65, 0, 0.35, 1)`.
+  - `Easings.Overshoot` is `OvershootEasing`, the `BackEase` ease-out: `1 - g(1 - t)` with `g(u) = u³ - a·u·sin(πu)`, the amplitude `a` being the `Bounciness` of the setting that uses it. It goes about 13% past the end at 0.5, and 38% at 1. `Timing.SetCurve` samples it into 33 points.
   - `Easings.Bouncy` is a damped spring. Its damping ratio is `1 - 0.8 × Bounciness`, and it is within 0.1% of the target at the end of the duration.
   - On Hover and Press, `Bouncy` is `SpringEasing.ForReaction`: a damping ratio of `0.45 - 0.25 × Bounciness`, within 2% of the target at the end. At the default 0.5 and 0.5 s, it peaks at 1.34 of the change at 140 ms, then 0.885 and 1.039. It settles to 2% rather than 0.1% so that it doesn't ring faster as it bounces more: about 6 times a second at Bounciness 1, instead of 10.
   - Any other `IEasingFunction` is sampled into 33 points.
@@ -286,8 +291,9 @@ An element that appears or disappears is a change of its parent: the elements ar
 
 - **The hold.** The core changes the DOM display as soon as Visibility goes back to Visible, but arranges the element only in the next layout pass, at Render priority. In between, the browser can paint it with the box it had before it was collapsed. So `OnVisibilityChanged` calls `BrowserBridge.Hold` for an element with an `Appear`, or inside an area without `Appear=None` (`IsInsideArea`, which walks up without memoizing, because it runs outside the passes). `animations.js` keeps it at opacity 0, for at most a second. Hidden to Visible keeps the box, so it needs no hold: the effect plays at once.
 - **The release.** Every held element gets a release entry in the batch of the next pass (`_held`). One that plays an effect or is revealed is released by it. One whose group snaps is simply shown, at its final place. `ReleaseHeld` also runs when the pass has no records, and after an exception.
-- **The timing.** When not `_switchOnly`, a bucket with an effect (the first one found: `Effect`, `EffectElement`, `EffectAppears`) takes its timing from it in `Decide`, before any setting, with `Timing.ForOthers`: a bouncy effect moves the others Smooth. The message names it: "from the Appear of Details".
+- **The timing.** When not `_switchOnly`, a bucket with an effect (the first one found: `Effect`, `EffectElement`, `EffectAppears`) takes its timing from it in `Decide`, before any setting, with `Timing.ForOthers`: a bouncy effect moves the others Smooth, an overshooting one EaseOut, and `OthersDuration` replaces the duration. The message names it: "from the Appear of Details".
 - **Explicit appear effects.** `Emit` plays them with their own timing (`PlayAppearEffect`, batch key `e`). With `OthersMove=Before`, and when others move, the effect waits for the others' duration. While others move, the element is raised above its siblings.
+- **Keeping it in place** (`KeepInPlace`, batch key `k`). An element that appears moves with its ancestors that animate in the group (`_animatedNow`, the bucket's animated records). When an ancestor's move on an axis is the share of its growth that its alignment gives (`GetAlignmentMove`: half for Center and Stretch, all of it for Right and Bottom, within a pixel), it re-centers because of the element, which would drift with it while it grows or slides in. The element gets the opposite move, with the group's timing and the wave delay of the nearest such ancestor, so that it stays where it ends on screen. A move along the stacking axis of a `StackPanel` or `VirtualizingStackPanel`, or in a `Canvas`, is a push, not a re-centering, so the element follows it. Not under reduced motion.
 - **Automatic reveals.** `Emit` reveals the other appearing elements of an animated group, with the group's timing and the size curve, so that the revealed part keeps up with the elements it pushes. `GetRevealEdge` picks how:
   - the side it pushes its siblings away from: when the siblings below move down, it wipes from its top;
   - when it pushes no sibling but its container grows, the top edge (or the left edge, when the container grew more in width);
@@ -314,6 +320,8 @@ An element that appears or disappears is a change of its parent: the elements ar
 - **The pass after Loaded.** A Loaded handler puts the hold in `_waitingForPass`. At the end of the next pass, before the records are reset, `AppearsWithContainer` looks for the nearest ancestor with a record: if it appeared, the element opened with its page, and it is released `StartAfter` later. Otherwise, it was added on its own, and it is released at once, to appear like any element added at runtime.
 - **Release.** `ReleaseDue` runs from `Dispatcher.BeginInvoke` or a `DispatcherTimer`, never during a pass, and releases together the holds due within 20 ms. `Stop()` gives the element back its own Visibility. An element that opened with its page, and is still loaded and visible, goes into `_released`. When its container is hidden and shown again before the release, `Start` moves the hold back to `_waitingForPass`, so that the wait starts again.
 - **The next pass.** `OnArranging` marks the released element `Released`, and its parent `Origin | Released`: the parent is where the change starts, even if the element wasn't a measure origin, and `Decide` doesn't apply the settling rule to it. Its effect plays at once, without waiting for `StartAfter` again: "PushOthersBanner appeared 0.6 s after its page opened, as OnPageOpen=PushOthers asks; it slides in, and 3 elements animate together (…)" (`DescribeAppeared`). Off screen, the group is culled like any other, and only the effect plays.
+- **The app shows it while it's held**, like the Showcase menu, made Visible when the window is wide enough. A local value wins over an animation until the animation applies its value again, so `OnVisibilityChanged` calls `Reapply`, which begins the Storyboard again: the element stays out of the layout until its release, and then gets the Visibility the app set.
+- **Its Appear changes** from a PushOthers effect to another one, like the Showcase menu that gets a faster effect on small screens before its release. `Animate.OnEffectChanged` calls `LayoutAnimator.CancelHold`, and `PageOpenHolds.Cancel` releases it at once, as an element that didn't open with its page: it gets its own Visibility back, and appears like any element if it's Visible.
 - An element that is never added keeps nothing alive: the holds are in a `ConditionalWeakTable`, and the Loaded handler is on the element.
 
 ### Lists and their items
@@ -439,11 +447,12 @@ These are at the top of `LayoutAnimator`:
 `osAnimations.run(batch)` plays one pass. The batch is a JavaScript object literal built by `BatchBuilder`:
 
 ```text
-{ t: [ { d: durationMs, e?: cssEasing, s?: [samples], se?: sizeEasing } ],
+{ t: [ { d: durationMs, e?: cssEasing, s?: [samples], se?: sizeEasing, fe?: fadeEasing } ],
   m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags, fromGhost?] ],
   a: [ [id, timingIndex, delayMs, edge] ],
-  e: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, raise] ],
-  g: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, sizeCurve] ],
+  e: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, relX, relY, raise] ],
+  k: [ [id, timingIndex, delayMs, dx, dy] ],
+  g: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, relX, relY, sizeCurve] ],
   x: [ ids whose ghost to remove ],
   c: [ ids to cancel ],
   s: [ [id, newWidth, newHeight] ],
@@ -451,7 +460,7 @@ These are at the top of `LayoutAnimator`:
   r: [ ids to release ] }
 ```
 
-They run in this order: cancels, retargets, moves, reveals, effects, ghosts, ghost removals, outlines, releases. `osAnimations.hold(id)`, `osAnimations.ghost(id)` and `osAnimations.ghostInView(ids)` are called on their own, from the hooks.
+They run in this order: cancels, retargets, moves, reveals, effects, keep-in-place moves, ghosts, ghost removals, outlines, releases. `osAnimations.hold(id)`, `osAnimations.ghost(id)` and `osAnimations.ghostInView(ids)` are called on their own, from the hooks.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
@@ -468,12 +477,14 @@ They run in this order: cancels, retargets, moves, reveals, effects, ghosts, gho
 - **Interruptions.** Running animations are kept per element in a `WeakMap`. A new animation reads the eased progress of the previous one (`getComputedTiming().progress`) and starts from the current offset and size, then cancels the previous one.
 - **Reveals.** The edge is `0` for a fade, then `1` to `4` for a wipe from the top, left, bottom or right. A wipe animates `clip-path: inset(...)` and a fade animates `opacity` up to the element's current opacity, both with the size curve and `fill: 'backwards'`. A reveal first releases the element's hold.
 - **Holds.** `hold` runs an opacity 0 animation of one second on the element, kept in a `WeakMap`; `release` cancels it.
-- **Effects** (`appear`). The look (`e`) is where the element starts: an opacity as a fraction of its own, an offset, a zoom and a rotation around its center (through `translate`, because elements turn around their top left corner), a blur added to its filter, and a wipe edge (`clip-path`, with the same edge numbers as reveals). Rotations are sampled into 12 keyframes. `raise` adds a `z-index` to the keyframes. Effects use `fill: 'backwards'`, so a delayed effect hides the element until it starts.
+- **Effects** (`appear`). The look (`e`) is where the element starts: an opacity as a fraction of its own, an offset (plus `relX` times its width and `relY` times its height, for a `Distance` in percent), a zoom and a rotation around its center (through `translate`, because elements turn around their top left corner), a blur added to its filter, and a wipe edge (`clip-path`, with the same edge numbers as reveals). Rotations are sampled into 12 keyframes. `raise` adds a `z-index` to the keyframes. Effects use `fill: 'backwards'`, so a delayed effect hides the element until it starts.
+  - **The fade curve.** When the timing has `fe` and the look changes the opacity, `animateLook` plays the opacity in a second animation on that curve, kept in the `fade` property of the first. `track`, `vanish` and `cancelEffect` start and cancel both. A look that changes nothing but the opacity plays in one animation on the fade curve. The ghosts of media, and ghosts on the size curve, don't use it.
+- **Keep-in-place moves** (`k`) play after the effects, as a move with `composite: 'add'` (`animateBox`), so they add to the `translate` of a zoom or a slide.
 - **Ghosts.** `ghost(id)` deep-clones the element and inserts the copy before it, so it stacks the same way, and keeps it for 1.5 s at most.
   - The copy has no ids, no `uielement-collapsed` or `uielement-hidden` class, `data-os-foreign` (so that the core skips it when it inserts children), and `pointer-events: none`. Canvases and form values are copied.
   - Media, frames and plugins become empty boxes of the same size, so that they don't load or play again, and that ghost fades out in 0.15 s whatever its effect.
   - It starts from what was on screen: the progress of a running effect, and the offset and size of a running move.
-  - `vanish` (batch key `g`) animates it from there to the look, with `fill: 'both'`, then removes it. `removeGhost` (key `x`) removes it at once.
+  - `vanish` (batch key `g`) animates it from there to the look, with `fill: 'both'`, then removes it. A percent offset is measured on the ghost's size. `removeGhost` (key `x`) removes it at once.
   - `ghostInView(ids)`, for a list that is refreshed, reads where all the elements are first, then copies those less than 100 px from the window (`VIEW_MARGIN`).
   - When the element appears again while its ghost plays, `appear` and `reveal` start from what the ghost showed (`takeGhost`).
 - **Outlines** (`ShowWhatAnimates`) animate `outline` on the element: orange for the origin, pink for members. They last at least 700 ms.

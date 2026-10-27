@@ -97,9 +97,14 @@ namespace OpenSilver.Animations
 
         private static void OnEffectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (e.NewValue is Transition effect && d is UIElement element)
+            if (d is not UIElement element)
             {
-                bool appear = e.Property == AppearProperty;
+                return;
+            }
+
+            bool appear = e.Property == AppearProperty;
+            if (e.NewValue is Transition effect)
+            {
                 LayoutAnimator.AnyEffects = true;
                 LayoutAnimator.EnsureStarted();
                 LayoutAnimator.CheckEffect(effect, appear, element, items: false);
@@ -108,7 +113,14 @@ namespace OpenSilver.Animations
                 if (appear && effect.OnPageOpen == PageOpen.PushOthers)
                 {
                     LayoutAnimator.HoldForPageOpen(element, effect);
+                    return;
                 }
+            }
+
+            // Its new Appear doesn't push the others: it opens with its page, like any element.
+            if (appear && e.OldValue is Transition old && old.OnPageOpen == PageOpen.PushOthers)
+            {
+                LayoutAnimator.CancelHold(element);
             }
         }
 

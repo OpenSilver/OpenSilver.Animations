@@ -33,6 +33,12 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         public string SizeEasing { get; private set; }
 
+        /// <summary>
+        /// The CSS easing used for the opacity, when it differs from the curve: an effect that
+        /// bounces or overshoots fades in or out without bouncing.
+        /// </summary>
+        public string FadeEasing { get; private set; }
+
         public double Wave { get; private set; }
 
         public string Description { get; private set; }
@@ -77,12 +83,17 @@ namespace OpenSilver.Animations.Engine
             if (bouncy)
             {
                 timing.Samples = Sample(new SpringEasing("Bouncy", effect.Bounciness ?? 0.5), SpringSamples);
+                timing.FadeEasing = ((CubicBezierEasing)Easings.Smooth).Css;
                 timing.Description = Invariant($"Bouncy, {Math.Round(timing.DurationMs / 1000, 2)} s");
             }
             else
             {
                 IEasingFunction easing = effect.Easing ?? Easings.Smooth;
-                timing.SetCurve(easing, 0.5);
+                timing.SetCurve(easing, effect.Bounciness ?? 0.5);
+                if (easing is OvershootEasing)
+                {
+                    timing.FadeEasing = ((CubicBezierEasing)Easings.EaseOut).Css;
+                }
                 timing.Description = Invariant($"{Easings.GetName(easing)}, {Math.Round(timing.DurationMs / 1000, 2)} s");
             }
 
@@ -90,19 +101,31 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// The timing of the elements that move because of an effect: the same, except that a
-        /// bouncy effect moves them smoothly.
+        /// The timing of the elements that move because of an effect: the same, over the
+        /// OthersDuration of the effect when it has one, except that they don't bounce or
+        /// overshoot: they move with Smooth when the effect bounces, and with EaseOut when it
+        /// overshoots.
         /// </summary>
-        public static Timing ForOthers(Timing effectTiming, Transition effect)
+        public static Timing ForOthers(Timing effectTiming, Transition effect, AnimationSettings settings)
         {
-            if (!effect.IsBouncy)
+            bool overshoots = effect.Easing is OvershootEasing;
+            if (!effect.IsBouncy && !overshoots && effect.OthersDuration == null)
             {
                 return effectTiming;
             }
 
-            var timing = new Timing { DurationMs = effectTiming.DurationMs };
-            timing.SetCurve(Easings.Smooth, 0.5);
-            timing.Description = Invariant($"Smooth, {Math.Round(timing.DurationMs / 1000, 2)} s");
+            var timing = new Timing
+            {
+                DurationMs = effect.OthersDuration is AnimationTime duration
+                    ? Clamp(duration.Seconds) * 1000 / settings.Speed
+                    : effectTiming.DurationMs,
+                Wave = effectTiming.Wave,
+            };
+            IEasingFunction easing = effect.IsBouncy ? Easings.Smooth
+                : overshoots ? Easings.EaseOut
+                : effect.Easing ?? Easings.Smooth;
+            timing.SetCurve(easing, effect.Bounciness ?? 0.5);
+            timing.Description = Invariant($"{Easings.GetName(easing)}, {Math.Round(timing.DurationMs / 1000, 2)} s");
             return timing;
         }
 
@@ -130,7 +153,7 @@ namespace OpenSilver.Animations.Engine
             }
             else
             {
-                timing.SetCurve(reaction.Easing ?? Easings.Smooth, 0.5);
+                timing.SetCurve(reaction.Easing ?? Easings.Smooth, reaction.Bounciness ?? 0.5);
             }
             return timing;
         }
@@ -156,6 +179,9 @@ namespace OpenSilver.Animations.Engine
                     break;
                 case SpringEasing:
                     Samples = Sample(new SpringEasing("Bouncy", bounciness), SpringSamples);
+                    break;
+                case OvershootEasing o:
+                    Samples = Sample(new OvershootEasing(o.Name, bounciness), CurveSamples);
                     break;
                 default:
                     Samples = Sample(easing, CurveSamples);
@@ -189,6 +215,11 @@ namespace OpenSilver.Animations.Engine
             {
                 sb.Append(",se:");
                 BrowserBridge.AppendString(sb, SizeEasing);
+            }
+            if (FadeEasing != null)
+            {
+                sb.Append(",fe:");
+                BrowserBridge.AppendString(sb, FadeEasing);
             }
             sb.Append('}');
         }

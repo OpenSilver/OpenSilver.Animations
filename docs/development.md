@@ -7,7 +7,7 @@
 | `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/layout-observer`. It holds the core changes (see [architecture.md](architecture.md)), in commit `547adac2`. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations` | This repository (remote `github.com/OpenSilver/OpenSilver.Animations`). It sits inside the OpenSilver folder but is a separate git repository. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Themes.Modern` | Another library repository, the model for this repository's layout and build scripts. |
-| `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase` | The Showcase, to be ported to this library in phase 3. Its own animation project will be removed. |
+| `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase` | The Showcase, ported to this library on branch `feat/use-new-animations-library` (see "Run the Showcase on the local library"). Its own animation project is removed there. |
 
 The three nested folders show up as untracked in the OpenSilver repository. They must never be committed into it.
 
@@ -51,6 +51,35 @@ build\Build_NuGet.bat 0.1.0-preview 3.4.0-preview-animations-local
 The arguments are the OpenSilver.Animations version and the OpenSilver version, which defaults to the first. The package goes to `build\output` (git-ignored). For a quick check without msbuild, run `dotnet pack src\OpenSilver.Animations\OpenSilver.Animations.csproj -c Release -o artifacts\test-pack`, then delete `artifacts`.
 
 The package contains `lib/netstandard2.0/OpenSilver.Animations.dll` and its XML documentation; the script is embedded in the dll. `icon.png` comes from `build/`, and the license is MIT.
+
+**A local package for an app.** To try the library in an app before it's published, like the Showcase:
+
+```bat
+build\Build_Local_Package.bat
+```
+
+- It packs `OpenSilver.Animations` `0.1.0-preview-local` for OpenSilver `3.4.0-preview-animations-local` into `build\local-packages`, next to the OpenSilver packages. The two arguments give other versions.
+- The version never changes, so it also deletes the cached copy under `%USERPROFILE%\.nuget\packages`. Rebuild the app after each run.
+
+## Run the Showcase on the local library
+
+The Showcase (`OpenSilver.Samples.Showcase`, branch `feat/use-new-animations-library`) uses the local packages:
+
+- its `nuget.config` lists `../OpenSilver.Animations/build/local-packages` as a source;
+- its `Directory.Build.props` sets `OpenSilverVersion` to `3.4.0-preview-animations-local` and `OpenSilverAnimationsVersion` to `0.1.0-preview-local`, with the versions of the themes, the ControlsKit and Blazor;
+- the C#, F# and VB projects reference `OpenSilver.Animations` with `$(OpenSilverAnimationsVersion)`.
+
+After `Build_Local_OpenSilver.bat` and `Build_Local_Package.bat`:
+
+```powershell
+cd C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase
+dotnet build src\OpenSilver.Showcase.Browser\OpenSilver.Showcase.Browser.csproj -c Debug
+dotnet run --project src\OpenSilver.Showcase.Browser\OpenSilver.Showcase.Browser.csproj --no-build --urls http://localhost:55622
+```
+
+- The C# build goes to `bin\Debug_cs`. The expected result is 0 errors; the OS0003 warnings say that the ControlsKit was built for an older OpenSilver.
+- Check that the build took the new package: the `OpenSilver.Animations.dll` in `bin\Debug_cs\net8.0\wwwroot\_framework` has the time of the last `Build_Local_Package.bat`.
+- What to look at: the Welcome page intro (the particles, the title that overshoots, the subtitle and the card that push the others without drifting), the menu that slides in from the left after 4.5 s, the "Fork me" and "Suggest" buttons, the hovers (Nudge), "View source" (the pane slides up from the bottom of the window), and the menu on a small screen.
 
 **CI.** `.github/workflows/build-package.yml` is started by hand (`workflow_dispatch`).
 

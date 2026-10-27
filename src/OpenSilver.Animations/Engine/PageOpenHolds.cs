@@ -17,7 +17,9 @@ namespace OpenSilver.Animations.Engine
     /// The hold is a Storyboard that sets Visibility to Collapsed, applied at once, so that no
     /// layout pass includes the element before it is released. It lasts no time and holds its
     /// value, so it doesn't ask for frames. Stopping it gives the element its own Visibility
-    /// back, which is what the app set in the meantime. The release waits for the element to be
+    /// back, which is what the app set in the meantime. A Visibility the app sets wins over an
+    /// animation until the animation applies its value again, so the hold is applied again when
+    /// the app shows the element (<see cref="Reapply"/>). The release waits for the element to be
     /// loaded, for a layout pass after that, and for StartAfter, counted from the end of that pass,
     /// when the effects of the rest of the page start.
     /// </remarks>
@@ -93,6 +95,33 @@ namespace OpenSilver.Animations.Engine
                     OnLoaded(hold);
                 };
                 element.Loaded += handler;
+            }
+        }
+
+        /// <summary>
+        /// Collapses again a held element that the app showed, like a menu shown when the window
+        /// is wide enough. It still waits for its release.
+        /// </summary>
+        public void Reapply(UIElement element)
+        {
+            if (_count > 0 && _holds.TryGetValue(element, out Hold hold))
+            {
+                hold.Storyboard.Stop();
+                hold.Storyboard.Begin();
+                hold.Storyboard.SeekAlignedToLastTick(TimeSpan.Zero);
+            }
+        }
+
+        /// <summary>
+        /// Stops holding the element now. It gets back its own Visibility, and appears like any
+        /// element if that is Visible.
+        /// </summary>
+        public void Cancel(UIElement element)
+        {
+            if (_count > 0 && _holds.TryGetValue(element, out Hold hold))
+            {
+                hold.PageOpen = false;
+                Release(hold);
             }
         }
 

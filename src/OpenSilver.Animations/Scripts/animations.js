@@ -308,11 +308,29 @@
     }
 
     function track(element, animation, curve) {
+        startAtNextFrame(animation.fade);
         effects.set(element, { animation: startAtNextFrame(animation), curve });
         animation.addEventListener('finish', () => {
             const running = effects.get(element);
             if (running && running.animation === animation) effects.delete(element);
         });
+    }
+
+    // Cancels the animation of an effect, with its fade when it fades on a curve of its own.
+    function cancelEffect(animation) {
+        if (animation.fade) animation.fade.cancel();
+        animation.cancel();
+    }
+
+    // The curve of the opacity of an effect that bounces or overshoots, which fades without it.
+    function fadeCurveOf(timing) {
+        return timing.fe ? { easing: timing.fe, baked: null } : null;
+    }
+
+    // Whether a look changes nothing but the opacity.
+    function onlyFades(look) {
+        return look[1] === 0 && look[2] === 0 && look[3] === 1 && look[4] === 0 && look[5] === 0 &&
+               look[6] === 0 && !look[7] && !look[8];
     }
 
     // Wipes or fades in an element that appears, with the size curve, so that the revealed part
@@ -321,7 +339,7 @@
         const from = takeGhost(element);
         release(element);
         const previous = effects.get(element);
-        if (previous) previous.animation.cancel();
+        if (previous) cancelEffect(previous.animation);
 
         const curve = curveOf(timing, true);
         const options = { duration: Math.max(1, timing.d), delay, fill: 'backwards', easing: curve.easing };
@@ -340,26 +358,31 @@
     // Animates an element, or a ghost, between a look and the element as it is. shownAt gives, for
     // a progress from 0 to 1, how much of the element shows: 0 is the look, 1 is the element.
     // Zoom and rotation turn around the center, which takes a move, because elements turn around
-    // their top left corner.
-    function animateLook(target, look, curve, shownAt, base, options, raise) {
-        const o = look[0], x = look[1], y = look[2], s = look[3], r = look[4], b = look[5], w = look[6];
+    // their top left corner. With a fadeCurve, the opacity plays on that curve, in a second
+    // animation kept in the fade property of the first.
+    function animateLook(target, look, curve, shownAt, base, options, raise, fadeCurve) {
+        const o = look[0], s = look[3], r = look[4], b = look[5], w = look[6];
         const style = getComputedStyle(target);
         const opacity = base.opacity !== undefined ? base.opacity : ownOpacity(target);
         const filter = style.filter && style.filter !== 'none' ? style.filter + ' ' : '';
         const width = parseFloat(target.style.width) || target.offsetWidth || 0;
         const height = parseFloat(target.style.height) || target.offsetHeight || 0;
         const cx = width / 2, cy = height / 2;
+        const x = look[1] + (look[7] || 0) * width, y = look[2] + (look[8] || 0) * height;
         const moves = x !== 0 || y !== 0 || s !== 1 || r !== 0;
+        const fades = o !== 1 || base.opacity !== undefined;
+        const fadeOnItsOwn = fadeCurve && o !== 1;
         let z = null;
         if (raise) {
             const own = parseInt(style.zIndex, 10);
             z = String(isNaN(own) || own < 1 ? 1 : own);
         }
 
+        const opacityAt = (p) => opacity * (o + (1 - o) * shownAt(p));
         const make = (p) => {
             const v = shownAt(p), h = 1 - v;
             const frame = {};
-            if (o !== 1 || base.opacity !== undefined) frame.opacity = opacity * (o + (1 - o) * v);
+            if (fades && !fadeOnItsOwn) frame.opacity = opacityAt(p);
             if (moves) {
                 const scale = s + (1 - s) * v, angle = r * h;
                 const rad = angle * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
@@ -374,7 +397,12 @@
             return frame;
         };
 
-        return target.animate(sampledKeyframes(curve, make, r !== 0 ? 12 : 1), options);
+        const animation = target.animate(sampledKeyframes(curve, make, r !== 0 ? 12 : 1), options);
+        if (fadeOnItsOwn) {
+            animation.fade = target.animate(lerpKeyframes(fadeCurve, (p) => ({ opacity: opacityAt(p) })),
+                Object.assign({}, options, { easing: fadeCurve.easing }));
+        }
+        return animation;
     }
 
     // Plays the effect of an element that appears. If it disappeared just before and its ghost is
@@ -383,11 +411,14 @@
         const from = takeGhost(element);
         release(element);
         const previous = effects.get(element);
-        if (previous) previous.animation.cancel();
+        if (previous) cancelEffect(previous.animation);
 
-        const curve = curveOf(timing, false);
+        // An effect that only fades plays on the curve of the fade.
+        const fadeCurve = fadeCurveOf(timing);
+        const curve = fadeCurve && onlyFades(look) ? fadeCurve : curveOf(timing, false);
         const options = { duration: Math.max(1, timing.d), delay, fill: 'backwards', easing: curve.easing };
-        const animation = animateLook(element, look, curve, (p) => from + (1 - from) * p, { x: 0, y: 0 }, options, raise);
+        const animation = animateLook(element, look, curve, (p) => from + (1 - from) * p, { x: 0, y: 0 }, options, raise,
+            curve === fadeCurve ? null : fadeCurve);
         track(element, animation, curve);
     }
 
@@ -410,7 +441,7 @@
     // box of the same size, and the copy fades out quickly instead of playing its effect.
     const MEDIA = 'video, audio, iframe, object, embed';
     const QUICK_FADE = { d: 150, e: 'linear' };
-    const FADE_LOOK = [0, 0, 0, 1, 0, 0, 0];
+    const FADE_LOOK = [0, 0, 0, 1, 0, 0, 0, 0, 0];
     const VIEW_MARGIN = 100;
 
     function replaceMedia(from, to) {
@@ -445,7 +476,7 @@
         const running = effects.get(element);
         if (running) {
             from = Math.max(0, Math.min(1, progressOf(running.animation, running.curve)));
-            running.animation.cancel();
+            cancelEffect(running.animation);
             effects.delete(element);
         }
         const opacity = ownOpacity(element);
@@ -502,7 +533,7 @@
         if (!ghost || (entry && ghost !== entry)) return;
         ghosts.delete(id);
         clearTimeout(ghost.timer);
-        if (ghost.animation) ghost.animation.cancel();
+        if (ghost.animation) cancelEffect(ghost.animation);
         ghost.clone.remove();
     }
 
@@ -528,10 +559,13 @@
             sizeCurve = false;
         }
 
-        const curve = curveOf(timing, sizeCurve);
+        const fadeCurve = sizeCurve ? null : fadeCurveOf(timing);
+        const curve = fadeCurve && onlyFades(look) ? fadeCurve : curveOf(timing, sizeCurve);
         const from = ghost.from;
         const options = { duration: Math.max(1, timing.d), delay, fill: 'both', easing: curve.easing };
-        const animation = animateLook(ghost.clone, look, curve, (p) => from * (1 - p), { x: ghost.x, y: ghost.y, opacity: ghost.opacity }, options, false);
+        const animation = animateLook(ghost.clone, look, curve, (p) => from * (1 - p), { x: ghost.x, y: ghost.y, opacity: ghost.opacity }, options, false,
+            curve === fadeCurve ? null : fadeCurve);
+        startAtNextFrame(animation.fade);
         ghost.animation = startAtNextFrame(animation);
         ghost.curve = curve;
         animation.addEventListener('finish', () => removeGhost(id, ghost));
@@ -584,12 +618,20 @@
         if (batch.e) {
             for (const e of batch.e) {
                 const element = document.getElementById(e[0]);
-                if (element) appear(element, batch.t[e[1]], e[2], e.slice(3, 10), e[10] === 1);
+                if (element) appear(element, batch.t[e[1]], e[2], e.slice(3, 12), e[12] === 1);
+            }
+        }
+
+        // After the effects, so that the move adds to the move of their zoom or slide.
+        if (batch.k) {
+            for (const k of batch.k) {
+                const element = document.getElementById(k[0]);
+                if (element) animateBox(element, batch.t[k[1]], k[2], k[3], k[4], 0, 0, 0, 0, 0);
             }
         }
 
         if (batch.g) {
-            for (const g of batch.g) vanish(g[0], batch.t[g[1]], g[2], g.slice(3, 10), g[10] === 1);
+            for (const g of batch.g) vanish(g[0], batch.t[g[1]], g[2], g.slice(3, 12), g[12] === 1);
         }
 
         if (batch.x) {

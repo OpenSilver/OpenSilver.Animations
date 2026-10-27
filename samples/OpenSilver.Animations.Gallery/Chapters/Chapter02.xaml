@@ -25,7 +25,7 @@
         <!-- 1. Every effect -->
         <controls:DemoCard x:Name="EffectDemo" Title="Every effect"
                            Description="Choose an effect and its parameters, then hide and show the card. The text below the card makes room for it and fills its space with the duration of the effect."
-                           Expectations="• Each effect plays when the card is shown, and again, the other way around, when it is hidden.&#10;• Slide and Wipe follow the side you choose: the card comes from it, and goes back to it.&#10;• With Bouncy, or with Pop, the card bounces, and the text below moves smoothly, without bouncing.&#10;• Hide and show the card quickly: it never jumps.">
+                           Expectations="• Each effect plays when the card is shown, and again, the other way around, when it is hidden.&#10;• Slide and Wipe follow the side you choose: the card comes from it, and goes back to it.&#10;• Slide follows the distance you choose: at 100%, the card starts a whole card height away (a whole width from the left or the right).&#10;• Zoom follows the size you choose: the card starts from that size, and goes back to it. At 120%, it shrinks into place.&#10;• With Fade set to No, Slide and Zoom don't fade: the card is fully visible while it moves or grows.&#10;• With Bouncy, or with Pop, the card bounces, but it fades in without bouncing, and the text below moves smoothly.&#10;• With Overshoot, the card goes a little past its place or its size, and comes back, once. The text below moves with EaseOut, without overshooting.&#10;• With EaseIn, the card starts slowly and leaves fast. With EaseOut, it starts fast and ends slowly.&#10;• With Text below set to 1 s, the text takes 1 second to make room or to fill the space, whatever the duration of the card.&#10;• Hide and show the card quickly: it never jumps.">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -33,6 +33,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -61,20 +65,61 @@
                         <RadioButton Content="Right" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource SliderLabel}" />
-                    <WrapPanel x:Name="DurationChoices" Grid.Row="2" Grid.Column="1">
+                    <!-- Only for Slide -->
+                    <TextBlock x:Name="DistanceLabel" Grid.Row="2" Text="Distance" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="DistanceChoices" Grid.Row="2" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="Medium" Tag="Medium" GroupName="Distance" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
+                        <RadioButton Content="Long" Tag="Long" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="50%" Tag="50%" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="100%" Tag="100%" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                    </WrapPanel>
+
+                    <!-- Only for Zoom -->
+                    <TextBlock x:Name="SizeLabel" Grid.Row="3" Text="Size" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="SizeChoices" Grid.Row="3" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="90%" Tag="0.9" GroupName="Size" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
+                        <RadioButton Content="50%" Tag="0.5" GroupName="Size" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="120%" Tag="1.2" GroupName="Size" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                    </WrapPanel>
+
+                    <!-- Only for Slide and Zoom -->
+                    <TextBlock x:Name="FadeLabel" Grid.Row="4" Text="Fade" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="FadeChoices" Grid.Row="4" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="Yes" Tag="True" GroupName="Fade" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
+                        <RadioButton Content="No" Tag="False" GroupName="Fade" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                    </WrapPanel>
+
+                    <TextBlock Grid.Row="5" Text="Duration" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel x:Name="DurationChoices" Grid.Row="5" Grid.Column="1">
                         <RadioButton Content="Default" Tag="" GroupName="Duration" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
                         <RadioButton Content="0.5 s" Tag="0.5s" GroupName="Duration" Style="{StaticResource Choice}" Checked="Option_Checked" />
                         <RadioButton Content="1 s" Tag="1s" GroupName="Duration" Style="{StaticResource Choice}" Checked="Option_Checked" />
                     </WrapPanel>
 
+                    <TextBlock Grid.Row="6" Text="Text below" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel x:Name="OthersDurationChoices" Grid.Row="6" Grid.Column="1">
+                        <RadioButton Content="With the card" Tag="" GroupName="OthersDuration" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
+                        <RadioButton Content="0.5 s" Tag="0.5s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="1 s" Tag="1s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                    </WrapPanel>
+
                     <!-- Pop always bounces -->
-                    <TextBlock x:Name="EasingLabel" Grid.Row="3" Text="Easing" Style="{StaticResource SliderLabel}" />
-                    <WrapPanel x:Name="EasingChoices" Grid.Row="3" Grid.Column="1">
+                    <TextBlock x:Name="EasingLabel" Grid.Row="7" Text="Easing" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel x:Name="EasingChoices" Grid.Row="7" Grid.Column="1">
                         <RadioButton Content="Smooth" GroupName="Easing" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
                         <RadioButton Content="Gentle" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
                         <RadioButton Content="Linear" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
                         <RadioButton Content="Bouncy" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="EaseOut" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="EaseIn" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="EaseInOut" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                        <RadioButton Content="Overshoot" GroupName="Easing" Style="{StaticResource Choice}" Checked="Option_Checked" />
                     </WrapPanel>
                 </Grid>
 
@@ -119,9 +164,17 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• From is the side an element comes from when it appears, and To the side it goes to when it disappears. Both are Bottom by default." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• Distance is how far Slide moves: Short (10 pixels), Medium (30 pixels, the default), Long (100 pixels), or a number of pixels." />
+                           Text="• On Zoom, From is the size it grows from, and To the size it shrinks to: 0.9 (90%) by default, 0.5 for half its size, or more than 1 to come from bigger." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• Distance is how far Slide moves: Short (10 pixels), Medium (30 pixels, the default), Long (100 pixels), a number of pixels, or a percent of the element's size, like 50%: of its height from the top or the bottom, of its width from the left or the right." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• Fade=False makes Slide and Zoom move or grow without fading. With Distance=100%, a panel comes in from beyond its edge, like a drawer: {anim:Slide From=Bottom, Distance=100%, Fade=False}." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Pop is for appearing. To make an element disappear in a similar way, use Zoom. Pop, and every effect with Easing=Bouncy, lasts twice as long by default, so that the bounce has time to settle." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• Easing also has the classic curves: EaseOut, EaseIn and EaseInOut, like a CubicEase, and Overshoot, like a BackEase. Bounciness says how far Overshoot goes past the end: 0.5 by default, 1 for a lot." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• OthersDuration is how long the elements around take to make room or to fill the space. By default, they take the Duration of the effect." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Custom describes the look the element starts from, or ends with: {anim:Custom Opacity=0, OffsetY=20, Zoom=0.8, Rotate=-6}." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"

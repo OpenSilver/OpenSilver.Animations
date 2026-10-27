@@ -12,7 +12,8 @@ namespace OpenSilver.Animations
     public static class Easings
     {
         /// <summary>
-        /// Starts fast and slows down softly. This is the default.
+        /// Starts softly, gets going quickly, and slows down for a long, soft end. This is the
+        /// default.
         /// </summary>
         public static IEasingFunction Smooth { get; } = new CubicBezierEasing("Smooth", 0.2, 0, 0, 1);
 
@@ -32,12 +33,38 @@ namespace OpenSilver.Animations
         /// </summary>
         public static IEasingFunction Bouncy { get; } = new SpringEasing("Bouncy", 0.5);
 
+        /// <summary>
+        /// Starts at full speed and slows down until the end: the classic ease-out, like a
+        /// <see cref="CubicEase"/> with <c>EasingMode="EaseOut"</c>.
+        /// </summary>
+        public static IEasingFunction EaseOut { get; } = new CubicBezierEasing("EaseOut", 0.33, 1, 0.68, 1);
+
+        /// <summary>
+        /// Starts slowly and speeds up until the end: the classic ease-in, like a
+        /// <see cref="CubicEase"/> with <c>EasingMode="EaseIn"</c>. It suits elements that leave.
+        /// </summary>
+        public static IEasingFunction EaseIn { get; } = new CubicBezierEasing("EaseIn", 0.32, 0, 0.67, 0);
+
+        /// <summary>
+        /// Speeds up, then slows down, more strongly than Gentle: the classic ease-in-out, like a
+        /// <see cref="CubicEase"/> with <c>EasingMode="EaseInOut"</c>.
+        /// </summary>
+        public static IEasingFunction EaseInOut { get; } = new CubicBezierEasing("EaseInOut", 0.65, 0, 0.35, 1);
+
+        /// <summary>
+        /// Like EaseOut, but goes a little past the end and comes back, once, like a
+        /// <see cref="BackEase"/>. How far comes from the <c>Bounciness</c> of the effect that uses
+        /// it: about 13% of the way past at 0.5 (the default), and 38% at 1.
+        /// </summary>
+        public static IEasingFunction Overshoot { get; } = new OvershootEasing("Overshoot", 0.5);
+
         internal static string GetName(IEasingFunction easing) => easing switch
         {
             null => null,
             CubicBezierEasing cb => cb.Name,
             LinearEasing => "Linear",
             SpringEasing s => s.Name,
+            OvershootEasing o => o.Name,
             _ => easing.GetType().Name,
         };
 
@@ -57,6 +84,18 @@ namespace OpenSilver.Animations
                 case "bouncy":
                     easing = Bouncy;
                     return true;
+                case "easeout":
+                    easing = EaseOut;
+                    return true;
+                case "easein":
+                    easing = EaseIn;
+                    return true;
+                case "easeinout":
+                    easing = EaseInOut;
+                    return true;
+                case "overshoot":
+                    easing = Overshoot;
+                    return true;
                 default:
                     easing = null;
                     return false;
@@ -65,7 +104,8 @@ namespace OpenSilver.Animations
     }
 
     /// <summary>
-    /// Converts the names Smooth, Gentle, Linear and Bouncy to an easing function.
+    /// Converts the names Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn, EaseInOut and Overshoot
+    /// to an easing function.
     /// </summary>
     public sealed class EasingConverter : TypeConverter
     {
@@ -83,7 +123,7 @@ namespace OpenSilver.Animations
                     return easing;
                 }
 
-                throw new FormatException($"'{s}' is not an easing. Use Smooth, Gentle, Linear or Bouncy.");
+                throw new FormatException($"'{s}' is not an easing. Use Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn, EaseInOut or Overshoot.");
             }
 
             return base.ConvertFrom(context, culture, value);
@@ -227,6 +267,31 @@ namespace OpenSilver.Animations
 
             double envelope = Math.Exp(-_zeta * _omega * t);
             return 1 - envelope * (Math.Cos(_omegaD * t) + _zeta * _omega / _omegaD * Math.Sin(_omegaD * t));
+        }
+
+        public override string ToString() => Name;
+    }
+
+    /// <summary>
+    /// The back ease-out of WPF: a cubic ease-out that goes past the end and comes back, by an
+    /// amplitude equal to the bounciness.
+    /// </summary>
+    internal sealed class OvershootEasing : IEasingFunction
+    {
+        public OvershootEasing(string name, double bounciness)
+        {
+            Name = name;
+            Bounciness = Math.Max(0.1, Math.Min(1, bounciness));
+        }
+
+        public string Name { get; }
+
+        public double Bounciness { get; }
+
+        public double Ease(double normalizedTime)
+        {
+            double u = 1 - Math.Max(0, Math.Min(1, normalizedTime));
+            return 1 - (u * u * u - Bounciness * u * Math.Sin(Math.PI * u));
         }
 
         public override string ToString() => Name;
