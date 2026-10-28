@@ -406,12 +406,17 @@
     }
 
     // Plays the effect of an element that appears. If it disappeared just before and its ghost is
-    // still there, it goes on from what the ghost showed.
-    function appear(element, timing, delay, look, raise) {
+    // still there, it goes on from what the ghost showed. text is [kind, letterMs, cursorMs,
+    // blinkFirst] for the letters of a TextBlock.
+    function appear(element, timing, delay, look, raise, text) {
         const from = takeGhost(element);
         release(element);
         const previous = effects.get(element);
         if (previous) cancelEffect(previous.animation);
+        if (text) {
+            appearText(element, timing, delay, text);
+            return;
+        }
 
         // An effect that only fades plays on the curve of the fade.
         const fadeCurve = fadeCurveOf(timing);
@@ -471,6 +476,7 @@
         const parent = element && element.parentNode;
         if (!parent || holds.has(element) || element.matches(MEDIA)) return;
         removeGhost(id);
+        endText(element);
 
         let from = 1;
         const running = effects.get(element);
@@ -498,6 +504,7 @@
 
         clone.removeAttribute('id');
         for (const e of clone.querySelectorAll('[id]')) e.removeAttribute('id');
+        removeTextOverlays(clone);
         clone.classList.remove('uielement-collapsed', 'uielement-hidden');
         clone.setAttribute('data-os-foreign', '');
         clone.style.pointerEvents = 'none';
@@ -549,7 +556,7 @@
     }
 
     // Plays the effect of an element that disappeared on its ghost, then removes the ghost.
-    function vanish(id, timing, delay, look, sizeCurve) {
+    function vanish(id, timing, delay, look, sizeCurve, text) {
         const ghost = ghosts.get(id);
         if (!ghost) return;
         clearTimeout(ghost.timer);
@@ -557,6 +564,9 @@
             timing = QUICK_FADE;
             look = FADE_LOOK;
             sizeCurve = false;
+        } else if (text) {
+            vanishText(id, ghost, timing, delay, text);
+            return;
         }
 
         const fadeCurve = sizeCurve ? null : fadeCurveOf(timing);
@@ -572,6 +582,520 @@
 
         // In case it never finishes, like in a tab in the background.
         ghost.timer = setTimeout(() => removeGhost(id, ghost), delay + timing.d + 1000);
+    }
+
+    // The text effects of TextBlocks, per element: { overlay, visibility, overflow, observer,
+    // timer, raf, animations, held, shown, value }. The real text stays in the element, hidden, and
+    // is measured as usual: the effect plays in an overlay on top of it, with the same font and
+    // alignment. held is true while a change waits for its layout pass, shown returns the text the
+    // overlay shows, and value is the number a CountUp shows.
+    const texts = new WeakMap();
+
+    const TEXT_RELEASE = 0, TEXT_ROLL = 1, TEXT_CROSS_FADE = 2, TEXT_SCRAMBLE = 3, TEXT_RETYPE = 4, TEXT_COUNT_UP = 5;
+    const LETTERS_TYPE = 1, LETTERS_FADE = 2, LETTERS_ERASE = 3;
+
+    // Out of the flow: the TextBlock measures its text by copying its content, overlay included.
+    const OVERLAY_STYLE = 'position:absolute;left:0;top:0;right:0;bottom:0;box-sizing:border-box;padding:inherit;' +
+                          'background:inherit;visibility:visible;pointer-events:none;';
+    // A second text in the overlay, on top of the first, laid out the same way.
+    const TOP_LAYER_STYLE = 'position:absolute;left:0;top:0;right:0;bottom:0;box-sizing:border-box;padding:inherit;';
+
+    const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+
+    // The letters of a text, an emoji or a letter with its accents being one letter.
+    function lettersOf(text) {
+        return segmenter ? Array.from(segmenter.segment(text), (s) => s.segment) : Array.from(text);
+    }
+
+    function isForeign(node) {
+        return node.nodeType === 1 && node.hasAttribute('data-os-foreign');
+    }
+
+    // Whether a change of the element's content comes from its text effect.
+    function isOwnChange(st, element, record) {
+        if (st.overlay.contains(record.target)) return true;
+        if (record.target !== element || record.type !== 'childList') return false;
+        for (const node of record.addedNodes) if (node !== st.overlay) return false;
+        for (const node of record.removedNodes) if (node !== st.overlay) return false;
+        return true;
+    }
+
+    function startText(element) {
+        endText(element);
+        const overlay = document.createElement('div');
+        overlay.setAttribute('data-os-foreign', '');
+        overlay.setAttribute('data-os-text', '');
+        overlay.style.cssText = OVERLAY_STYLE;
+        // Decorations don't reach the content of an element out of the flow.
+        const decoration = getComputedStyle(element).textDecorationLine;
+        if (decoration && decoration !== 'none') overlay.style.textDecoration = getComputedStyle(element).textDecoration;
+        element.appendChild(overlay);
+
+        const st = {
+            overlay, visibility: element.style.visibility, overflow: element.style.overflow, observer: null,
+            timer: 0, raf: 0, animations: [], held: false, shown: null, value: null,
+        };
+        overlay.setAttribute('data-os-visibility', st.visibility);
+        overlay.setAttribute('data-os-overflow', st.overflow);
+        element.style.visibility = 'hidden';
+        element.style.overflow = 'visible';
+
+        // The real text shows when the app changes it without a text effect, like in its inlines.
+        st.observer = new MutationObserver((records) => {
+            if (records.some((r) => !isOwnChange(st, element, r))) endText(element, st);
+        });
+        st.observer.observe(element, { childList: true, characterData: true, subtree: true });
+        texts.set(element, st);
+        return st;
+    }
+
+    function endText(element, st) {
+        const current = texts.get(element);
+        if (!current || (st && current !== st)) return;
+        texts.delete(element);
+        current.observer.disconnect();
+        clearTimeout(current.timer);
+        if (current.raf) cancelAnimationFrame(current.raf);
+        for (const animation of current.animations) animation.cancel();
+        current.overlay.remove();
+        element.style.visibility = current.visibility;
+        element.style.overflow = current.overflow;
+    }
+
+    // Ends the text effect after duration, counted from the next frame, like its animations.
+    // Returns the clock, whose currentTime tells how far the effect went.
+    function endTextAfter(element, st, duration) {
+        const clock = startAtNextFrame(st.overlay.animate([], { duration: Math.max(1, duration) }));
+        st.animations.push(clock);
+        clock.addEventListener('finish', () => finishText(element, st));
+        clearTimeout(st.timer);
+        st.timer = setTimeout(() => endText(element, st), duration + 1000);
+        return clock;
+    }
+
+    // An empty copy of the first run of the TextBlock, to write a text in its font.
+    function plainLayer(element, text) {
+        let run = null;
+        for (const child of element.children) {
+            if (isForeign(child)) continue;
+            run = child.matches('.opensilver-inline') ? child : child.querySelector('.opensilver-inline');
+            if (run) break;
+        }
+        const layer = run ? run.cloneNode(false) : document.createElement('span');
+        layer.removeAttribute('id');
+        if (text !== undefined) layer.textContent = text;
+        return layer;
+    }
+
+    // A copy of the real content of the TextBlock.
+    function contentCopy(element) {
+        const fragment = document.createDocumentFragment();
+        for (const child of element.childNodes) {
+            if (isForeign(child)) continue;
+            const copy = child.cloneNode(true);
+            if (copy.nodeType === 1) {
+                copy.removeAttribute('id');
+                for (const e of copy.querySelectorAll('[id]')) e.removeAttribute('id');
+            }
+            fragment.appendChild(copy);
+        }
+        return fragment;
+    }
+
+    function realText(element) {
+        let text = '';
+        for (const child of element.childNodes) {
+            if (!isForeign(child)) text += child.textContent;
+        }
+        return text;
+    }
+
+    // Puts each letter of the text inside root in a span of its own, and returns the spans in order.
+    function splitLetters(root) {
+        const nodes = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node);
+        const letters = [];
+        for (const node of nodes) {
+            const fragment = document.createDocumentFragment();
+            for (const letter of lettersOf(node.data)) {
+                const span = document.createElement('span');
+                span.textContent = letter;
+                fragment.appendChild(span);
+                letters.push(span);
+            }
+            node.replaceWith(fragment);
+        }
+        return letters;
+    }
+
+    // The copies of an element made for a ghost show its real text, without its text effect.
+    function removeTextOverlays(root) {
+        for (const overlay of root.querySelectorAll('[data-os-text]')) {
+            const owner = overlay.parentNode;
+            owner.style.visibility = overlay.getAttribute('data-os-visibility') || '';
+            owner.style.overflow = overlay.getAttribute('data-os-overflow') || '';
+            overlay.remove();
+        }
+    }
+
+    // Keeps showing the old text of a TextBlock whose text just changed, until its layout pass
+    // plays the change, for at most a second. A text effect that is still playing goes on, and the
+    // change starts from where it is then.
+    function textHold(id, oldText) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        const running = texts.get(element);
+        if (running && running.shown) {
+            // The new text was just written in the same script: its record must not end the effect.
+            running.observer.takeRecords();
+            running.held = true;
+            clearTimeout(running.timer);
+            running.timer = setTimeout(() => endText(element, running), 1000);
+            return;
+        }
+        const st = startText(element);
+        st.overlay.appendChild(plainLayer(element, oldText));
+        st.held = true;
+        st.shown = () => oldText;
+        st.timer = setTimeout(() => endText(element, st), 1000);
+    }
+
+    // An effect that holds a change keeps its last frame until the change plays.
+    function finishText(element, st) {
+        if (!st.held) endText(element, st);
+    }
+
+    function textStop(id) {
+        const element = document.getElementById(id);
+        if (element) endText(element);
+    }
+
+    // Plays the change of a TextBlock's text, from the old text that its hold shows.
+    function playText(element, w, timing) {
+        const held = texts.get(element);
+        if (w[1] === TEXT_RELEASE || !held || !held.held) {
+            endText(element);
+            return;
+        }
+
+        const from = held.shown(), value = held.value;
+        const st = startText(element);
+        switch (w[1]) {
+            case TEXT_ROLL: rollText(element, st, timing, w[3], w[4], from); break;
+            case TEXT_SCRAMBLE: scrambleText(element, st, timing, from, w[3]); break;
+            case TEXT_RETYPE: retypeText(element, st, w[3], from, w[5], w[6], w[7]); break;
+            case TEXT_COUNT_UP: countText(element, st, timing, value !== null ? value : w[3], w[4], w[5], w[6], w[7], w[8], w[9]); break;
+            default: crossFadeText(element, st, timing, from); break;
+        }
+    }
+
+    function crossFadeText(element, st, timing, from) {
+        const old = plainLayer(element, from);
+        const box = document.createElement('div');
+        box.style.cssText = TOP_LAYER_STYLE;
+        box.appendChild(contentCopy(element));
+        st.overlay.append(old, box);
+        const text = realText(element);
+        st.shown = () => text;
+
+        const curve = curveOf(timing, false);
+        const options = { duration: Math.max(1, timing.d), easing: curve.easing };
+        st.animations.push(
+            startAtNextFrame(old.animate(lerpKeyframes(curve, (p) => ({ opacity: 1 - p })), Object.assign({ fill: 'both' }, options))),
+            startAtNextFrame(box.animate(lerpKeyframes(curve, (p) => ({ opacity: p })), Object.assign({ fill: 'backwards' }, options))));
+        endTextAfter(element, st, timing.d);
+    }
+
+    // The characters that change roll, each in a column that clips them and goes from the width
+    // of the old character to the width of the new one. direction is 1 when the new characters
+    // come from below, -1 from above.
+    function rollText(element, st, timing, direction, columns, from) {
+        const layer = plainLayer(element);
+        const rolls = [];
+        let text = '';
+        for (const c of columns) {
+            if (typeof c === 'string') {
+                layer.appendChild(document.createTextNode(c));
+                text += c;
+                continue;
+            }
+            const column = document.createElement('span');
+            column.style.cssText = 'display:inline-block;position:relative;clip-path:inset(0 -0.5em);';
+            const incoming = document.createElement('span');
+            incoming.style.display = 'inline-block';
+            // A column without a character still has the height of a line, to clip the old one.
+            incoming.textContent = c[1] || '\u200B';
+            const outgoing = document.createElement('span');
+            outgoing.style.cssText = 'position:absolute;left:0;top:0;';
+            outgoing.textContent = c[0];
+            column.append(incoming, outgoing);
+            layer.appendChild(column);
+            rolls.push({ column, incoming, outgoing });
+            text += c[1];
+        }
+        st.overlay.appendChild(layer);
+        st.shown = () => text;
+
+        // Text on several lines cross-fades instead.
+        if (rolls.length === 0 || layer.getClientRects().length > 1) {
+            layer.remove();
+            crossFadeText(element, st, timing, from);
+            return;
+        }
+
+        const curve = curveOf(timing, false);
+        const options = { duration: Math.max(1, timing.d), easing: curve.easing };
+        const widths = rolls.map((r) => [r.outgoing.offsetWidth, r.incoming.offsetWidth]);
+        rolls.forEach((r, i) => {
+            const [oldWidth, newWidth] = widths[i];
+            if (oldWidth !== newWidth) {
+                st.animations.push(startAtNextFrame(r.column.animate(lerpKeyframes(curve, (p) => ({ width: px(oldWidth + (newWidth - oldWidth) * p) })),
+                    Object.assign({ fill: 'backwards' }, options))));
+            }
+            st.animations.push(
+                startAtNextFrame(r.incoming.animate(lerpKeyframes(curve, (p) => ({ translate: '0 ' + Math.round(direction * 100 * (1 - p)) + '%', opacity: p })),
+                    Object.assign({ fill: 'backwards' }, options))),
+                startAtNextFrame(r.outgoing.animate(lerpKeyframes(curve, (p) => ({ translate: '0 ' + Math.round(-direction * 100 * p) + '%', opacity: 1 - p })),
+                    Object.assign({ fill: 'both' }, options))));
+        });
+        endTextAfter(element, st, timing.d);
+    }
+
+    const DIGITS = '0123456789', UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', LOWER = 'abcdefghijklmnopqrstuvwxyz';
+
+    // A random character of the same kind: a digit for a digit, a letter of the same case for a
+    // letter. Spaces and punctuation stay.
+    function randomLike(letter) {
+        const set = letter >= '0' && letter <= '9' ? DIGITS
+            : letter !== letter.toLowerCase() ? UPPER
+            : letter !== letter.toUpperCase() ? LOWER
+            : null;
+        return set ? set[Math.floor(Math.random() * set.length)] : letter;
+    }
+
+    // Shows random characters that settle on the new text from left to right, changing 20 times a
+    // second. The letters that are the same in both texts stay.
+    function scrambleText(element, st, timing, from, to) {
+        const layer = plainLayer(element, from);
+        st.overlay.appendChild(layer);
+        const old = lettersOf(from), target = lettersOf(to);
+        const n = target.length, d = Math.max(1, timing.d);
+        let text = from, start = 0, tick = -1;
+        st.shown = () => text;
+        const step = (now) => {
+            if (texts.get(element) !== st) return;
+            if (!start) start = now;
+            const t = now - start;
+            if (t >= d) {
+                text = to;
+                layer.textContent = to;
+                finishText(element, st);
+                return;
+            }
+            if (Math.floor(t / 50) !== tick) {
+                tick = Math.floor(t / 50);
+                let s = '';
+                for (let i = 0; i < n; i++) {
+                    s += old[i] === target[i] || t >= d * (0.3 + 0.7 * (i + 1) / n) ? target[i] : randomLike(target[i]);
+                }
+                text = s;
+                layer.textContent = s;
+            }
+            st.raf = requestAnimationFrame(step);
+        };
+        st.raf = requestAnimationFrame(step);
+    }
+
+    // Erases the old text letter by letter down to what it shares with the new one, then types the
+    // new one, step k at blinkFirst + k * letterMs. The old text is erased in its own layout, and
+    // the new one typed in its final layout. With a cursor (cursorMs above 0), the cursor blinks
+    // for blinkFirst first, follows the letters, then blinks twice and fades away.
+    function retypeText(element, st, letterMs, from, to, cursorMs, blinkFirst) {
+        const a = lettersOf(from), b = lettersOf(to);
+        let shared = 0;
+        while (shared < a.length && shared < b.length && a[shared] === b[shared]) shared++;
+        const erase = a.length - shared, steps = erase + b.length - shared;
+        const ms = Math.max(1, letterMs);
+        const old = plainLayer(element, from);
+        const box = document.createElement('div');
+        box.style.cssText = TOP_LAYER_STYLE;
+        const next = plainLayer(element, to);
+        box.appendChild(next);
+        st.overlay.append(old, box);
+        const oldLetters = splitLetters(old), newLetters = splitLetters(next);
+
+        const hide = (node, at) => st.animations.push(startAtNextFrame(node.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, delay: at, fill: 'forwards' })));
+        const hideUntil = (node, at) => st.animations.push(startAtNextFrame(node.animate([{ opacity: 0 }, { opacity: 0 }], { duration: at, fill: 'backwards' })));
+        const swap = Math.max(1, blinkFirst + erase * ms);
+        for (let i = shared; i < a.length; i++) hide(oldLetters[i], blinkFirst + (a.length - i) * ms);
+        hide(old, swap);
+        hideUntil(box, swap);
+        for (let j = shared; j < b.length; j++) hideUntil(newLetters[j], swap + (j - shared + 1) * ms);
+
+        let end = swap + (b.length - shared) * ms;
+        const first = oldLetters[0] || newLetters[0];
+        if (cursorMs > 0 && first) {
+            const positions = [];
+            for (let k = 0; k <= steps; k++) {
+                const count = k <= erase ? a.length - k : shared + k - erase;
+                const letters = k <= erase ? oldLetters : newLetters;
+                positions.push(count > 0 ? after(letters[count - 1]) : before(first));
+            }
+            end = playCursor(st.animations, makeCursor(st.overlay, first), positions, 0, blinkFirst, ms, cursorMs / 5, true);
+        }
+
+        const clock = endTextAfter(element, st, end);
+        st.shown = () => {
+            const k = Math.max(0, Math.min(steps, Math.floor(((clock.currentTime || 0) - blinkFirst) / ms)));
+            return k <= erase ? a.slice(0, a.length - k).join('') : b.slice(0, shared + k - erase).join('');
+        };
+    }
+
+    function formatNumber(v, decimals, group, separator) {
+        const fixed = Math.abs(v).toFixed(decimals);
+        const dot = fixed.indexOf('.');
+        let integer = dot < 0 ? fixed : fixed.slice(0, dot);
+        if (group) integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, () => group);
+        const negative = v < 0 && Number(fixed) !== 0;
+        return (negative ? '-' : '') + integer + (dot < 0 ? '' : separator + fixed.slice(dot + 1));
+    }
+
+    // Counts from one number to the other, slowing down at the end, in the format of the new text.
+    function countText(element, st, timing, from, to, decimals, prefix, suffix, group, separator) {
+        const layer = plainLayer(element);
+        const write = (v) => { layer.textContent = prefix + formatNumber(v, decimals, group, separator) + suffix; };
+        write(from);
+        st.overlay.appendChild(layer);
+        st.shown = () => layer.textContent;
+        st.value = from;
+        const d = Math.max(1, timing.d);
+        let start = 0;
+        const step = (now) => {
+            if (texts.get(element) !== st) return;
+            if (!start) start = now;
+            const p = Math.min(1, (now - start) / d);
+            st.value = from + (to - from) * (1 - Math.pow(1 - p, 3));
+            write(st.value);
+            if (p >= 1) {
+                finishText(element, st);
+                return;
+            }
+            st.raf = requestAnimationFrame(step);
+        };
+        st.raf = requestAnimationFrame(step);
+    }
+
+    // A hidden cursor, a tenth of the letter's font size wide and in its color. parent must be the
+    // letters' offsetParent: the cursor's left and top, like their offsetLeft and offsetTop, are
+    // from its padding edge.
+    function makeCursor(parent, letter) {
+        const style = getComputedStyle(letter);
+        const cursor = document.createElement('span');
+        cursor.style.cssText = 'position:absolute;left:0;top:0;opacity:0;';
+        cursor.style.width = px(Math.max(1, parseFloat(style.fontSize) * 0.1));
+        cursor.style.background = style.color;
+        parent.appendChild(cursor);
+        return cursor;
+    }
+
+    // Where a cursor goes before or after a letter: [x, y, height].
+    function before(letter) { return [letter.offsetLeft, letter.offsetTop, letter.offsetHeight]; }
+    function after(letter) { return [letter.offsetLeft + letter.offsetWidth, letter.offsetTop, letter.offsetHeight]; }
+
+    // Plays a cursor that blinks at the first position for blinkFirst, goes to the next position
+    // every letterMs, then, if fadeAway, blinks twice and fades away. It is on, or off, for
+    // blinkMs in a blink, and shows nothing during its delay. Returns how long it plays, delay
+    // not included.
+    function playCursor(animations, cursor, positions, delay, blinkFirst, letterMs, blinkMs, fadeAway) {
+        const active = blinkFirst + (positions.length - 1) * letterMs;
+        const total = Math.max(1, active + (fadeAway ? 5 * blinkMs : 0));
+        const at = (ms) => Math.min(1, ms / total);
+        const moves = positions.map((p, i) => ({ offset: i === 0 ? 0 : at(blinkFirst + i * letterMs), translate: px(p[0]) + ' ' + px(p[1]), height: px(p[2]), easing: 'steps(1, end)' }));
+        const last = positions[positions.length - 1];
+        moves.push({ offset: 1, translate: px(last[0]) + ' ' + px(last[1]), height: px(last[2]) });
+
+        const blinks = [];
+        let on = true;
+        for (let t = 0; blinkMs > 0 && t < blinkFirst; t += blinkMs, on = !on) blinks.push({ offset: at(t), opacity: on ? 1 : 0, easing: 'steps(1, end)' });
+        blinks.push({ offset: at(blinkFirst), opacity: 1, easing: 'steps(1, end)' });
+        if (fadeAway) {
+            blinks.push(
+                { offset: at(active + blinkMs), opacity: 0, easing: 'steps(1, end)' },
+                { offset: at(active + 2 * blinkMs), opacity: 1, easing: 'steps(1, end)' },
+                { offset: at(active + 3 * blinkMs), opacity: 0, easing: 'steps(1, end)' },
+                { offset: at(active + 4 * blinkMs), opacity: 1, easing: 'ease-in' },
+                { offset: 1, opacity: 0 });
+        } else {
+            blinks.push({ offset: 1, opacity: 1 });
+        }
+        animations.push(
+            startAtNextFrame(cursor.animate(moves, { duration: total, delay })),
+            startAtNextFrame(cursor.animate(blinks, { duration: total, delay })));
+        return total;
+    }
+
+    // Types the letters of a TextBlock that appears one after the other, or fades them in.
+    function appearText(element, timing, delay, text) {
+        const [kind, letterMs, cursorMs, blinkFirst] = text;
+        const st = startText(element);
+        st.overlay.appendChild(contentCopy(element));
+        const letters = splitLetters(st.overlay);
+        const n = letters.length;
+        if (n === 0) {
+            endText(element, st);
+            return;
+        }
+
+        let end;
+        if (kind === LETTERS_FADE) {
+            const d = Math.max(1, timing.d), each = d / 2, stagger = n > 1 ? (d - each) / (n - 1) : 0;
+            const curve = curveOf(timing, false);
+            letters.forEach((letter, i) => st.animations.push(startAtNextFrame(letter.animate(lerpKeyframes(curve, (p) => ({ opacity: p })),
+                { duration: each, delay: delay + i * stagger, fill: 'backwards', easing: curve.easing }))));
+            end = delay + d;
+        } else {
+            letters.forEach((letter, i) => st.animations.push(startAtNextFrame(letter.animate([{ opacity: 0 }, { opacity: 0 }],
+                { duration: delay + blinkFirst + (i + 1) * letterMs, fill: 'backwards' }))));
+            end = delay + blinkFirst + n * letterMs;
+            if (cursorMs > 0) {
+                const positions = [before(letters[0])].concat(letters.map(after));
+                end = delay + playCursor(st.animations, makeCursor(st.overlay, letters[0]), positions, delay, blinkFirst, letterMs, cursorMs / 5, true);
+            }
+        }
+        endTextAfter(element, st, end);
+    }
+
+    // Erases the letters of the ghost of a TextBlock from the last one, or fades them out from the
+    // first one, then removes the ghost.
+    function vanishText(id, ghost, timing, delay, text) {
+        const [kind, letterMs, cursorMs, blinkFirst] = text;
+        const letters = splitLetters(ghost.clone);
+        const n = letters.length;
+        let duration;
+        if (kind === LETTERS_FADE) {
+            const d = Math.max(1, timing.d), each = d / 2, stagger = n > 1 ? (d - each) / (n - 1) : 0;
+            const curve = curveOf(timing, false);
+            letters.forEach((letter, i) => startAtNextFrame(letter.animate(lerpKeyframes(curve, (p) => ({ opacity: 1 - p })),
+                { duration: each, delay: delay + i * stagger, fill: 'forwards', easing: curve.easing })));
+            duration = d;
+        } else {
+            letters.forEach((letter, i) => startAtNextFrame(letter.animate([{ opacity: 0 }, { opacity: 0 }],
+                { duration: 1, delay: delay + blinkFirst + (n - i) * letterMs, fill: 'forwards' })));
+            duration = Math.max(1, blinkFirst + n * letterMs);
+            if (cursorMs > 0 && n > 0) {
+                const positions = [];
+                for (let k = 0; k < n; k++) positions.push(after(letters[n - 1 - k]));
+                positions.push(before(letters[0]));
+                playCursor([], makeCursor(ghost.clone, letters[n - 1]), positions, delay, blinkFirst, letterMs, cursorMs / 5, false);
+            }
+        }
+
+        // Tells how far it went, if the element appears again before the end.
+        ghost.animation = startAtNextFrame(ghost.clone.animate([], { duration, delay }));
+        ghost.curve = null;
+        ghost.animation.addEventListener('finish', () => removeGhost(id, ghost));
+        ghost.timer = setTimeout(() => removeGhost(id, ghost), delay + duration + 1000);
     }
 
     function outline(element, duration, delay, isOrigin) {
@@ -618,7 +1142,7 @@
         if (batch.e) {
             for (const e of batch.e) {
                 const element = document.getElementById(e[0]);
-                if (element) appear(element, batch.t[e[1]], e[2], e.slice(3, 12), e[12] === 1);
+                if (element) appear(element, batch.t[e[1]], e[2], e.slice(3, 12), e[12] === 1, e.length > 13 ? e.slice(13, 17) : null);
             }
         }
 
@@ -631,7 +1155,7 @@
         }
 
         if (batch.g) {
-            for (const g of batch.g) vanish(g[0], batch.t[g[1]], g[2], g.slice(3, 12), g[12] === 1);
+            for (const g of batch.g) vanish(g[0], batch.t[g[1]], g[2], g.slice(3, 12), g[12] === 1, g.length > 13 ? g.slice(13, 17) : null);
         }
 
         if (batch.x) {
@@ -649,6 +1173,13 @@
             for (const id of batch.r) {
                 const element = document.getElementById(id);
                 if (element) release(element);
+            }
+        }
+
+        if (batch.w) {
+            for (const w of batch.w) {
+                const element = document.getElementById(w[0]);
+                if (element) playText(element, w, batch.t[w[2]]);
             }
         }
     }
@@ -1030,5 +1561,5 @@
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView, react, reactSettings });
+    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView, react, reactSettings, textHold, textStop });
 })();

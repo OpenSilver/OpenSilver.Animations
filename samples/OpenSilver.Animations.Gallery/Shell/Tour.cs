@@ -79,7 +79,7 @@ namespace OpenSilver.Animations.Gallery.Shell
             new ChapterInfo(6, "Lists", "ItemAppear, ItemDisappear, ItemMoveAndResize and ItemCascade on a to-do list, toasts, a chat and a long list.", true),
             new ChapterInfo(7, "Everything inside", "ApplyTo=EverythingInside on a form and on a responsive layout.", true),
             new ChapterInfo(8, "When the window or a panel is resized", "Elements that glide while you resize the window, and layouts that switch.", true),
-            new ChapterInfo(9, "Text that moves", "Typewriter, Roll, Count up, Scramble and Retype.", false),
+            new ChapterInfo(9, "Text that moves", "TextChange on a badge, a dashboard, a clock and a tagline, and Typewriter, Backspace and FadeLetters on a message.", true),
             new ChapterInfo(10, "Bouncy and Wave", "A bouncy tab underline, and cards that move like a wave.", true),
             new ChapterInfo(11, "Magic move", "Elements that travel from one place to another.", false),
             new ChapterInfo(12, "Hover and press", "Hover and Press on buttons, cards and icons: Grow, Lift, Shrink and Nudge.", true),

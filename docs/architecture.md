@@ -73,10 +73,11 @@ The library repository gets these changes through locally built OpenSilver packa
 
 | File (under `src/OpenSilver.Animations/`) | Role                                                                                                                                                      |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Hover` and `Press`, `Animate.Changes` and `Animate.Skip`. |
+| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Hover` and `Press`, `TextChange`, `Animate.Changes` and `Animate.Skip`. |
+| `TextTransition.cs`                       | `TextTransition` (abstract, a `MarkupExtension`), the presets `Roll`, `CrossFade`, `Scramble`, `Retype` and `CountUp`, `TextTransition.None` and `TextTransitionConverter`. |
 | `Reaction.cs`                             | `Reaction` (abstract, a `MarkupExtension`), the presets `Grow`, `Lift`, `Shrink` and `Nudge`, `Reaction.None` and `ReactionConverter`.                   |
 | `Movement.cs`                             | `Movement` (abstract, a `MarkupExtension`), `Smooth`, `Bouncy`, `Movement.None`, `MovementConverter`, the `AnimationScope` enum.                          |
-| `Transition.cs`                           | `Transition` (abstract, a `MarkupExtension`), the presets `Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur` and `Custom`, `Transition.None`, `TransitionConverter`, the `Side`, `OthersMove` and `PageOpen` enums, the `Distance` struct and its converter, and the internal `EffectLook`. |
+| `Transition.cs`                           | `Transition` (abstract, a `MarkupExtension`), the presets `Fade`, `Slide`, `Zoom`, `Pop`, `Wipe`, `Blur` and `Custom`, the TextBlock presets `Typewriter`, `FadeLetters` and `Backspace`, `Transition.None`, `TransitionConverter`, the `Side`, `OthersMove` and `PageOpen` enums, the `Distance` struct and its converter, and the internal `EffectLook`. |
 | `AnimationTime.cs`                        | A readable duration (`0.3s`, `300ms`, `300`), with its type converter.                                                                                    |
 | `Easings.cs`                              | The curves `Smooth`, `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut` and `Overshoot`, and `EasingConverter`. The internal `CubicBezierEasing`, `LinearEasing`, `SpringEasing` and `OvershootEasing` classes. |
 | `AnimationSettings.cs`                    | App-wide settings, the `Logged` event and `AnimationLoggedEventArgs`.                                                                                     |
@@ -84,11 +85,12 @@ The library repository gets these changes through locally built OpenSilver packa
 | `Engine/LayoutAnimator.cs`                | The `LayoutObserver`. It collects the pass, groups, decides, culls, emits and logs. Most of the logic is here.                                            |
 | `Engine/PageOpenHolds.cs`                 | Holds the elements with `OnPageOpen=PushOthers` out of the layout while their page opens, and releases them after their `StartAfter`.                     |
 | `Engine/Reactions.cs`                     | Sends the `Hover` and `Press` of elements to the script, again when they are loaded or enabled or disabled, and the settings they use.                   |
+| `Engine/TextChanges.cs`                   | Watches the `Text` of TextBlocks that have a `TextChange`, through a private attached property bound to it. Also the columns of a Roll, and `TextNumber`, which finds the number in a text and its format. |
 | `Engine/Timing.cs`                        | The duration and curve of a group, and their JSON form.                                                                                                   |
 | `Engine/BatchBuilder.cs`                  | Builds the JavaScript object sent once per pass.                                                                                                          |
-| `Engine/BrowserBridge.cs`                 | Loads `animations.js` and runs the batch. It keeps `IsDragging` and `PrefersReducedMotion` up to date through JavaScript callbacks.                       |
+| `Engine/BrowserBridge.cs`                 | Loads `animations.js` and runs the batch, the holds, the ghosts and the text holds. It keeps `IsDragging` and `PrefersReducedMotion` up to date through JavaScript callbacks. |
 | `Engine/ElementNames.cs`                  | Names elements in messages: their `x:Name`, or their type and a bit of their text. Items are named by their text and their list: `Item "Buy milk" of Tasks`. |
-| `Scripts/animations.js`                   | Embedded resource (`OpenSilver.Animations.animations.js`). It plays the batch with Web Animations, plays the hover and press reactions, and tracks dragging and reduced motion. |
+| `Scripts/animations.js`                   | Embedded resource (`OpenSilver.Animations.animations.js`). It plays the batch with Web Animations, plays the text effects in an overlay, plays the hover and press reactions, and tracks dragging and reduced motion. |
 
 
 
@@ -115,6 +117,9 @@ The library repository gets these changes through locally built OpenSilver packa
     <Button anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" />
     <Border anim:Animate.Hover="{anim:Lift Distance=6}" />
     <Border anim:Animate.Hover="{anim:Nudge Distance=6, Tilt=5}" />
+    <TextBlock Text="{Binding UnreadCount}" anim:Animate.TextChange="Roll" />
+    <TextBlock Text="{Binding Revenue}" anim:Animate.TextChange="{anim:CountUp Duration=1.5s}" />
+    <TextBlock Text="Welcome" anim:Animate.Appear="{anim:Typewriter Speed=40, BlinkFirst=1.5s}" anim:Animate.Disappear="Backspace" />
 </UserControl>
 ```
 
@@ -124,6 +129,7 @@ Animate.SetMoveAndResize(card, "Smooth");                  // implicit conversio
 Animate.SetAppear(note, new Slide { From = Side.Left, Distance = 60 });
 Animate.SetDisappear(note, "Fade");
 Animate.SetHover(icon, new Nudge { Distance = 6, Tilt = 5 });
+Animate.SetTextChange(badge, new Roll { From = Side.Top });
 Animate.Changes(() => Details.Visibility = Visibility.Collapsed);          // animates everything
 Animate.Changes(() => Box.Width = 400, AnimationTime.FromSeconds(0.6));
 Animate.Skip(() => RestoreLayout());                       // nothing animates
@@ -148,6 +154,7 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - **Parameters** on every preset: `Duration`, `OthersDuration`, `Easing`, `Bounciness`, `OthersMove`, `StartAfter` (clamped to 10 s when set) and `OnPageOpen` (`PageOpen.InPlace`, `PushOthers` or `Skip`). `Slide` has `From`, `To`, `Distance` and `Fade`; `Zoom` has `From` and `To` (sizes, 0 to 3, default 0.9) and `Fade`; `Wipe` has `From` and `To`; `Custom` has `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate` and `Blur`.
   - `Distance` is a struct: `Distance.Short` (10 px), `Medium` (30 px, the default) and `Long` (100 px), a number of pixels, from XAML (`Distance=Short`, `Distance=60`) or from a `double`, or a percent of the element's size (`Distance=50%`, `Distance.FromPercent(50)`, 0 to 1000). A percent sets `Percent` and leaves `Pixels` at 0. Slide turns it into `EffectLook.RelX` or `RelY`, fractions of the element's width or height, which the script multiplies by the size of the element or its ghost. Lift and Nudge send their default pixels instead, with a warning from `Reactions.Check`.
   - `Fade=False` on Slide and Zoom sets the look's opacity to 1, so the effect only moves or zooms.
+  - **The TextBlock presets.** `Typewriter` and `Backspace` have `Speed` (5 to 200 letters per second, default 30), `Cursor` (default true) and `BlinkFirst` (0 to 10 s; 0.8 s on Typewriter and 0 on Backspace by default, `HasBlinkFirst` once set); `FadeLetters` has `Duration` (twice `DefaultDuration` by default). `IsText` and `HasSpeed` tell them apart, `ShowsCursor` and `BlinkFirstTime` read the cursor, and `Backspace` defaults to `OthersMove=After` (`DefaultOthersMove`). `CheckEffect` warns about a text preset on an element that isn't a TextBlock or on the items of an ItemsControl, `Typewriter` as a Disappear, `Backspace` as an Appear, `Duration` with `Speed`, `Easing`, and `BlinkFirst` with `Cursor=False`. See "Text" below.
   - **Duration.** The default is `AnimationSettings.DefaultDuration`, doubled for `Pop` and for `Easing=Bouncy`. Bouncy effects play a spring sampled with `Bounciness`, and `Overshoot` a `BackEase` sampled with it.
   - **The others' timing** (`Timing.ForOthers`). The elements around an effect take its timing, except that they never bounce or overshoot: Smooth next to a bouncy effect, EaseOut next to `Overshoot`. `OthersDuration`, when set, replaces the duration (clamped and divided by `Speed` like the others).
   - **The fade curve.** `Timing.FromEffect` sets `FadeEasing` (`fe` in the JSON) to Smooth for a bouncy effect and to EaseOut for `Overshoot`. The script then plays the opacity in a second animation on that curve (see "The script" below).
@@ -160,6 +167,9 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
   - **Parameters** on every preset: `Duration`, `Easing` and `Bounciness`. `Grow` and `Shrink` have `Zoom` (0.5 to 2); `Lift` has `Distance`; `Nudge` has `Distance` (at most 20 px when used) and `Tilt` (0 to 15 degrees).
   - `Reactions.Check` warns about `Nudge` on Press, `Easing` on Nudge, `Bounciness` without a bounce or an overshoot, and a `Distance` in percent, with `LayoutAnimator.Warn`.
   - `Timing.FromReaction` samples the reaction spring for `Easing=Bouncy` (see "Curves" below). It leaves the duration at 0 when none is set, and doesn't divide it by `Speed`: the script applies the default duration and the speed when a reaction plays, so that changing them in `AnimationSettings` applies at once.
+- `Animate.TextChange` (attached, type `TextTransition`, not inherited) starts the engine and watches the TextBlock's `Text` (`TextChanges.Watch`). `CheckTextChange` warns about a value on an element that isn't a TextBlock, `Duration` on `Retype`, `BlinkFirst` on `Retype` with `Cursor=False`, and `From=Left` or `Right` on `Roll`.
+  - `TextTransition` works like `Transition`: a string through `TextTransitionConverter` (`Roll`, `CrossFade`, `Scramble`, `Retype`, `CountUp`, `None`; an unknown name throws), a markup extension, an element or a resource.
+  - **Parameters:** `Duration` on every preset (default `DefaultDuration`, four times that for `Scramble` and `CountUp`), `From` on `Roll` (automatic until it is set: `HasFrom`), and `Speed`, `Cursor` (default true) and `BlinkFirst` (default 0) on `Retype`.
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
 - **Nested scopes:** the inner one applies until it exits, then the outer one applies again.
@@ -381,6 +391,18 @@ When the timing has `Wave > 0`, each member gets a delay.
 
 
 
+### Text
+
+- **Watching.** `TextChanges.Watch` binds a private attached property to the TextBlock's `Text`, once per TextBlock (a `ConditionalWeakTable`). Its callback gives the old text to `LayoutAnimator.OnTextChanged`.
+- **The hold.** OpenSilver writes the new text to the page in the property's callback, before the bindings update. So `HoldOldText` asks the script to show the old text at once (`BrowserBridge.TextHold`), in the same flush of JavaScript as the write. It does nothing for a TextBlock without a `TextChange`, with `None`, not loaded, or without its div.
+  - A snap reason (see "Messages") sends `textStop` instead, with the message "The text of X changed at once, because …".
+  - A second change before the pass keeps the first old text (`_textChanges`), and sends the hold again: the write of the new text would otherwise end it.
+- **The pass.** `PlayTextChanges` runs at the end of every pass, also when nothing else changed. For each held TextBlock, it adds a `w` entry (`AddTextChange`). It adds a release instead when the text is back to the old one, the setting was removed, or a snap reason applies. An exception releases them all.
+  - `AddTextChange` picks the kind. CrossFade when the content isn't a single Run. Roll with its columns (`TextChanges.GetRollColumns`) and direction. Scramble with the new text. Retype with its time per letter, `min(1000 / Speed, MaxRetypeMs / steps) / AnimationSettings.Speed`, and with a cursor, its blinking time (`CursorBlinkMs`) and `BlinkFirst`, both divided by `AnimationSettings.Speed`. CountUp with the old number, or 0, and the new number and its format (`TextNumber`), or CrossFade when the new text has no number.
+  - Roll's direction is `From` when it is set to Top or Bottom. Otherwise it is -1 (from above) when both texts have comparable numbers (the same text around them) and the new one is smaller, and 1 otherwise.
+  - Roll's columns: comparable numbers align their prefix on the left, their digits on the right and their suffix on the left; other text aligns on the left. Equal characters merge into one string; a column that changes is `[old, new]`, either side possibly empty.
+- **Letter effects.** `GetEffectLook` adds to the look of a TextBlock the letter kind (`EffectLook.Text`: type, fade or erase), the time per letter, and with a cursor, its blinking time (`CursorBlinkMs`) and `BlinkFirst` (`BlinkFirstMs`), both divided by `AnimationSettings.Speed`; other elements get the plain fade look. `GetEffectMs` is the effect's length, which `OthersMove=After` waits for: for Typewriter and Backspace, `BlinkFirst` plus the letters (`StringInfo` text elements) times the time per letter. The time per letter is `min(1000 / Speed, cap / letters) / AnimationSettings.Speed`, with a cap of 10 s for typing (`MaxTypingMs`) and 3 s for erasing (`MaxErasingMs`).
+
 ### Absolute positions
 
 `ComputeAbsolute` adds the record rects along the parent chain. For the root of an arrange session, it adds `TransformToVisual(null)` of its visual parent. Scroll offsets are included, because a `ScrollContentPresenter` arranges its content at the negative offset. Positions are computed only for culling and the wave, and memoized with `_stamp`.
@@ -407,6 +429,8 @@ Messages are produced only when `LogForDebugging` is on or `Logged` has handlers
   - With the page: "12 elements appeared with their container, and play their effects, like TextBlock "CHAPTER 4"", and the `OnPageOpen` messages (see "Page open with PushOthers").
   - With another effect in the same change: "Body1 appeared; it wipes in, Body0 wipes out, and 17 elements animate together (…)". More than one give "2 other elements play their effects".
   - Under reduced motion: "Details appeared; it fades in quickly, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion), and nothing else animated."
+  - On letters: "LetterMessage appeared; it is typed in, and 24 elements animate together (…)", "it is erased letter by letter, then 24 elements animate together", "it fades in letter by letter". A title alone: "it is typed in after 0.1 s (30 letters per second, after its cursor blinks for 0.8 s, from its Appear)".
+- **A text change:** "The text of BadgeCount changed; it rolls up (0.25 s, from its TextChange)." Also "rolls down", "cross-fades", "scrambles", "is retyped (30 letters per second, …)", with ", after its cursor blinks for 0.5 s" when it has a `BlinkFirst`, "counts up" and "counts down", with "because it has several runs of text" or "because CountUp is for numbers" when it cross-fades instead. A snap: "The text of BadgeCount changed at once, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion)."
 - **Items:** "Item "Buy milk" of Tasks appeared; it slides in, 2 other items follow, one every 0.05 s, and 4 elements animate together (Smooth, 0.25 s, from the ItemAppear of Tasks)."
   - A sort, a filter or a refresh: "The items of Products changed order; 8 elements animate together (…, from the ItemMoveAndResize of Products)", or "The items of Products changed" when some appear or disappear too.
   - With the page, and a cascade: "3 elements appeared with their container, and play their effects, one after the other (every 0.05 s), like Item "Buy milk" of Tasks."
@@ -436,6 +460,10 @@ These are at the top of `LayoutAnimator`:
 | `SettleMs`            | 500   | How long, after appearing, changes count as settling. |
 | `MaxAutomaticGhosts`  | 40    | The automatic Disappear effects per pass.             |
 | `GhostLifetimeMs`     | 3000  | How long a ghost may stay on screen, for `_ghostedUntil`. |
+| `MaxTypingMs`         | 10000 | The longest typing of a Typewriter.                   |
+| `MaxErasingMs`        | 3000  | The longest erasing of a Backspace.                   |
+| `MaxRetypeMs`         | 3000  | The longest Retype, erasing and typing together.      |
+| `CursorBlinkMs`       | 2000  | How long the cursor blinks after the last letter typed; each blink is on, or off, for a fifth of it. |
 
 
 
@@ -453,17 +481,27 @@ These are at the top of `LayoutAnimator`:
 { t: [ { d: durationMs, e?: cssEasing, s?: [samples], se?: sizeEasing, fe?: fadeEasing } ],
   m: [ [id, timingIndex, delayMs, dx, dy, oldWidth, oldHeight, newWidth, newHeight, flags, fromGhost?] ],
   a: [ [id, timingIndex, delayMs, edge] ],
-  e: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, relX, relY, raise] ],
+  e: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, relX, relY, raise, letters?, letterMs?, cursorMs?, blinkFirstMs?] ],
   k: [ [id, timingIndex, delayMs, dx, dy] ],
-  g: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, relX, relY, sizeCurve] ],
+  g: [ [id, timingIndex, delayMs, opacity, x, y, zoom, rotate, blur, wipe, relX, relY, sizeCurve, letters?, letterMs?, cursorMs?, blinkFirstMs?] ],
   x: [ ids whose ghost to remove ],
   c: [ ids to cancel ],
   s: [ [id, newWidth, newHeight] ],
   o: [ [id, durationMs, delayMs, isOrigin] ],
-  r: [ ids to release ] }
+  r: [ ids to release ],
+  w: [ [id, kind, timingIndex, ...] ] }
 ```
 
-They run in this order: cancels, retargets, moves, reveals, effects, keep-in-place moves, ghosts, ghost removals, outlines, releases. `osAnimations.hold(id)`, `osAnimations.ghost(id)` and `osAnimations.ghostInView(ids)` are called on their own, from the hooks.
+- `letters` is 1 to type, 2 to fade the letters and 3 to erase them, for the TextBlock presets. `cursorMs` is 0 without a cursor, and then `blinkFirstMs` is 0 too.
+- `w` holds the text changes. The kinds are:
+  - 0, release;
+  - 1, Roll: `direction` (1 from below, -1 from above), then `columns`, each a string that stays or an `[old, new]` pair;
+  - 2, CrossFade;
+  - 3, Scramble: `newText`;
+  - 4, Retype: `letterMs, oldText, newText, cursorMs, blinkFirstMs`;
+  - 5, CountUp: `from, to, decimals, prefix, suffix, groupSeparator, decimalSeparator`.
+
+They run in this order: cancels, retargets, moves, reveals, effects, keep-in-place moves, ghosts, ghost removals, outlines, releases, text changes. `osAnimations.hold(id)`, `osAnimations.ghost(id)` and `osAnimations.ghostInView(ids)` are called on their own, from the hooks, and `osAnimations.textHold(id, oldText)` and `osAnimations.textStop(id)` when a text changes.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
@@ -491,6 +529,17 @@ They run in this order: cancels, retargets, moves, reveals, effects, keep-in-pla
   - `ghostInView(ids)`, for a list that is refreshed, reads where all the elements are first, then copies those less than 100 px from the window (`VIEW_MARGIN`).
   - When the element appears again while its ghost plays, `appear` and `reveal` start from what the ghost showed (`takeGhost`).
 - **Outlines** (`ShowWhatAnimates`) animate `outline` on the element: orange for the origin, pink for members. They last at least 700 ms.
+- **Text effects.** Each TextBlock with a text effect has a state in a `WeakMap` (`texts`). The effect plays in an overlay div (`data-os-foreign data-os-text`), over the real text, which stays in place, hidden.
+  - The overlay is absolute over the whole TextBlock, with its padding and background, because OpenSilver measures a TextBlock by copying its `innerHTML` (`measureTextView`). The TextBlock gets `visibility: hidden` and `overflow: visible`; the old values are kept in the state and in the overlay's `data-os-visibility` and `data-os-overflow`.
+  - A `MutationObserver` ends the effect when the real content changes in another way. `textHold` drops its pending records, as the new text was just written by the same script.
+  - `textHold(id, oldText)` shows the old text in an empty copy of the first Run (`plainLayer`), for at most 1 s. When an effect is playing, it keeps playing instead, marked `held`: at its end it keeps its last frame (`finishText`) until the change plays.
+  - `playText` (key `w`) starts from what the held state shows (`shown()`), and CountUp from the number it shows (`value`). Without a held state, or with kind 0, it releases.
+  - Roll makes a column per change: an inline-block clipped with `clip-path: inset(0 -0.5em)`, which holds the incoming character, in the flow, and the outgoing one, absolute. The incoming one comes from 100% below or above and fades in, the outgoing one leaves the other way, and the column's width goes from the old character's to the new one's. With more than one line box, it cross-fades instead.
+  - CrossFade fades a copy of the old text out while a copy of the real content fades in (`TOP_LAYER_STYLE`). Scramble and CountUp write the text of their layer at each frame.
+  - Retype splits the old text and the new one into letters, each in its own layer, the new one on top (`TOP_LAYER_STYLE`), so that the old text is erased in its own layout and the new one is typed in its final layout. Step k plays at `blinkFirst + k × letterMs`: the old letters hide from the last one, then the old layer hides as the new one shows, with its letters hidden until their time. `shown()` reads the step from the clock of `endTextAfter`.
+  - **Letters** (`appear` and `vanish` with `e[13..16]` and `g[13..16]`). The letters are split into spans (`splitLetters`, by grapheme through `Intl.Segmenter`): in a copy of the content for an Appear, and in the ghost for a Disappear. Typing hides each letter until its time, after `blinkFirst`, with `fill: 'backwards'` because of `startAtNextFrame`. Erasing hides them from the last one, after `blinkFirst`, with `fill: 'forwards'`. FadeLetters gives each letter half the duration, staggered over the other half.
+  - **The cursor** (`makeCursor`, `playCursor`) is an absolute span, a tenth of the first letter's computed font size wide and in its color, because OpenSilver puts the font on the Run, not on the TextBlock's div. It goes where the letters are (`offsetLeft` and `offsetTop`, from the same padding edge as its own `left: 0; top: 0`) with `steps(1, end)` keyframes: one position per step, before the first letter at the start. It blinks there for `blinkFirst`, on and off for a fifth of `cursorMs` each, stays on while the letters change, then, after typing, blinks twice in `cursorMs` and fades out. It has no fill, so nothing shows during `StartAfter`. Backspace's cursor is in the ghost, and goes with it.
+  - `ghost` ends the element's text effect and removes the overlays from its copy (`removeTextOverlays`), so a ghost shows the real text.
 
 **Hover and press.** `osAnimations.react(id, hover, press, enabled)` is called by `Reactions` when `Hover` or `Press` changes, when the element is loaded (its div is new each time), and when it is enabled or disabled. `osAnimations.reactSettings(on, speed, defaultMs, respect, simulate)` is called when `AnimationSettings` change.
 

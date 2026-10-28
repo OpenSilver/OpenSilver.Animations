@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 
@@ -7,10 +8,12 @@ namespace OpenSilver.Animations.Engine
     /// <summary>
     /// Builds the JavaScript object read by <c>osAnimations.run</c>:
     /// <c>{ t: [timings], m: [[id, timing, delay, dx, dy, ow, oh, nw, nh, flags, fromGhost?]], a: [[id, timing, delay, edge]],
-    /// e: [[id, timing, delay, look..., raise]], k: [[id, timing, delay, dx, dy]], g: [[id, timing, delay, look..., sizeCurve]],
-    /// x: [ids], c: [ids], s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids] }</c>, where a look is
-    /// <c>opacity, x, y, scale, rotate, blur, wipe, relX, relY</c>, relX and relY being fractions of the
-    /// element's own width and height added to x and y.
+    /// e: [[id, timing, delay, look..., raise, text?]], k: [[id, timing, delay, dx, dy]], g: [[id, timing, delay, look..., sizeCurve, text?]],
+    /// x: [ids], c: [ids], s: [[id, nw, nh]], o: [[id, duration, delay, isOrigin]], r: [ids], w: [[id, kind, timing, ...]] }</c>,
+    /// where a look is <c>opacity, x, y, scale, rotate, blur, wipe, relX, relY</c>, relX and relY being fractions
+    /// of the element's own width and height added to x and y, and text is <c>kind, letterMs, cursorMs, blinkFirstMs</c> for
+    /// the letters of a TextBlock, cursorMs being 0 without a cursor. <c>w</c> has the text changes of TextBlocks,
+    /// after a hold of their old text.
     /// </summary>
     internal sealed class BatchBuilder
     {
@@ -24,6 +27,13 @@ namespace OpenSilver.Animations.Engine
         public const int RevealFromBottom = 3;
         public const int RevealFromRight = 4;
 
+        public const int TextRelease = 0;
+        public const int TextRoll = 1;
+        public const int TextCrossFade = 2;
+        public const int TextScramble = 3;
+        public const int TextRetype = 4;
+        public const int TextCountUp = 5;
+
         private readonly List<Timing> _timings = new List<Timing>();
         private readonly StringBuilder _moves = new StringBuilder();
         private readonly StringBuilder _reveals = new StringBuilder();
@@ -35,10 +45,11 @@ namespace OpenSilver.Animations.Engine
         private readonly StringBuilder _retargets = new StringBuilder();
         private readonly StringBuilder _outlines = new StringBuilder();
         private readonly StringBuilder _releases = new StringBuilder();
+        private readonly StringBuilder _texts = new StringBuilder();
 
         public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _effects.Length == 0 && _keeps.Length == 0 && _ghosts.Length == 0 &&
                                _ghostRemovals.Length == 0 && _cancels.Length == 0 && _retargets.Length == 0 &&
-                               _outlines.Length == 0 && _releases.Length == 0;
+                               _outlines.Length == 0 && _releases.Length == 0 && _texts.Length == 0;
 
         public int AddTiming(Timing timing)
         {
@@ -116,7 +127,9 @@ namespace OpenSilver.Animations.Engine
         public void AddEffect(string id, int timing, double delay, in EffectLook look, bool raise)
         {
             AppendLook(_effects, id, timing, delay, look);
-            _effects.Append(',').Append(raise ? '1' : '0').Append(']');
+            _effects.Append(',').Append(raise ? '1' : '0');
+            AppendText(_effects, look);
+            _effects.Append(']');
         }
 
         /// <summary>
@@ -151,7 +164,127 @@ namespace OpenSilver.Animations.Engine
         public void AddGhost(string id, int timing, double delay, in EffectLook look, bool sizeCurve)
         {
             AppendLook(_ghosts, id, timing, delay, look);
-            _ghosts.Append(',').Append(sizeCurve ? '1' : '0').Append(']');
+            _ghosts.Append(',').Append(sizeCurve ? '1' : '0');
+            AppendText(_ghosts, look);
+            _ghosts.Append(']');
+        }
+
+        private static void AppendText(StringBuilder sb, in EffectLook look)
+        {
+            if (look.Text == EffectLook.NoText)
+            {
+                return;
+            }
+
+            sb.Append(',').Append(look.Text).Append(',');
+            BrowserBridge.AppendNumber(sb, look.LetterMs);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.CursorMs);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, look.BlinkFirstMs);
+        }
+
+        /// <summary>
+        /// Shows the new text of a TextBlock held by <see cref="BrowserBridge.TextHold"/> at once.
+        /// </summary>
+        public void AddTextRelease(string id) => StartText(id, TextRelease, 0).Append(']');
+
+        /// <summary>
+        /// Rolls the columns of a TextBlock's text, from below (<paramref name="direction"/> 1) or
+        /// from above (-1). A column with one string stays, one with two rolls from the first to the
+        /// second.
+        /// </summary>
+        public void AddTextRoll(string id, int timing, int direction, List<string[]> columns)
+        {
+            StringBuilder sb = StartText(id, TextRoll, timing);
+            sb.Append(',').Append(direction).Append(",[");
+            for (int i = 0; i < columns.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+
+                string[] column = columns[i];
+                if (column.Length == 1)
+                {
+                    BrowserBridge.AppendString(sb, column[0]);
+                }
+                else
+                {
+                    sb.Append('[');
+                    BrowserBridge.AppendString(sb, column[0]);
+                    sb.Append(',');
+                    BrowserBridge.AppendString(sb, column[1]);
+                    sb.Append(']');
+                }
+            }
+            sb.Append("]]");
+        }
+
+        public void AddTextCrossFade(string id, int timing) => StartText(id, TextCrossFade, timing).Append(']');
+
+        public void AddTextScramble(string id, int timing, string newText)
+        {
+            StringBuilder sb = StartText(id, TextScramble, timing);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, newText);
+            sb.Append(']');
+        }
+
+        /// <summary>
+        /// Erases the old text down to what it shares with the new one, then types the new one, one
+        /// letter every <paramref name="letterMs"/>. With a cursor (<paramref name="cursorMs"/>
+        /// above 0), the cursor blinks for <paramref name="blinkFirstMs"/> first, follows the
+        /// letters, then blinks for <paramref name="cursorMs"/>.
+        /// </summary>
+        public void AddTextRetype(string id, int timing, double letterMs, string oldText, string newText, double cursorMs, double blinkFirstMs)
+        {
+            StringBuilder sb = StartText(id, TextRetype, timing);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, letterMs);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, oldText);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, newText);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, cursorMs);
+            sb.Append(',');
+            BrowserBridge.AppendNumber(sb, blinkFirstMs);
+            sb.Append(']');
+        }
+
+        /// <summary>
+        /// Counts from <paramref name="from"/> to the value of <paramref name="to"/>, written in its format.
+        /// </summary>
+        public void AddTextCountUp(string id, int timing, double from, TextNumber to)
+        {
+            StringBuilder sb = StartText(id, TextCountUp, timing);
+            sb.Append(',').Append(from.ToString("R", CultureInfo.InvariantCulture))
+              .Append(',').Append(to.Value.ToString("R", CultureInfo.InvariantCulture))
+              .Append(',').Append(to.Decimals).Append(',');
+            BrowserBridge.AppendString(sb, to.Prefix);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, to.Suffix);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, to.GroupSeparator);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, to.DecimalSeparator);
+            sb.Append(']');
+        }
+
+        private StringBuilder StartText(string id, int kind, int timing)
+        {
+            StringBuilder sb = _texts;
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append('[');
+            BrowserBridge.AppendString(sb, id);
+            sb.Append(',').Append(kind).Append(',').Append(timing);
+            return sb;
         }
 
         /// <summary>
@@ -273,7 +406,7 @@ namespace OpenSilver.Animations.Engine
             sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],e:[").Append(_effects).Append("],k:[").Append(_keeps)
               .Append("],g:[").Append(_ghosts)
               .Append("],x:[").Append(_ghostRemovals).Append("],c:[").Append(_cancels).Append("],s:[").Append(_retargets)
-              .Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("]}");
+              .Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("],w:[").Append(_texts).Append("]}");
             return sb.ToString();
         }
     }

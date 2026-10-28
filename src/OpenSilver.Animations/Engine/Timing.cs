@@ -76,6 +76,19 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         public static Timing FromEffect(Transition effect, AnimationSettings settings)
         {
+            // The letters keep their own pace: the curve is for the fade of each letter.
+            if (effect.IsText)
+            {
+                double textSeconds = effect.HasSpeed ? settings.DefaultDuration.Seconds : effect.Duration?.Seconds ?? settings.DefaultDuration.Seconds * 2;
+                var text = new Timing { DurationMs = Clamp(textSeconds) * 1000 / settings.Speed };
+                text.SetCurve(Easings.Smooth, 0.5);
+                double blinkFirstMs = effect.ShowsCursor ? effect.BlinkFirstTime.Seconds * 1000 / settings.Speed : 0;
+                text.Description = effect.HasSpeed
+                    ? Invariant($"{Math.Round(effect.LettersPerSecond * settings.Speed, 1)} letters per second") + DescribeBlinkFirst(blinkFirstMs)
+                    : Invariant($"{Math.Round(text.DurationMs / 1000, 2)} s");
+                return text;
+            }
+
             bool bouncy = effect.IsBouncy;
             double seconds = effect.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (bouncy ? 2 : 1);
             var timing = new Timing { DurationMs = Clamp(seconds) * 1000 / settings.Speed };
@@ -108,6 +121,12 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         public static Timing ForOthers(Timing effectTiming, Transition effect, AnimationSettings settings)
         {
+            // The room opens like for any element, and the letters play in it.
+            if (effect.IsText)
+            {
+                return FromDuration(effect.OthersDuration, settings);
+            }
+
             bool overshoots = effect.Easing is OvershootEasing;
             if (!effect.IsBouncy && !overshoots && effect.OthersDuration == null)
             {
@@ -246,6 +265,24 @@ namespace OpenSilver.Animations.Engine
             samples[count] = 1;
             return samples;
         }
+
+        /// <summary>
+        /// The timing of a TextChange: Smooth, over its Duration.
+        /// </summary>
+        public static Timing FromTextChange(TextTransition effect, AnimationSettings settings)
+        {
+            double seconds = effect.Duration?.Seconds ?? settings.DefaultDuration.Seconds * effect.DurationFactor;
+            var timing = new Timing { DurationMs = Clamp(seconds) * 1000 / settings.Speed };
+            timing.SetCurve(Easings.Smooth, 0.5);
+            timing.Description = Invariant($"{Math.Round(timing.DurationMs / 1000, 2)} s");
+            return timing;
+        }
+
+        /// <summary>
+        /// ", after its cursor blinks for 0.8 s", or nothing when the cursor doesn't blink first.
+        /// </summary>
+        public static string DescribeBlinkFirst(double blinkFirstMs)
+            => blinkFirstMs > 0 ? Invariant($", after its cursor blinks for {Math.Round(blinkFirstMs / 1000, 2)} s") : string.Empty;
 
         private static double Clamp(double seconds) => Math.Max(0.05, Math.Min(3, seconds));
 

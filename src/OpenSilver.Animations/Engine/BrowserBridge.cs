@@ -81,6 +81,30 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
+        /// Keeps showing the old text of a TextBlock whose text just changed, until a batch plays
+        /// its text change or releases it. Queued after the write of the new text, in the same
+        /// flush, so that the new text never shows before.
+        /// </summary>
+        public static void TextHold(string id, string oldText)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.textHold(");
+            AppendString(sb, id);
+            sb.Append(',');
+            AppendString(sb, oldText);
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
+        /// <summary>
+        /// Ends the text change that a TextBlock plays, if any, so that its new text shows at once.
+        /// </summary>
+        public static void TextStop(string id)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.textStop(");
+            AppendString(sb, id);
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
+        /// <summary>
         /// Copies the elements that are near the screen, like <see cref="Ghost"/>.
         /// </summary>
         public static void GhostInView(IList<string> ids)
@@ -148,6 +172,18 @@ namespace OpenSilver.Animations.Engine
                         break;
                     case '\\':
                         sb.Append("\\\\");
+                        break;
+                    case '\n':
+                        sb.Append("\\n");
+                        break;
+                    case '\r':
+                        sb.Append("\\r");
+                        break;
+                    case '\u2028':
+                        sb.Append("\\u2028");
+                        break;
+                    case '\u2029':
+                        sb.Append("\\u2029");
                         break;
                     default:
                         sb.Append(c);

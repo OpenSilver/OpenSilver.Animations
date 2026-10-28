@@ -91,7 +91,7 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
   - `ItemAppear`, `ItemDisappear` and `ItemMoveAndResize` are "When an item appears / disappears / moves or changes size", and `ItemCascade` is "Cascade".
   - `TextChange` is "When its text changes", and `MagicMove` is "Magic move".
   - `Hover` is "When the mouse is over it", and `Press` is "When it is pressed".
-  - For parameters, the label is the XAML name split into words: `StartAfter` is "Start after", `OthersMove` is "Other elements move", `OnPageOpen` is "When the page opens", `ApplyTo` is "Apply to", and `AlsoOnWindowResize` is "Also when the browser window is resized". `From`, `To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `Wave`, `Speed`, `Cursor` and `Travel` keep their names.
+  - For parameters, the label is the XAML name split into words: `StartAfter` is "Start after", `OthersMove` is "Other elements move", `OnPageOpen` is "When the page opens", `ApplyTo` is "Apply to", and `AlsoOnWindowResize` is "Also when the browser window is resized". `BlinkFirst` is "Blink first". `From`, `To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `Wave`, `Speed`, `Cursor` and `Travel` keep their names.
 - **Off by default.** Choosing an effect is enough; every parameter has a good default.
 - **Surrounding elements never overlap or jump.** When something animates, everything involved in the same change animates with it. That's not an option the developer has to understand.
 - **Beginner vocabulary:** `From`/`To` (not Direction), `StartAfter` (not Delay), `Zoom` (not Scale), `Bouncy` (not Spring), `Cascade` (not Stagger), `Wave` (not Ripple).
@@ -125,7 +125,7 @@ The NuGet package is `OpenSilver.Animations`, described as "Easy animations for 
 
 <!-- Text -->
 <TextBlock Text="{Binding Count}" anim:Animate.TextChange="Roll" />
-<TextBlock Text="Welcome" anim:Animate.Appear="{anim:Typewriter Speed=40, Cursor=True}" />
+<TextBlock Text="Welcome" anim:Animate.Appear="{anim:Typewriter Speed=40, BlinkFirst=1.5s}" />
 
 <!-- Magic move -->
 <Border anim:Animate.MagicMove="SelectionPill" />
@@ -153,15 +153,17 @@ Animate.Skip(() => LoadInitialData());
     - `From` (Appear) / `To` (Disappear): `Top`, `Bottom` (default), `Left`, `Right`. Used by Slide and Wipe. On Zoom, the size it grows from or shrinks to: 0 to 3, default 0.9.
     - `Distance`: `Short` (10 px), `Medium` (30 px, default), `Long` (100 px), a number of pixels, or a percent of the element's own size (`50%`, 0 to 1000%): of its width from the left or the right, of its height from the top or the bottom. Used by Slide. Lift and Nudge take pixels only: a percent warns and uses their default.
     - `Fade`: `True` (default) or `False`. Used by Slide and Zoom: `False` only moves or zooms, like a panel that slides in from beyond its edge with `Distance=100%`.
-    - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.25 s). All presets except Typewriter and Backspace. Pop, and any preset with `Easing=Bouncy`, default to twice `DefaultDuration`, so that the bounce has time to settle.
+    - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.25 s). All presets except Typewriter and Backspace. Pop, and any preset with `Easing=Bouncy`, default to twice `DefaultDuration`, so that the bounce has time to settle. FadeLetters also defaults to twice `DefaultDuration` (0.5 s).
     - `OthersDuration`: 0.05 to 3 s, default the effect's `Duration`. How long the surrounding elements take to make room or to fill the space. All presets.
     - `StartAfter`: 0 to 10 s, default 0. All presets.
     - `Easing`: `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `Overshoot`, or an `IEasingFunction` resource. All presets except the text ones.
     - `Bounciness`: 0.1 to 1, default 0.5. Pop, any preset with `Easing=Bouncy`, and `Easing=Overshoot`, where it's the amplitude of the `BackEase` (about 13% past the end at 0.5, 38% at 1).
     - Custom look: `Opacity` (0 to 1, default 0), `OffsetX`/`OffsetY` (px, default 0), `Zoom` (0 to 3, default 1), `Rotate` (degrees, default 0), `Blur` (px, default 0). Used by Custom. It's the start look for Appear and the end look for Disappear.
-    - `Speed`: letters per second, 5 to 200, default 30. Typewriter and Backspace. `Cursor`: default false. Typewriter.
+    - `Speed`: letters per second, 5 to 200, default 30. Typewriter and Backspace.
+    - `Cursor`: default true. Typewriter and Backspace. `False` removes the cursor, and its blinking first.
+    - `BlinkFirst`: 0 to 10 s, how long the cursor blinks before the letters change. Default 0.8 s on Typewriter, 0 on Backspace. It counts after `StartAfter`, during which nothing shows. With `Cursor=False`, it is ignored with a warning.
     - `OnPageOpen` (Appear only): `InPlace` (default), `PushOthers`, `Skip`.
-    - `OthersMove`: `While` (default); `Before` for Appear only; `After` for Disappear only.
+    - `OthersMove`: `While` (default); `Before` for Appear only; `After` for Disappear only. Backspace defaults to `After`: it erases first, then the others close the gap.
   - **At runtime, surrounding elements always move smoothly** to make room or to fill the space. They use the effect's `Duration` (or its `OthersDuration`) and `Easing`, except that they never bounce or overshoot: a bouncy effect moves them with `Smooth`, and an overshooting one with `EaseOut`.
   - **The fade never bounces or overshoots either.** With `Bouncy` or `Pop`, the opacity plays `Smooth`; with `Overshoot`, `EaseOut`. The move, zoom and the rest of the look keep the effect's curve.
   - **An element that appears stays where it ends.** When it makes its container grow, and the container moves because of its alignment (half the growth when centered or stretched, all of it when aligned right or bottom), the element is moved back against that move. It grows or slides in at its final place on screen instead of drifting with its container. It still moves with containers that are pushed by other elements. A StackPanel along its stacking direction, and a Canvas, don't count as re-centering.
@@ -181,6 +183,15 @@ Animate.Skip(() => LoadInitialData());
     - It's divided by `AnimationSettings.Speed`, like durations, and it's clamped to 10 s.
   - **What the presets do.** `Fade` fades opacity. `Slide` fades while moving `Distance` from the `From` side. `Zoom` fades while zooming from `From` (90% by default). With `Fade=False`, Slide and Zoom don't fade. `Pop` zooms from 50% with a bounce. `Wipe` reveals from the `From` edge without fading. `Blur` fades from an 8 px blur.
     - Used as a Disappear, Pop zooms out to 90% like Zoom, with a warning.
+  - **The text presets.** They play on the letters of a TextBlock; an emoji or a letter with its accents counts as one letter.
+    - `Typewriter` types the letters one after the other, at `Speed` letters per second. A cursor blinks where the first letter goes for `BlinkFirst` (0.8 s: it shows, goes off once, and typing starts as it comes back), follows the letters, blinks twice in about 2 s after the last one, then fades away. A long text goes faster: the typing takes 10 s at most.
+    - `Backspace` erases the letters from the last one, at `Speed`, with a cursor after the last letter. With `BlinkFirst`, the cursor blinks there first. The erasing takes 3 s at most.
+    - **The cursor** is a tenth of the font size wide, in the color of the text. It is on for 0.4 s and off for 0.4 s when it blinks, divided by `AnimationSettings.Speed` like `BlinkFirst`.
+    - `FadeLetters` fades the letters in from the first to the last, or out the same way. Each letter fades for half of the `Duration`, one after the other.
+    - The others make room with `OthersDuration`, or the default duration, whatever the speed of the letters. With `OthersMove=After`, they wait for the last letter.
+    - With `OthersMove=After`, the others also wait for `BlinkFirst`.
+    - Typewriter as a Disappear erases like Backspace, and Backspace as an Appear types like Typewriter, with a warning. Both keep their cursor and their `BlinkFirst`. `Duration` on Typewriter or Backspace, and `Easing` on any text preset, are ignored with a warning.
+    - On an element that is not a TextBlock, a text preset fades, with a warning. As an item effect, see "Items".
 - **Animate.MoveAndResize**: `None` (default), `Smooth` or `Bouncy`.
   - **Parameters:**
     - `Duration`.
@@ -204,7 +215,7 @@ Animate.Skip(() => LoadInitialData());
     - Each resize event retargets from the current on-screen position, so elements keep following the window edge.
     - A `{Responsive}` value that switches when the window, or the element it watches, crosses a breakpoint animates without this flag, like a click (see "Window resizes" in "When things animate").
 - **Items** (Panel or ItemsControl). Items are the containers of an ItemsControl, or the children of a Panel. Setting the properties on the items panel inside an ItemsControl's template also works.
-  - `Animate.ItemAppear` and `Animate.ItemDisappear`: the same presets and parameters as Appear/Disappear, except the text ones. `OnPageOpen` accepts `InPlace` or `Skip`.
+  - `Animate.ItemAppear` and `Animate.ItemDisappear`: the same presets and parameters as Appear/Disappear. `OnPageOpen` accepts `InPlace` or `Skip`. The text presets play on the children of a Panel that are TextBlocks, and the others fade. The items of an ItemsControl are containers, so there a text preset fades them, with a warning.
   - `Animate.ItemMoveAndResize`: `Smooth`, `Bouncy` or `None`, with the same parameters as `MoveAndResize` except `ApplyTo`. Each item moves and resizes smoothly, including when the list is re-sorted, filtered or refreshed. `None` carves each item out, like `MoveAndResize=None` on it: changes that start inside an item never animate.
   - `Animate.ItemCascade`: the time between items that appear or disappear together, from 0 to 0.3 s (default 0, all together). The total is capped at 0.6 s: with many items, they come closer together.
     - The items follow the order in which the list arranges them. Those that appear and those that disappear in the same change make two cascades, which start together.
@@ -226,11 +237,21 @@ Animate.Skip(() => LoadInitialData());
   - **Visual only.** The reaction plays on top of everything else, like the moves: it doesn't change `RenderTransform` or any other property, and the element keeps its place and size, so nothing around it moves.
   - **Warnings.** `Nudge` on Press, `Easing` on Nudge, and `Bounciness` without Nudge or `Easing=Bouncy` write a warning, and are ignored.
   - **No messages when they play.** Apart from these warnings, reactions don't write to the log: they happen too often to explain.
-- **Animate.TextChange** (TextBlock), used when `Text` changes while the TextBlock is visible:
-  - `Roll`: `From=Bottom` (default) or `Top`, plus `Duration`.
-  - `CrossFade`, `Scramble`: `Duration`.
-  - `Retype`: `Speed`.
-  - `CountUp`: `Duration`. For numbers only; other text uses CrossFade.
+- **Animate.TextChange** (TextBlock), used when `Text` changes while the TextBlock is visible, from code or from a binding. Its type is `TextTransition`.
+  - **Presets:**
+    - `Roll`: the characters that change roll in, like on a counter; the others don't move. `From` is automatic by default: from the bottom when the number grows, from the top when it shrinks, and from the bottom for text. `From=Bottom` or `From=Top` forces a side; `Left` and `Right` are ignored with a warning. Numbers with the same text around them are aligned on their last digit, so that 9 to 10 rolls the 9 into a 0 and brings in a 1 on the left; other text is aligned on its first character. A character whose width changes makes its column grow or shrink smoothly.
+    - `CrossFade`: the old text fades out while the new one fades in, in the same place.
+    - `Scramble`: random characters of the same kind (digits, capitals, small letters) settle on the new text from left to right, 20 times a second. Spaces, punctuation, and the letters that are the same at the same place stay.
+    - `Retype`: erases the old text down to the beginning it shares with the new one, then types the rest, at `Speed` letters per second (5 to 200, default 30). Erasing and typing take 3 s at most. A cursor follows the letters, then blinks twice and fades away, like Typewriter's. `Cursor` (default true) and `BlinkFirst` (0 to 10 s, default 0: the cursor blinks after the old text before erasing) work like on Typewriter.
+    - `CountUp`: counts from the old number to the new one, fast at first, then slowing down, in the format of the new text: its text around the number, its group separator and its number of decimals. When the old text has no number, it counts from 0. When the new text has no number, it cross-fades.
+    - `None`.
+  - **Duration:** 0.05 to 3 s. `Roll` and `CrossFade` default to `DefaultDuration` (0.25 s); `Scramble` and `CountUp` to four times that (1 s). `Retype` uses `Speed` instead, and ignores `Duration` with a warning, and `BlinkFirst` with `Cursor=False`.
+  - **Numbers.** A number is a run of digits, with an optional minus sign, and separators between groups of 3 digits. Its decimal separator is a last `.` or `,` that is different from the separators before it, or a single one that can't be a group separator: not followed by exactly 3 digits, or after a lone 0 or more than 3 digits. Otherwise the current culture decides. So "$12,480" is 12480, "4.2%" is 4.2, and in "Oct 28 2026" the number is 28.
+  - **Fallbacks.** Roll on text that wraps to several lines, and any effect on a TextBlock whose content is not a single Run, cross-fade.
+  - **A new change during an effect** waits for its layout pass while the effect goes on, then starts from what the effect shows: Roll and CrossFade from their new text, Scramble and Retype from their current letters, CountUp from the number it shows. The count never jumps back.
+  - **Snaps.** With `IsEnabled` off, reduced motion, inside `Animate.Skip`, while dragging, or in the designer, the new text shows at once.
+  - **Messages:** "The text of BadgeCount changed; it rolls up (0.25 s, from its TextChange)." or "The text of BadgeCount changed at once, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion)."
+  - **Around it.** The TextBlock gets its new size at once. To move what is around it smoothly, add `MoveAndResize` to the TextBlock or to its container; both play together.
 - **Magic move.**
   - `Animate.MagicMove`: an id, which can be bound. Or `{anim:MagicMove Id=..., Travel=Automatic|Above|Behind, Duration=..., Easing=...}`.
   - `Animate.MagicMoveByName` (bool) on a Frame or ContentControl: elements with the same `x:Name` in the old and new content morph into each other.
@@ -253,7 +274,7 @@ Animate.Skip(() => LoadInitialData());
   - moves and resizes snap;
   - appear and disappear effects become a 0.15 s fade;
   - hover and press reactions don't play;
-  - text effects show the final text;
+  - text changes show the new text at once, and Typewriter, Backspace and FadeLetters become the 0.15 s fade;
   - Magic move becomes a cross-fade in place.
 - **No compatibility layer.** The Showcase's own `OpenSilver.Animations` project will be removed. The Showcase is ported to this API.
 
@@ -338,7 +359,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
   - Pop: Duration, Start after, Bounciness.
   - Wipe: From, Duration, Start after, Easing.
   - Custom: "Start look" (Opacity %, Move X px, Move Y px, Zoom %, Rotate °, Blur px), then Duration, Start after, Easing.
-  - Typewriter: Speed (letters per second), "Show a blinking cursor", Start after.
+  - Typewriter: Speed (letters per second), "Show a blinking cursor" (checked by default), Blink first (shown with the cursor), Start after.
   - Fade letters: Duration, Start after.
 - **"Other elements move"** radio:
   - "While it appears" (default);
@@ -358,7 +379,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
 ### "When it disappears"
 
 - **Gallery:** None, Fade, Slide, Zoom, Wipe, Blur, Custom ("End look"). For a TextBlock, also Backspace and Fade letters.
-- **Fields:** the same as for appearing, with "To" instead of "From". Backspace has Speed.
+- **Fields:** the same as for appearing, with "To" instead of "From". Backspace has Speed, "Show a blinking cursor" and Blink first, like Typewriter.
 - **"Other elements move"** radio, shown when the element pushes something:
   - "While it disappears" (default);
   - "After it has disappeared".
@@ -396,9 +417,9 @@ This section is the specification for the XAML.io repo. It is not implemented in
 
 - **Gallery:** None, Roll, Cross-fade, Scramble, Retype, Count up.
 - **Fields:**
-  - Roll: "From" (Bottom or Top) and Duration.
+  - Roll: "From" (Automatic, Bottom or Top) and Duration.
   - Cross-fade, Scramble and Count up: Duration.
-  - Retype: Speed.
+  - Retype: Speed, "Show a blinking cursor" (checked by default) and Blink first.
 - **Example line:** "For example when a bound value changes. Count up needs a number."
 
 ### "Magic move"
@@ -548,7 +569,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
    - a virtualized list where scrolling plays no effects.
 7. **Everything inside.** `ApplyTo=EverythingInside` on a settings form; a nested `None` that carves out a chart; the area outline; the popup boundary. Demo: a responsive layout that switches from 2 columns to 1 with a button.
 8. **When the window or a panel is resized.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window". A profile panel resized with a GridSplitter, whose content switches layout with `{Responsive ElementName=...}` while it's dragged. Cards that switch from a row to a column with the window.
-9. **Text that moves.** Typewriter, Roll on a counter, Count up, Scramble and Retype, plus a live clock.
+9. **Text that moves.** Roll on a badge, Count up on a dashboard, a clock that rolls, Retype, Cross-fade and Scramble on a tagline, and Typewriter, Backspace and FadeLetters on a message. The title uses Typewriter, with its cursor blinking first. The message has Speed, Cursor and Blink first choices.
 10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
 11. **Magic move.** A segmented control with a selection pill, a tab underline, a list-to-detail photo, and a wizard with `MagicMoveByName`.
 12. **Hover and press.** `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, icons that the mouse nudges with Distance and Tilt sliders, and a button that doesn't react while it's disabled.
@@ -745,14 +766,15 @@ Each line is what the developer sets, and what must happen.
 
 ## Text animations
 
-- **Detecting changes.** `TextBlock.Text` is mirrored through a private attached property binding, which gives old and new values.
+- **Detecting changes.** `TextBlock.Text` is mirrored through a private attached property binding, which gives old and new values. OpenSilver writes the new text to the page before the binding updates, so the old text is held right away: the library shows it in the overlay until the layout pass plays the change.
 - **Overlay.** A library overlay (`data-os-foreign`) inside the TextBlock's div renders the animated characters.
-  - During the effect, the TextBlock's div gets `visibility: hidden` and the overlay `visibility: visible`.
-  - Measurement is unaffected: `measureTextBlock` receives its HTML from C#.
+  - During the effect, the TextBlock's div gets `visibility: hidden` and `overflow: visible`, and the overlay `visibility: visible`.
+  - OpenSilver measures a TextBlock by copying its HTML into a measuring element, overlay included. So the overlay is out of the flow (`position: absolute` over the whole TextBlock, with its padding), and doesn't change the measure.
   - Inlines inserted by `createVisual` skip the overlay (core change 2).
+  - When the app changes the content in another way, the real text shows at once.
 - **Effects.**
   - Typewriter, FadeLetters and Backspace use spans that only animate opacity, so wrapping matches exactly.
-  - Roll uses a character diff, and works on single-line text only in v1. It's clipped by the TextBlock's `overflow: clip`.
+  - Roll uses a character diff, and works on single-line text only in v1. Each column clips its own characters.
   - Rich inlines fall back to CrossFade.
 
 ## Showcase parity (reference demo)

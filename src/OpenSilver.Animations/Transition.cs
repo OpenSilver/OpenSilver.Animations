@@ -9,8 +9,9 @@ namespace OpenSilver.Animations
     /// <summary>
     /// What an element does when it appears or disappears: <see cref="Fade"/>, <see cref="Slide"/>,
     /// <see cref="Zoom"/>, <see cref="Pop"/>, <see cref="Wipe"/>, <see cref="Blur"/>, <see cref="Custom"/>
-    /// or <see cref="None"/>. In XAML, write the name (<c>"Fade"</c>) or use a markup extension to set
-    /// parameters (<c>"{anim:Slide From=Top, Duration=0.4s}"</c>).
+    /// or <see cref="None"/>, and for a TextBlock, <see cref="Typewriter"/>, <see cref="FadeLetters"/>
+    /// and <see cref="Backspace"/>. In XAML, write the name (<c>"Fade"</c>) or use a markup extension
+    /// to set parameters (<c>"{anim:Slide From=Top, Duration=0.4s}"</c>).
     /// </summary>
     [TypeConverter(typeof(TransitionConverter))]
     public abstract class Transition : MarkupExtension
@@ -19,6 +20,7 @@ namespace OpenSilver.Animations
 
         private double? _bounciness;
         private AnimationTime _startAfter;
+        private OthersMove? _othersMove;
 
         private protected Transition() { }
 
@@ -32,14 +34,16 @@ namespace OpenSilver.Animations
         /// How long the effect lasts, from 0.05 to 3 seconds. The elements around it that move to make
         /// room or to fill the space take the same time, unless you set <see cref="OthersDuration"/>.
         /// The default is <see cref="AnimationSettings.DefaultDuration"/> (twice that for
-        /// <see cref="Pop"/> and <c>Easing=Bouncy</c>).
+        /// <see cref="Pop"/>, <see cref="FadeLetters"/> and <c>Easing=Bouncy</c>). Not used by
+        /// <see cref="Typewriter"/> and <see cref="Backspace"/>, which have a Speed.
         /// </summary>
         public AnimationTime? Duration { get; set; }
 
         /// <summary>
         /// How long the elements around it take to move to make room or to fill the space, from
-        /// 0.05 to 3 seconds. The default is the <see cref="Duration"/> of the effect. A little
-        /// longer makes them follow it softly.
+        /// 0.05 to 3 seconds. The default is the <see cref="Duration"/> of the effect, and
+        /// <see cref="AnimationSettings.DefaultDuration"/> for the effects of a TextBlock's
+        /// letters. A little longer makes them follow it softly.
         /// </summary>
         public AnimationTime? OthersDuration { get; set; }
 
@@ -47,7 +51,7 @@ namespace OpenSilver.Animations
         /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, Bouncy, EaseOut,
         /// EaseIn, EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. With Bouncy, it
         /// fades without bouncing, and the elements around it move smoothly. With Overshoot, it
-        /// fades, and they move, with EaseOut.
+        /// fades, and they move, with EaseOut. Not used by the effects of a TextBlock's letters.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }
@@ -66,9 +70,14 @@ namespace OpenSilver.Animations
         /// <summary>
         /// When the elements around it move: <see cref="Animations.OthersMove.While"/> it appears or
         /// disappears (the default), <see cref="Animations.OthersMove.Before"/> it appears, or
-        /// <see cref="Animations.OthersMove.After"/> it disappears.
+        /// <see cref="Animations.OthersMove.After"/> it disappears (the default for
+        /// <see cref="Backspace"/>, so that they don't cover the letters it erases).
         /// </summary>
-        public OthersMove OthersMove { get; set; }
+        public OthersMove OthersMove
+        {
+            get => _othersMove ?? DefaultOthersMove;
+            set => _othersMove = value;
+        }
 
         /// <summary>
         /// How long it waits before its effect starts, from 0 (the default) to 10 seconds. It stays
@@ -97,6 +106,39 @@ namespace OpenSilver.Animations
 
         internal bool UsesBounciness => IsBouncy || Easing is OvershootEasing;
 
+        /// <summary>
+        /// Whether it plays on the letters of a TextBlock.
+        /// </summary>
+        internal bool IsText => this is Typewriter || this is FadeLetters || this is Backspace;
+
+        /// <summary>
+        /// Whether it types or erases at a Speed instead of lasting a Duration.
+        /// </summary>
+        internal bool HasSpeed => this is Typewriter || this is Backspace;
+
+        /// <summary>
+        /// The letters per second of Typewriter and Backspace.
+        /// </summary>
+        internal virtual double LettersPerSecond => 0;
+
+        /// <summary>
+        /// Whether a cursor follows the letters of Typewriter and Backspace.
+        /// </summary>
+        internal virtual bool ShowsCursor => false;
+
+        /// <summary>
+        /// How long the cursor of Typewriter and Backspace blinks before the first letter, when
+        /// it shows.
+        /// </summary>
+        internal virtual AnimationTime BlinkFirstTime => AnimationTime.Zero;
+
+        /// <summary>
+        /// Whether BlinkFirst was set, for the warning when there is no cursor.
+        /// </summary>
+        internal virtual bool HasBlinkFirst => false;
+
+        internal virtual OthersMove DefaultOthersMove => OthersMove.While;
+
         internal virtual bool HasFrom => false;
 
         internal virtual bool HasTo => false;
@@ -124,7 +166,8 @@ namespace OpenSilver.Animations
         public override object ProvideValue(IServiceProvider serviceProvider) => this;
 
         /// <summary>
-        /// Reads an effect name: Fade, Slide, Zoom, Pop, Wipe, Blur, Custom or None.
+        /// Reads an effect name: Fade, Slide, Zoom, Pop, Wipe, Blur, Custom, Typewriter,
+        /// FadeLetters, Backspace or None.
         /// </summary>
         /// <exception cref="FormatException">
         /// The text is not an effect name.
@@ -133,6 +176,12 @@ namespace OpenSilver.Animations
         {
             switch (text?.Trim().ToLowerInvariant())
             {
+                case "typewriter":
+                    return new Typewriter();
+                case "fadeletters":
+                    return new FadeLetters();
+                case "backspace":
+                    return new Backspace();
                 case "fade":
                     return new Fade();
                 case "slide":
@@ -151,12 +200,13 @@ namespace OpenSilver.Animations
                 case "":
                     return None;
                 default:
-                    throw new FormatException($"'{text}' is not an effect. Use Fade, Slide, Zoom, Pop, Wipe, Blur, Custom or None.");
+                    throw new FormatException($"'{text}' is not an effect. Use Fade, Slide, Zoom, Pop, Wipe, Blur, Custom, Typewriter, FadeLetters, Backspace or None.");
             }
         }
 
         /// <summary>
-        /// Reads an effect name: Fade, Slide, Zoom, Pop, Wipe, Blur, Custom or None.
+        /// Reads an effect name: Fade, Slide, Zoom, Pop, Wipe, Blur, Custom, Typewriter,
+        /// FadeLetters, Backspace or None.
         /// </summary>
         public static implicit operator Transition(string text) => Parse(text);
 
@@ -451,6 +501,145 @@ namespace OpenSilver.Animations
     }
 
     /// <summary>
+    /// For a TextBlock: its letters are typed one after the other, like on a typewriter. A cursor
+    /// blinks where the first letter goes, follows the letters, then blinks twice and fades away.
+    /// A long text types faster, so that it never takes more than 10 seconds. For Appear: as a
+    /// Disappear, its letters are erased like <see cref="Backspace"/>.
+    /// </summary>
+    /// <example>
+    /// <code>&lt;TextBlock Text="Welcome" anim:Animate.Appear="{anim:Typewriter Speed=40, BlinkFirst=1.5s}" /&gt;</code>
+    /// </example>
+    public sealed class Typewriter : Transition
+    {
+        private static readonly AnimationTime DefaultBlinkFirst = AnimationTime.FromSeconds(0.8);
+        private static readonly AnimationTime MaxBlinkFirst = AnimationTime.FromSeconds(10);
+
+        private double _speed = 30;
+        private AnimationTime? _blinkFirst;
+
+        /// <summary>
+        /// How many letters it types per second, from 5 to 200. The default is 30.
+        /// </summary>
+        public double Speed
+        {
+            get => _speed;
+            set => _speed = LettersOf(value);
+        }
+
+        /// <summary>
+        /// Whether a cursor shows where the next letter goes while it types, then blinks twice and
+        /// fades away. The default is true.
+        /// </summary>
+        public bool Cursor { get; set; } = true;
+
+        /// <summary>
+        /// How long the cursor blinks where the first letter goes before typing starts, from 0 to
+        /// 10 seconds. The default is 0.8 seconds: the cursor shows, goes off once, and typing
+        /// starts as it comes back. It counts after <see cref="Transition.StartAfter"/>, during
+        /// which nothing shows. Not used without the cursor.
+        /// </summary>
+        public AnimationTime BlinkFirst
+        {
+            get => _blinkFirst ?? DefaultBlinkFirst;
+            set => _blinkFirst = BlinkFirstOf(value);
+        }
+
+        internal override double LettersPerSecond => Speed;
+
+        internal override bool ShowsCursor => Cursor;
+
+        internal override AnimationTime BlinkFirstTime => BlinkFirst;
+
+        internal override bool HasBlinkFirst => _blinkFirst != null;
+
+        internal override string PresetName => "Typewriter";
+
+        internal override EffectLook GetLook(bool appear) => new EffectLook
+        {
+            Text = appear ? EffectLook.TypeLetters : EffectLook.EraseLetters,
+            Cursor = Cursor,
+        };
+
+        internal override string Describe(bool appear) => appear ? "is typed in" : "is erased letter by letter";
+
+        internal static double LettersOf(double value) => double.IsNaN(value) ? 30 : Math.Max(5, Math.Min(200, value));
+
+        internal static AnimationTime BlinkFirstOf(AnimationTime value) => value.Value > MaxBlinkFirst.Value ? MaxBlinkFirst : value;
+    }
+
+    /// <summary>
+    /// For a TextBlock: its letters fade in one after the other, from the first to the last, or
+    /// fade out the same way. The whole effect lasts its Duration, twice
+    /// <see cref="AnimationSettings.DefaultDuration"/> by default.
+    /// </summary>
+    public sealed class FadeLetters : Transition
+    {
+        internal override string PresetName => "FadeLetters";
+
+        internal override EffectLook GetLook(bool appear) => new EffectLook { Text = EffectLook.FadeLetters };
+
+        internal override string Describe(bool appear) => appear ? "fades in letter by letter" : "fades out letter by letter";
+    }
+
+    /// <summary>
+    /// For a TextBlock: its letters are erased one after the other, from the last one, like with
+    /// the Backspace key, with a cursor after the last letter. The elements around it move into
+    /// its place after that (<see cref="Transition.OthersMove"/> is After by default). A long text
+    /// is erased faster, so that it never takes more than 3 seconds. For Disappear: as an Appear,
+    /// its letters are typed like <see cref="Typewriter"/>.
+    /// </summary>
+    public sealed class Backspace : Transition
+    {
+        private double _speed = 30;
+        private AnimationTime? _blinkFirst;
+
+        /// <summary>
+        /// How many letters it erases per second, from 5 to 200. The default is 30.
+        /// </summary>
+        public double Speed
+        {
+            get => _speed;
+            set => _speed = Typewriter.LettersOf(value);
+        }
+
+        /// <summary>
+        /// Whether a cursor shows after the last letter while it erases. The default is true.
+        /// </summary>
+        public bool Cursor { get; set; } = true;
+
+        /// <summary>
+        /// How long the cursor blinks after the last letter before erasing starts, from 0 (the
+        /// default) to 10 seconds. It counts after <see cref="Transition.StartAfter"/>. Not used
+        /// without the cursor.
+        /// </summary>
+        public AnimationTime BlinkFirst
+        {
+            get => _blinkFirst ?? AnimationTime.Zero;
+            set => _blinkFirst = Typewriter.BlinkFirstOf(value);
+        }
+
+        internal override double LettersPerSecond => Speed;
+
+        internal override bool ShowsCursor => Cursor;
+
+        internal override AnimationTime BlinkFirstTime => BlinkFirst;
+
+        internal override bool HasBlinkFirst => _blinkFirst != null;
+
+        internal override OthersMove DefaultOthersMove => OthersMove.After;
+
+        internal override string PresetName => "Backspace";
+
+        internal override EffectLook GetLook(bool appear) => new EffectLook
+        {
+            Text = appear ? EffectLook.TypeLetters : EffectLook.EraseLetters,
+            Cursor = Cursor,
+        };
+
+        internal override string Describe(bool appear) => appear ? "is typed in" : "is erased letter by letter";
+    }
+
+    /// <summary>
     /// A side or an edge of an element.
     /// </summary>
     public enum Side
@@ -523,7 +712,8 @@ namespace OpenSilver.Animations
     }
 
     /// <summary>
-    /// Converts the names Fade, Slide, Zoom, Pop, Wipe, Blur, Custom and None to a <see cref="Transition"/>.
+    /// Converts the names Fade, Slide, Zoom, Pop, Wipe, Blur, Custom, Typewriter, FadeLetters,
+    /// Backspace and None to a <see cref="Transition"/>.
     /// </summary>
     public sealed class TransitionConverter : TypeConverter
     {
@@ -697,6 +887,11 @@ namespace OpenSilver.Animations
         public const int FromBottom = 3;
         public const int FromRight = 4;
 
+        public const int NoText = 0;
+        public const int TypeLetters = 1;
+        public const int FadeLetters = 2;
+        public const int EraseLetters = 3;
+
         public static EffectLook Identity => new EffectLook { Opacity = 1, Scale = 1 };
 
         private double? _opacity;
@@ -745,5 +940,30 @@ namespace OpenSilver.Animations
         /// The edge of a wipe, or <see cref="NoWipe"/>.
         /// </summary>
         public int Wipe;
+
+        /// <summary>
+        /// What happens to the letters of a TextBlock, or <see cref="NoText"/>. The rest of the
+        /// look is not used then.
+        /// </summary>
+        public int Text;
+
+        /// <summary>
+        /// The time between two letters typed or erased, in milliseconds at the current speed.
+        /// </summary>
+        public double LetterMs;
+
+        public bool Cursor;
+
+        /// <summary>
+        /// How long the cursor blinks after the last letter typed, in milliseconds at the current
+        /// speed, or 0 without a cursor. Each blink lasts a fifth of it, also before the first
+        /// letter.
+        /// </summary>
+        public double CursorMs;
+
+        /// <summary>
+        /// How long the cursor blinks before the first letter, in milliseconds at the current speed.
+        /// </summary>
+        public double BlinkFirstMs;
     }
 }

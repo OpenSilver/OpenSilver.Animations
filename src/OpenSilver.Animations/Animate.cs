@@ -5,13 +5,14 @@ using OpenSilver.Animations.Engine;
 namespace OpenSilver.Animations
 {
     /// <summary>
-    /// Makes elements animate when they appear, disappear, move or change size, and when the
-    /// mouse is over them or presses them.
+    /// Makes elements animate when they appear, disappear, move or change size, when the mouse is
+    /// over them or presses them, and when the text of a TextBlock changes.
     /// </summary>
     /// <example>
     /// <code>
     /// &lt;StackPanel x:Name="Details" anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" /&gt;
     /// &lt;Button Content="Save" anim:Animate.MoveAndResize="Smooth" /&gt;
+    /// &lt;TextBlock Text="{Binding Total}" anim:Animate.TextChange="CountUp" /&gt;
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
     /// &lt;ItemsControl anim:Animate.ItemAppear="Fade" anim:Animate.ItemDisappear="Fade" anim:Animate.ItemMoveAndResize="Smooth" /&gt;
     /// &lt;Button Content="Buy" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;
@@ -121,6 +122,59 @@ namespace OpenSilver.Animations
             if (appear && e.OldValue is Transition old && old.OnPageOpen == PageOpen.PushOthers)
             {
                 LayoutAnimator.CancelHold(element);
+            }
+        }
+
+        /// <summary>
+        /// Identifies the TextChange attached property.
+        /// </summary>
+        public static readonly DependencyProperty TextChangeProperty =
+            DependencyProperty.RegisterAttached(
+                "TextChange",
+                typeof(TextTransition),
+                typeof(Animate),
+                new PropertyMetadata(null, OnTextChangeChanged));
+
+        /// <summary>
+        /// Gets what the TextBlock does when its text changes.
+        /// </summary>
+        public static TextTransition GetTextChange(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (TextTransition)element.GetValue(TextChangeProperty);
+        }
+
+        /// <summary>
+        /// Sets what a TextBlock does when its text changes, whether you set Text in code or a
+        /// binding changes it: <see cref="Roll"/>, <see cref="CrossFade"/>, <see cref="Scramble"/>,
+        /// <see cref="Retype"/>, <see cref="CountUp"/> or <see cref="TextTransition.None"/>. When
+        /// the new text has another size, add <see cref="SetMoveAndResize">MoveAndResize</see> to
+        /// the TextBlock, so that it and the elements around it change size smoothly.
+        /// </summary>
+        /// <example>
+        /// <code>&lt;TextBlock Text="{Binding UnreadCount}" anim:Animate.TextChange="Roll" anim:Animate.MoveAndResize="Smooth" /&gt;</code>
+        /// </example>
+        public static void SetTextChange(UIElement element, TextTransition value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(TextChangeProperty, value);
+        }
+
+        private static void OnTextChangeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is UIElement element && e.NewValue is TextTransition effect)
+            {
+                LayoutAnimator.EnsureStarted();
+                LayoutAnimator.CheckTextChange(effect, element);
+                TextChanges.Watch(element);
             }
         }
 

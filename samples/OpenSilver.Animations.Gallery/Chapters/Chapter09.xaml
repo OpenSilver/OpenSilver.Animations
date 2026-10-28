@@ -1,0 +1,222 @@
+<sdk:Page x:Class="OpenSilver.Animations.Gallery.Chapters.Chapter09"
+          xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
+          xmlns:anim="http://opensilver.net/animations"
+          xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
+          Title="Text that moves"
+          Unloaded="Page_Unloaded">
+
+    <sdk:Page.Resources>
+        <Style x:Key="Choice" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,4,16,4" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="StatLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+        </Style>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+        <Style x:Key="WordLabel" TargetType="TextBlock">
+            <Setter Property="Width" Value="90" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="WordText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{Responsive Mobile=16, Tablet=20}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </sdk:Page.Resources>
+
+    <StackPanel Style="{StaticResource ChapterRoot}">
+        <TextBlock Text="CHAPTER 9" Style="{StaticResource OverlineText}" />
+        <TextBlock Text="Text that moves" Style="{StaticResource ChapterTitleText}"
+                   anim:Animate.Appear="{anim:Typewriter StartAfter=0.1s}" />
+        <TextBlock Style="{StaticResource IntroText}"
+                   Text="Set Animate.TextChange on a TextBlock, and when its text changes, from your code or from a binding, the old text turns into the new one: its digits roll like a counter, its number counts up, or its words are retyped, cross-fade or scramble." />
+        <TextBlock Style="{StaticResource IntroText}"
+                   Text="Three more effects of Appear and Disappear are for the letters of a TextBlock: Typewriter types them, Backspace erases them, and FadeLetters fades them one after the other. The title of this page is typed by Typewriter." />
+
+        <!-- 1. Badge -->
+        <controls:DemoCard Title="A badge that counts"
+                           Description="Add and remove messages. The digits that change roll, like on a counter, and the badge grows around the number."
+                           Xaml='&lt;Border CornerRadius="10" anim:Animate.MoveAndResize="Smooth"&gt;&#10;    &lt;TextBlock Text="{Binding UnreadCount}" anim:Animate.TextChange="Roll" /&gt;&#10;&lt;/Border&gt;'
+                           Expectations="• Each digit that changes rolls in: from below when the count goes up, from above when it goes down. The digits that stay the same don't move.&#10;• From 9 to 10, the new 1 rolls in on the left, and the badge widens smoothly. The Archive and Spam tabs slide with it.&#10;• With From set to Bottom or Top, the digits always come from that side.&#10;• Click quickly several times: the count never jumps back, and ends on the right number.">
+            <StackPanel HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource Card}" Padding="14,9">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Inbox" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Border Background="{StaticResource AccentBrush}" CornerRadius="10" Padding="7,2" Margin="8,0,0,0" MinWidth="22"
+                                    VerticalAlignment="Center" anim:Animate.MoveAndResize="Smooth">
+                                <TextBlock x:Name="BadgeCount" Text="8" Foreground="White" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"
+                                           anim:Animate.TextChange="Roll" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="14,9" Margin="8,0,0,0">
+                        <TextBlock Text="Archive" />
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="14,9" Margin="8,0,0,0">
+                        <TextBlock Text="Spam" />
+                    </Border>
+                </StackPanel>
+                <WrapPanel Margin="0,16,0,0">
+                    <Button Content="Add one" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="AddOne_Click" />
+                    <Button Content="Add 10" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="AddTen_Click" />
+                    <Button Content="Remove one" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="RemoveOne_Click" />
+                </WrapPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="From" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel>
+                        <RadioButton Content="Automatic" Tag="" GroupName="RollFrom" Style="{StaticResource Choice}" IsChecked="True" Checked="RollFrom_Checked" />
+                        <RadioButton Content="Bottom" Tag="Bottom" GroupName="RollFrom" Style="{StaticResource Choice}" Checked="RollFrom_Checked" />
+                        <RadioButton Content="Top" Tag="Top" GroupName="RollFrom" Style="{StaticResource Choice}" Checked="RollFrom_Checked" />
+                    </WrapPanel>
+                </StackPanel>
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 2. Dashboard -->
+        <controls:DemoCard Title="Numbers that count up"
+                           Description="Click Refresh. Each number counts from its old value to the new one, in the format of its text."
+                           Xaml='&lt;TextBlock Text="{Binding Revenue}" anim:Animate.TextChange="CountUp" /&gt;'
+                           Expectations="• Each number counts from its old value to the new one in 1 second, fast at first, then slowing down.&#10;• The numbers keep their format while they count: the dollar sign, the commas between the thousands, and one decimal before the percent sign.&#10;• Click Refresh again while they count: they go on from where they are, without jumping.">
+            <StackPanel>
+                <WrapPanel>
+                    <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,0,10,10" MinWidth="150">
+                        <StackPanel>
+                            <TextBlock Text="Revenue" Style="{StaticResource StatLabel}" />
+                            <TextBlock x:Name="RevenueText" Text="$12,480" Style="{StaticResource StatValue}" anim:Animate.TextChange="CountUp" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,0,10,10" MinWidth="150">
+                        <StackPanel>
+                            <TextBlock Text="Visitors" Style="{StaticResource StatLabel}" />
+                            <TextBlock x:Name="VisitorsText" Text="3,204" Style="{StaticResource StatValue}" anim:Animate.TextChange="CountUp" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,0,10,10" MinWidth="150">
+                        <StackPanel>
+                            <TextBlock Text="Conversion" Style="{StaticResource StatLabel}" />
+                            <TextBlock x:Name="ConversionText" Text="4.2%" Style="{StaticResource StatValue}" anim:Animate.TextChange="CountUp" />
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
+                <Button Content="Refresh" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,6,0,0" Click="Refresh_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 3. Clock -->
+        <controls:DemoCard Title="A clock"
+                           Description="Start the clock. Every second, the digits that change roll up."
+                           Xaml='&lt;TextBlock Text="{Binding Time}" anim:Animate.TextChange="Roll" /&gt;'
+                           Expectations="• Every second, only the digits that change roll up; the others don't move.&#10;• When a minute ends, the last three digits roll together.&#10;• The clock stops when you click Stop, or when you leave the page.">
+            <StackPanel HorizontalAlignment="Left">
+                <Border Style="{StaticResource Card}" Padding="18,10" HorizontalAlignment="Left">
+                    <TextBlock x:Name="ClockText" Text="--:--:--" FontSize="34" FontWeight="SemiBold" anim:Animate.TextChange="Roll" />
+                </Border>
+                <Button x:Name="ClockButton" Content="Start the clock" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="ClockButton_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 4. Words -->
+        <controls:DemoCard Title="Words that change"
+                           Description="Click Next word. The same sentence changes in three ways: retyped, cross-faded and scrambled."
+                           Xaml='&lt;TextBlock Text="{Binding Tagline}" anim:Animate.TextChange="Retype" /&gt;&#10;&lt;TextBlock Text="{Binding Tagline}" anim:Animate.TextChange="CrossFade" /&gt;&#10;&lt;TextBlock Text="{Binding Tagline}" anim:Animate.TextChange="Scramble" /&gt;'
+                           Expectations="• Retype erases the old word letter by letter, then types the new one. &quot;Build apps for&quot; stays. A cursor follows the letters, then blinks twice and fades away.&#10;• Cross-fade fades the old sentence out while the new one fades in, in the same place.&#10;• Scramble shows random letters where the word changes, which settle on the new word from left to right. &quot;Build apps for&quot; stays.&#10;• Click Next word quickly: each sentence goes on from what it shows, and ends on the last word.">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Text="Retype" Style="{StaticResource WordLabel}" />
+                    <TextBlock x:Name="RetypeText" Text="Build apps for the web" Style="{StaticResource WordText}" anim:Animate.TextChange="Retype" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Text="Cross-fade" Style="{StaticResource WordLabel}" />
+                    <TextBlock x:Name="CrossFadeText" Text="Build apps for the web" Style="{StaticResource WordText}" anim:Animate.TextChange="CrossFade" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Scramble" Style="{StaticResource WordLabel}" />
+                    <TextBlock x:Name="ScrambleText" Text="Build apps for the web" Style="{StaticResource WordText}" anim:Animate.TextChange="Scramble" />
+                </StackPanel>
+                <Button Content="Next word" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="NextWord_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <!-- 5. Letters -->
+        <controls:DemoCard Title="Text that appears and disappears"
+                           Description="Show and hide the message. Typewriter types it, Backspace erases it, and FadeLetters fades its letters one after the other."
+                           Xaml='&lt;TextBlock Text="Your order has shipped."&#10;           anim:Animate.Appear="{anim:Typewriter Speed=30, BlinkFirst=0.8s}"&#10;           anim:Animate.Disappear="Backspace" /&gt;'
+                           Expectations="• With Typewriter, a cursor blinks where the first letter goes, then the letters are typed one after the other, at the speed you choose. The cursor follows them, blinks twice at the end, then fades away.&#10;• With Blink first set to None, typing starts at once. With 1.5 s, the cursor blinks longer before typing, and with Backspace, it also blinks after the last letter before erasing.&#10;• The text below makes room smoothly as the message appears. The whole message never flashes before it is typed.&#10;• With Backspace, the cursor after the last letter erases the letters from the last one. The text below moves up once the last letter is gone.&#10;• With Cursor set to No, there is no cursor, and typing starts at once.&#10;• With FadeLetters, the letters fade in from the first to the last, and fade out the same way, while the text below moves.">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Effect" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel Grid.Column="1">
+                        <RadioButton Content="Typewriter and Backspace" GroupName="Letters" Style="{StaticResource Choice}" IsChecked="True" Checked="LetterOption_Checked" />
+                        <RadioButton x:Name="FadeLettersChoice" Content="FadeLetters" GroupName="Letters" Style="{StaticResource Choice}" Checked="LetterOption_Checked" />
+                    </WrapPanel>
+                    <TextBlock Grid.Row="1" Text="Speed" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel Grid.Row="1" Grid.Column="1">
+                        <RadioButton x:Name="SlowChoice" Content="15 letters/s" GroupName="LetterSpeed" Style="{StaticResource Choice}" Checked="LetterOption_Checked" />
+                        <RadioButton Content="30 letters/s" GroupName="LetterSpeed" Style="{StaticResource Choice}" IsChecked="True" Checked="LetterOption_Checked" />
+                        <RadioButton x:Name="FastChoice" Content="60 letters/s" GroupName="LetterSpeed" Style="{StaticResource Choice}" Checked="LetterOption_Checked" />
+                    </WrapPanel>
+                    <TextBlock Grid.Row="2" Text="Cursor" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel Grid.Row="2" Grid.Column="1">
+                        <RadioButton x:Name="CursorChoice" Content="Yes" GroupName="LetterCursor" Style="{StaticResource Choice}" IsChecked="True" Checked="LetterOption_Checked" />
+                        <RadioButton Content="No" GroupName="LetterCursor" Style="{StaticResource Choice}" Checked="LetterOption_Checked" />
+                    </WrapPanel>
+                    <TextBlock Grid.Row="3" Text="Blink first" Style="{StaticResource SliderLabel}" />
+                    <WrapPanel Grid.Row="3" Grid.Column="1">
+                        <RadioButton Content="Default" GroupName="LetterBlink" Style="{StaticResource Choice}" IsChecked="True" Checked="LetterOption_Checked" />
+                        <RadioButton x:Name="NoBlinkChoice" Content="None" GroupName="LetterBlink" Style="{StaticResource Choice}" Checked="LetterOption_Checked" />
+                        <RadioButton x:Name="LongBlinkChoice" Content="1.5 s" GroupName="LetterBlink" Style="{StaticResource Choice}" Checked="LetterOption_Checked" />
+                    </WrapPanel>
+                </Grid>
+                <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0"
+                           Text="Speed, Cursor and Blink first are for Typewriter and Backspace. Blink first is how long the cursor blinks before the letters change: 0.8 s for Typewriter and none for Backspace by default. FadeLetters lasts its Duration: 0.5 s by default." />
+
+                <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock x:Name="LetterMessage" Text="Your order has shipped. It arrives on Friday." FontSize="16" TextWrapping="Wrap" Visibility="Collapsed"
+                                   Margin="0,0,0,10" />
+                        <TextBlock Text="The text below the message makes room for it, and fills its space." Style="{StaticResource CaptionText}" />
+                    </StackPanel>
+                </Border>
+                <Button x:Name="LetterButton" Content="Show the message" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="LetterButton_Click" />
+            </StackPanel>
+        </controls:DemoCard>
+
+        <Border Style="{StaticResource TipBox}">
+            <StackPanel>
+                <TextBlock Text="Good to know" FontWeight="SemiBold" />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• When the new text has another width, add MoveAndResize to the TextBlock, or to the badge or the card around it, so that what is around it moves smoothly." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• Roll is for text on one line, and CountUp for numbers: text that wraps, or that is not a number, cross-fades. So does a TextBlock whose runs each have their own font." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• A long text goes faster: Typewriter types it in 10 seconds at most, and Backspace and Retype erase it in 3 seconds at most." />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
+                           Text="• With reduced motion, the new text shows at once, and Typewriter, Backspace and FadeLetters fade quickly." />
+            </StackPanel>
+        </Border>
+
+        <controls:ChapterNavigation Chapter="9" />
+    </StackPanel>
+</sdk:Page>

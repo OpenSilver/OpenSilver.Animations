@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -71,6 +72,13 @@ namespace OpenSilver.Animations.Engine
         // ItemCascade: the time between two items, and the whole cascade, at most.
         private const double MaxCascadeMs = 300;
         private const double MaxCascadeTotalMs = 600;
+
+        // Typewriter and Backspace: the whole text at most, and how long the cursor blinks after it.
+        private const double MaxTypingMs = 10000;
+        private const double MaxErasingMs = 3000;
+        private const double CursorBlinkMs = 2000;
+        private const double MaxRetypeMs = 3000;
+
         private static readonly Timing QuickFadeTiming = Timing.QuickFade();
         private static readonly EffectLook FadeLook = new EffectLook { Opacity = 0 };
 
@@ -178,6 +186,10 @@ namespace OpenSilver.Animations.Engine
 
         // While something is dragged: the element that holds the mouse capture and its containers.
         private readonly HashSet<DependencyObject> _capturedChain = new HashSet<DependencyObject>();
+
+        // The TextBlocks with a TextChange whose text changed since the last pass, with the text
+        // they had before, which the browser keeps showing until the pass plays the change.
+        private readonly Dictionary<TextBlock, string> _textChanges = new Dictionary<TextBlock, string>();
 
         private Point[] _absOld = new Point[64];
         private Point[] _absNew = new Point[64];
@@ -337,7 +349,31 @@ namespace OpenSilver.Animations.Engine
             }
 
             string problem = null;
-            if (items && appear && effect.OnPageOpen == PageOpen.PushOthers)
+            if (effect.IsText && (items ? element is ItemsControl : element is not TextBlock))
+            {
+                problem = $"{effect.PresetName} is for a TextBlock, so {(items ? "its items fade" : "it fades")} {(appear ? "in" : "out")}";
+            }
+            else if (appear && effect is Backspace)
+            {
+                problem = "Backspace is for Disappear, so its letters are typed like Typewriter";
+            }
+            else if (!appear && effect is Typewriter)
+            {
+                problem = "Typewriter is for Appear, so its letters are erased like Backspace";
+            }
+            else if (effect.HasSpeed && effect.Duration != null)
+            {
+                problem = $"{effect.PresetName} uses Speed, so Duration is ignored";
+            }
+            else if (effect.IsText && effect.Easing != null)
+            {
+                problem = $"{effect.PresetName} plays each letter on its own, so Easing is ignored";
+            }
+            else if (effect.HasBlinkFirst && !effect.ShowsCursor)
+            {
+                problem = "BlinkFirst is for the cursor, so it is ignored with Cursor=False";
+            }
+            else if (items && appear && effect.OnPageOpen == PageOpen.PushOthers)
             {
                 problem = "OnPageOpen=PushOthers is not available for items, so they play their effect in their place (InPlace)";
             }
@@ -369,6 +405,40 @@ namespace OpenSilver.Animations.Engine
             if (problem != null)
             {
                 Warn((items ? "Item" : string.Empty) + (appear ? "Appear" : "Disappear"), element, problem);
+            }
+        }
+
+        /// <summary>
+        /// Warns about the parameters of a TextChange that don't apply where it is used.
+        /// </summary>
+        public static void CheckTextChange(TextTransition effect, UIElement element)
+        {
+            if (_instance == null || effect.IsNone)
+            {
+                return;
+            }
+
+            string problem = null;
+            if (element is not TextBlock)
+            {
+                problem = "it is for a TextBlock, so it is ignored";
+            }
+            else if (effect is Retype && effect.Duration != null)
+            {
+                problem = "Retype uses Speed, so Duration is ignored";
+            }
+            else if (effect is Retype retype && retype.HasBlinkFirst && !retype.Cursor)
+            {
+                problem = "BlinkFirst is for the cursor, so it is ignored with Cursor=False";
+            }
+            else if (effect is Roll roll && roll.HasFrom && roll.From != Side.Top && roll.From != Side.Bottom)
+            {
+                problem = $"Roll comes from the Top or the Bottom, so From={roll.From} is ignored";
+            }
+
+            if (problem != null)
+            {
+                Warn("TextChange", element, problem);
             }
         }
 
@@ -829,7 +899,7 @@ namespace OpenSilver.Animations.Engine
             }
 
             Timing timing = quick ? QuickFadeTiming : Timing.FromEffect(effect, settings);
-            EffectLook look = quick ? FadeLook : effect.GetLook(appear);
+            EffectLook look = quick ? FadeLook : GetEffectLook(effect, appear, element, settings);
             double wait = GetWaitMs(effect, settings);
             if (appear)
             {
@@ -838,7 +908,7 @@ namespace OpenSilver.Animations.Engine
             else
             {
                 batch.AddGhost(id, batch.AddTiming(timing), wait, look, sizeCurve: false);
-                KeepGhosted(element, wait + timing.DurationMs);
+                KeepGhosted(element, wait + (quick ? timing.DurationMs : GetEffectMs(effect, appear, element, settings)));
             }
             BrowserBridge.Run(batch.ToJson());
 
@@ -903,6 +973,69 @@ namespace OpenSilver.Animations.Engine
         /// StartAfter, in milliseconds at the current speed.
         /// </summary>
         private static double GetWaitMs(Transition effect, AnimationSettings settings) => effect.StartAfter.Seconds * 1000 / settings.Speed;
+
+        /// <summary>
+        /// What an element looks like at the start of its Appear or at the end of its Disappear.
+        /// The letters of a TextBlock are typed or erased at a pace that depends on its length; on
+        /// another element, the effects of letters fade.
+        /// </summary>
+        private static EffectLook GetEffectLook(Transition effect, bool appear, UIElement element, AnimationSettings settings)
+        {
+            EffectLook look = effect.GetLook(appear);
+            if (look.Text == EffectLook.NoText)
+            {
+                return look;
+            }
+
+            if (element is not TextBlock textBlock)
+            {
+                return FadeLook;
+            }
+
+            if (effect.HasSpeed)
+            {
+                look.LetterMs = GetLetterMs(effect, look.Text, textBlock.Text, settings);
+                if (look.Cursor)
+                {
+                    look.CursorMs = CursorBlinkMs / settings.Speed;
+                    look.BlinkFirstMs = GetBlinkFirstMs(effect.BlinkFirstTime, settings);
+                }
+            }
+
+            return look;
+        }
+
+        /// <summary>
+        /// How long the cursor blinks before the first letter, in milliseconds at the current speed.
+        /// </summary>
+        private static double GetBlinkFirstMs(AnimationTime blinkFirst, AnimationSettings settings) => blinkFirst.Seconds * 1000 / settings.Speed;
+
+        /// <summary>
+        /// The time between two letters typed or erased, at the current speed. A long text goes
+        /// faster, so that typing it takes at most 10 seconds, and erasing it 3 seconds.
+        /// </summary>
+        private static double GetLetterMs(Transition effect, int text, string content, AnimationSettings settings)
+        {
+            int letters = Math.Max(1, TextChanges.CountLetters(content));
+            double maxMs = text == EffectLook.TypeLetters ? MaxTypingMs : MaxErasingMs;
+            return Math.Min(1000 / effect.LettersPerSecond, maxMs / letters) / settings.Speed;
+        }
+
+        /// <summary>
+        /// How long the effect of an element lasts, at the current speed: for Typewriter and
+        /// Backspace, the time the cursor blinks first, and to type or erase all its letters.
+        /// </summary>
+        private double GetEffectMs(Transition effect, bool appear, UIElement element, AnimationSettings settings)
+        {
+            if (effect.HasSpeed && element is TextBlock textBlock)
+            {
+                int text = effect.GetLook(appear).Text;
+                double blinkFirstMs = effect.ShowsCursor ? GetBlinkFirstMs(effect.BlinkFirstTime, settings) : 0;
+                return blinkFirstMs + Math.Max(1, TextChanges.CountLetters(textBlock.Text)) * GetLetterMs(effect, text, textBlock.Text, settings);
+            }
+
+            return GetEffectTiming(effect, settings).DurationMs;
+        }
 
         /// <summary>
         /// A ghost that waits for its StartAfter stays on screen longer than usual: it is still
@@ -1018,6 +1151,7 @@ namespace OpenSilver.Animations.Engine
             {
                 ReleaseHeld();
                 ClearMeasureState();
+                PlayTextChanges();
                 return;
             }
 
@@ -1034,6 +1168,175 @@ namespace OpenSilver.Animations.Engine
                 ReleaseHeld();
                 Reset();
             }
+
+            PlayTextChanges();
+        }
+
+        /// <summary>
+        /// Keeps the old text of a TextBlock with a TextChange on screen, from the moment its text
+        /// changes until the end of the layout pass, which plays the change.
+        /// </summary>
+        public static void OnTextChanged(TextBlock textBlock, string oldText)
+        {
+            if (_instance is LayoutAnimator animator)
+            {
+                animator.HoldOldText(textBlock, oldText);
+            }
+        }
+
+        private void HoldOldText(TextBlock textBlock, string oldText)
+        {
+            if (Animate.GetTextChange(textBlock) is not TextTransition effect || effect.IsNone ||
+                !textBlock.IsLoaded || !IsAnimatable(textBlock, out string id))
+            {
+                return;
+            }
+
+            // A text that changes several times before the pass goes from the first one, held
+            // again after each write of the new text.
+            if (_textChanges.TryGetValue(textBlock, out string firstText))
+            {
+                BrowserBridge.TextHold(id, firstText);
+                return;
+            }
+
+            AnimationSettings settings = AnimationSettings.Current;
+            string reason = GetGlobalSnapReason(settings);
+            if (reason != null)
+            {
+                BrowserBridge.TextStop(id);
+                if (settings.LogForDebugging || AnimationSettings.HasLoggedHandlers)
+                {
+                    LogSnap($"The text of {ElementNames.Of(textBlock)} changed at once, because {reason}.", _clock.ElapsedMilliseconds);
+                    Publish(settings);
+                }
+                return;
+            }
+
+            _textChanges.Add(textBlock, oldText);
+            BrowserBridge.TextHold(id, oldText);
+        }
+
+        private void PlayTextChanges()
+        {
+            if (_textChanges.Count == 0)
+            {
+                return;
+            }
+
+            AnimationSettings settings = AnimationSettings.Current;
+            bool logging = settings.LogForDebugging || AnimationSettings.HasLoggedHandlers;
+            string reason = GetGlobalSnapReason(settings);
+            var batch = new BatchBuilder();
+            try
+            {
+                foreach (KeyValuePair<TextBlock, string> change in _textChanges)
+                {
+                    TextBlock textBlock = change.Key;
+                    if (!IsAnimatable(textBlock, out string id))
+                    {
+                        continue;
+                    }
+
+                    string newText = textBlock.Text;
+                    if (reason != null || Animate.GetTextChange(textBlock) is not TextTransition effect || effect.IsNone || change.Value == newText)
+                    {
+                        batch.AddTextRelease(id);
+                        continue;
+                    }
+
+                    string what = AddTextChange(batch, id, textBlock, effect, change.Value, newText, settings);
+                    if (logging)
+                    {
+                        _messages.Add($"The text of {ElementNames.Of(textBlock)} changed; it {what}.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                BrowserBridge.WriteToConsole("Something went wrong, the text changed at once: " + ex);
+                batch = new BatchBuilder();
+                foreach (TextBlock textBlock in _textChanges.Keys)
+                {
+                    if (IsAnimatable(textBlock, out string id))
+                    {
+                        batch.AddTextRelease(id);
+                    }
+                }
+            }
+
+            _textChanges.Clear();
+            if (!batch.IsEmpty)
+            {
+                BrowserBridge.Run(batch.ToJson());
+            }
+
+            if (_messages.Count > 0)
+            {
+                Publish(settings);
+            }
+        }
+
+        /// <summary>
+        /// Adds the change of a TextBlock's text to the batch, and says what it does: "rolls up
+        /// (0.25 s, from its TextChange)". Text in several runs, which can each have their own
+        /// font, cross-fades, and so does a CountUp to a text that is not a number.
+        /// </summary>
+        private static string AddTextChange(BatchBuilder batch, string id, TextBlock textBlock, TextTransition effect, string oldText, string newText, AnimationSettings settings)
+        {
+            Timing timing = Timing.FromTextChange(effect, settings);
+            int timingIndex = batch.AddTiming(timing);
+            string because = null;
+            if (textBlock.Inlines.Count != 1 || textBlock.Inlines[0] is not Run)
+            {
+                because = "it has several runs of text";
+            }
+            else
+            {
+                switch (effect)
+                {
+                    case Roll roll:
+                    {
+                        TextNumber.TryParse(oldText, out TextNumber oldNumber);
+                        TextNumber.TryParse(newText, out TextNumber newNumber);
+                        int direction = roll.HasFrom && roll.From == Side.Top ? -1
+                            : roll.HasFrom && roll.From == Side.Bottom ? 1
+                            : TextChanges.AreComparable(oldNumber, newNumber) && newNumber.Value < oldNumber.Value ? -1
+                            : 1;
+                        batch.AddTextRoll(id, timingIndex, direction, TextChanges.GetRollColumns(oldText, newText, oldNumber, newNumber));
+                        return $"{(direction > 0 ? "rolls up" : "rolls down")} ({timing.Description}, from its TextChange)";
+                    }
+
+                    case Scramble:
+                        batch.AddTextScramble(id, timingIndex, newText);
+                        return $"scrambles ({timing.Description}, from its TextChange)";
+
+                    case Retype retype:
+                    {
+                        int shared = TextChanges.CountSharedLetters(oldText, newText);
+                        int steps = Math.Max(1, TextChanges.CountLetters(oldText) + TextChanges.CountLetters(newText) - 2 * shared);
+                        double letterMs = Math.Min(1000 / retype.Speed, MaxRetypeMs / steps) / settings.Speed;
+                        double blinkFirstMs = retype.Cursor ? GetBlinkFirstMs(retype.BlinkFirst, settings) : 0;
+                        batch.AddTextRetype(id, timingIndex, letterMs, oldText, newText, retype.Cursor ? CursorBlinkMs / settings.Speed : 0, blinkFirstMs);
+                        return $"is retyped ({Math.Round(1000 / letterMs, 1).ToString(CultureInfo.InvariantCulture)} letters per second" +
+                               $"{Timing.DescribeBlinkFirst(blinkFirstMs)}, from its TextChange)";
+                    }
+
+                    case CountUp:
+                        if (TextNumber.TryParse(newText, out TextNumber to))
+                        {
+                            double from = TextNumber.TryParse(oldText, out TextNumber old) ? old.Value : 0;
+                            batch.AddTextCountUp(id, timingIndex, from, to);
+                            return $"{(to.Value < from ? "counts down" : "counts up")} ({timing.Description}, from its TextChange)";
+                        }
+
+                        because = "CountUp is for numbers";
+                        break;
+                }
+            }
+
+            batch.AddTextCrossFade(id, timingIndex);
+            return $"cross-fades ({timing.Description}, from its TextChange)" + (because != null ? ", because " + because : string.Empty);
         }
 
         #endregion
@@ -2544,7 +2847,7 @@ namespace OpenSilver.Animations.Engine
 
             // OthersMove=After: the group waits for the element that disappears, StartAfter included.
             double othersDelay = bucket.Effect != null && !bucket.EffectAppears && bucket.Effect.OthersMove == OthersMove.After
-                ? GetEffectTiming(bucket.Effect, settings).DurationMs + GetWaitMs(bucket.Effect, settings)
+                ? GetEffectMs(bucket.Effect, false, bucket.EffectElement, settings) + GetWaitMs(bucket.Effect, settings)
                 : 0;
 
             if (wave)
@@ -2884,10 +3187,10 @@ namespace OpenSilver.Animations.Engine
             else
             {
                 Timing timing = GetEffectTiming(effect, settings);
-                batch.AddEffect(id, batch.AddTiming(timing), delay + wait, effect.GetLook(appear: true), raise);
+                batch.AddEffect(id, batch.AddTiming(timing), delay + wait, GetEffectLook(effect, true, record.Element, settings), raise);
                 if (settings.ShowWhatAnimates)
                 {
-                    batch.AddOutline(id, timing.DurationMs, delay + wait, false);
+                    batch.AddOutline(id, GetEffectMs(effect, true, record.Element, settings), delay + wait, false);
                 }
             }
 
@@ -2977,11 +3280,11 @@ namespace OpenSilver.Animations.Engine
             double wait = GetWaitMs(disappearance.Effect, settings);
             double delay = _quickFades ? wait : cascadeMs + wait;
             Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(disappearance.Effect, settings);
-            EffectLook look = _quickFades ? FadeLook : disappearance.Effect.GetLook(appear: false);
+            EffectLook look = _quickFades ? FadeLook : GetEffectLook(disappearance.Effect, false, disappearance.Element, settings);
             batch.AddGhost(disappearance.Id, batch.AddTiming(timing), delay, look, sizeCurve: false);
-            if (delay > 0)
+            if (delay > 0 || look.Text != EffectLook.NoText)
             {
-                KeepGhosted(disappearance.Element, delay + timing.DurationMs);
+                KeepGhosted(disappearance.Element, delay + (_quickFades ? timing.DurationMs : GetEffectMs(disappearance.Effect, false, disappearance.Element, settings)));
             }
 
             return wait;

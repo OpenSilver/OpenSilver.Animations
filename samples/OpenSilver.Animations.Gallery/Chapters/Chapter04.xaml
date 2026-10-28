@@ -127,7 +127,7 @@
         <!-- This page has an intro of its own: Replay page shows it again -->
         <TextBlock Text="CHAPTER 4" Style="{StaticResource OverlineText}" anim:Animate.Appear="Fade" />
         <TextBlock Text="Page intros" Style="{StaticResource ChapterTitleText}"
-                   anim:Animate.Appear="{anim:Slide Distance=Short, StartAfter=0.1s}" />
+                   anim:Animate.Appear="{anim:Typewriter StartAfter=0.1s}" />
         <TextBlock Style="{StaticResource IntroText}" anim:Animate.Appear="{anim:Fade StartAfter=0.2s}"
                    Text="When a page opens, its elements can appear one after the other, instead of all at once. StartAfter makes the effect of an element wait. The title of this page does it: click Replay page at the top to see it again." />
         <TextBlock Style="{StaticResource IntroText}" anim:Animate.Appear="{anim:Fade StartAfter=0.3s}"
