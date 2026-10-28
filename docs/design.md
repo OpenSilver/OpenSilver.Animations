@@ -560,7 +560,10 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
     - window resizing, except the values that switch with `{Responsive}` (the shapes switch size at 960 px).
 
     Also the performance budget, and the known limitations shown live (text re-wrapping, `Path` shapes).
-15. **Putting it together.** A link to the Showcase port as the real-world example.
+15. **Putting it together.** The Showcase as the real-world example:
+    - a small copy of its window, with the names and values of its XAML: the welcome intro, the tabs that drop in, the menu that pushes the page, Nudge, two samples (one loads quickly, the other shows the loading popup), the source code pane, and a Phone size switch for the menu that becomes a drawer;
+    - then each of its animations, with its code and links to the chapters that explain it;
+    - links to the live Showcase and its source code.
 
 ### When chapters are built
 
@@ -573,7 +576,7 @@ Each chapter is added in the phase that implements its feature, so the gallery g
 - Phase 7: chapter 11.
 - Chapter 13 and the rest of chapter 14 are completed along the way.
 
-Chapters 1 to 8, 10 and 12 to 14 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
+Chapters 1 to 8, 10 and 12 to 15 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
 
 ## Acceptance scenarios (covered by the gallery chapters)
 

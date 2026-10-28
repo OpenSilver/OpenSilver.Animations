@@ -1,6 +1,6 @@
 # Status and roadmap
 
-Last updated: October 27, 2026, after the Showcase port, and the classic curves, fades, distances and durations it needed to look as before.
+Last updated: October 28, 2026, after chapter 15, Putting it together.
 
 ## Phases
 
@@ -10,7 +10,7 @@ Last updated: October 27, 2026, after the Showcase port, and the classic curves,
 | 0     | Spike: validate the risky parts                                                                    | Partly done (see below).                                                                                                        |
 | 1     | OpenSilver core changes: `LayoutObserver` and the insertion fix                                    | Done: commit `547adac2` on branch `feat/layout-observer`, then the `{Responsive}` hook (`OnResponsiveValueChanged`), then `LayoutObserver` made internal, with `InternalsVisibleTo("OpenSilver.Animations")`, and its unused parts removed. No PR yet. |
 | 2     | `MoveAndResize` (Smooth), grouping, exclusions, performance guards, diagnostics; the gallery shell | Done. The product owner tested it; the first round of feedback is addressed and verified in Chromium (see "Verified").          |
-| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties, `Hover` and `Press`; then the Showcase port | In progress, in four steps. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Step 2 is done: `StartAfter` and `OnPageOpen`, and chapter 4. Step 3 is done: `ItemAppear`, `ItemDisappear`, `ItemMoveAndResize` and `ItemCascade`, chapter 6, and the chapter 8 tiles. Step 4 is done: `Hover` and `Press` with `Grow`, `Lift`, `Shrink` and `Nudge`, and chapter 12. The Showcase port is done, not committed yet, with what it needed to look as before: the classic curves and `Overshoot`, `OthersDuration`, `Fade=False`, distances in percent, `Zoom` sizes, and elements that stay where they end. Next: chapter 15. |
+| 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Item...` properties, `Hover` and `Press`; then the Showcase port | Built, in four steps, then the port and chapter 15; the product owner reviews them. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Step 2 is done: `StartAfter` and `OnPageOpen`, and chapter 4. Step 3 is done: `ItemAppear`, `ItemDisappear`, `ItemMoveAndResize` and `ItemCascade`, chapter 6, and the chapter 8 tiles. Step 4 is done: `Hover` and `Press` with `Grow`, `Lift`, `Shrink` and `Nudge`, and chapter 12. The Showcase port is done, not committed yet, with what it needed to look as before: the classic curves and `Overshoot`, `OthersDuration`, `Fade=False`, distances in percent, `Zoom` sizes, and elements that stay where they end. Chapter 15 is built: a small copy of the Showcase's window, and how each of its animations is made. |
 | 4     | `AnimationCatalog` and `AnimationDesign`, and the gallery playgrounds built on them                | Not started.                                                                                                                    |
 | 5     | Text effects (`TextChange`, Typewriter, ...)                                                       | Not started.                                                                                                                    |
 | 6     | Bouncy and Wave                                                                                    | Done early, with phase 2.                                                                                                       |
@@ -82,7 +82,7 @@ The XAML.io "Animate" tab is not part of these phases: it's built later in the X
 | 12. Hover and press                      | Built: buttons that grow and shrink, lift, only shrink, or grow with a bounce; cards that lift; icons that the mouse nudges, with Distance and Tilt sliders; a button that doesn't react while a switch disables it.                                                                                                                                                     |
 | 13. From code                            | Built: `Animate.Changes` (default and 0.6 s), `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, IsEnabled), reset when leaving.                                                                                                                                                                                                                               |
 | 14. What never animates, and why         | Built: scrolling, GridSplitter, Slider, typing, window resize (links to chapter 8, with `{Responsive}` as the exception), the 300-element budget, wrapping text, shapes (which switch size with `{Responsive}` at 960 px).                                                                                                                                               |
-| 15. Putting it together                  | Coming soon (next, now that the Showcase is ported)                                                                                                                                                                                                                                                                                                                      |
+| 15. Putting it together                  | Built: a small copy of the Showcase's window (`MiniShowcase`), with the names and values of its XAML: the welcome intro, the tabs, the menu that pushes the page after 4.5 s, Nudge, two pretend samples (Buttons loads in 0.3 s, Data grid in 2.5 s with the loading popup), the source code pane, and Phone size, where the menu becomes a drawer with its quicker effect. Then each animation with its code and links to its chapters, and links to the live Showcase and its source code. |
 
 
 Not built yet in the chapters: the playgrounds, the live XAML with Copy, and the summary sentences, which come with phase 4. Each demo has a "What should happen" expander (a chevron, closed by default) with its acceptance lines.
@@ -240,9 +240,21 @@ Checked in the C# Debug build of the Showcase, at 1600 × 950 and 700 × 900, by
 - **A small screen** (700 × 900): the menu slides in over 0.5 s with EaseOut, the menu button moves 240 px over 0.75 s, and the page moves at once, as with the old library.
 - **Chapter 2 of the gallery**, with the new rows: Distance 100% hides the card with a copy that slides 120 px (its height) with Overshoot in 0.25 s, while the text below moves over 1 s with EaseOut; the log says "(EaseOut, 1 s, from the Disappear of SampleCard)". Shown again with Fade=No, it slides back with no opacity animation. The XAML line reads `{anim:Slide Distance=100%, Fade=False, OthersDuration=1s, Easing=Overshoot}`.
 
+### Chapter 15
+
+Checked in the Debug build, at 1767 × 994 and 390 × 844, by recording every `element.animate` call and reading opacities, with clicks simulated by script:
+
+- **The intro** has the Showcase's timeline: the background fades in after 1 s, the dots and the title zoom in after 0.5 s (the title with Overshoot), the tabs slide down after 2 s and 2.3 s, the subtitle pushes after 1.5 s (0.375 s for the others) and the card after 2.7 s (1.5 s), and the menu slides in after 4.5 s while 15 elements move over 1.5 s. The log names `MenuContainer`, `WelcomeSubtitle` and `WelcomeCard`, as in the Showcase.
+- **The loading popup.** Buttons loads in 0.3 s: the popup stays at opacity 0 and is hidden before its turn. Data grid loads in 2.5 s: the popup zooms in with Overshoot after 1 s, and is gone when the sample shows.
+- **The source code pane** slides up by its height (207.5 px), with no fade, while the page shrinks from 420 to 207.5 px. Closing it slides it down with EaseIn. The menu scrolls while the pane is open.
+- **Phone size.** The copy narrows from 828 to 340 px over 0.5 s, with the fade of the menu button. The button slides the menu in over 0.5 s, and moves 150 px over 0.75 s; clicking the page closes the menu at once. Off again, the copy widens and the menu pushes the page aside. Turned on 2 s after the copy opens, and with the copy opened at phone size, the menu never comes by itself and the log has no message for it.
+- **Links.** "Chapter 13: From code" opens chapter 13, and chapter 14's Next goes to chapter 15.
+- **At 390 px** the copy is at phone size, and the Phone size switch is hidden. No console errors.
+
 ## Not verified yet
 
-- The Showcase's loading popup, which zooms from 0.5 with Overshoot like the Welcome title: it's hard to open on purpose, and wasn't seen with the new library.
+- The Showcase's loading popup itself: it's hard to open on purpose. Its effect was checked in the copy of chapter 15 (see "Chapter 15").
+- The links to the live Showcase and its source code, which open a new tab.
 - The Showcase in F# and VB, the MauiHybrid app and the Simulator.
 
 - Phase 3, steps 1 to 3, in a browser that paints normally: the agent's checks read the batches, not the frames.
@@ -305,6 +317,7 @@ Checked in the C# Debug build of the Showcase, at 1600 × 950 and 700 × 900, by
 - **No compatibility layer.** The Showcase's own animation library will be removed, and the Showcase ported to this API (phase 3).
 - **No XAML.io designer tab for now.** It's specified in design.md, and built later in the XAML.io repository.
 - **The gallery is a progressive storytelling tour.** Chapters are added in the phase that builds their feature.
+- **Chapter 15 is a small copy of the Showcase, with a walkthrough**, chosen by the product owner, rather than a link only: the reader tries each animation on the page that explains it. The links to the live Showcase and its code say that they use this library from its next version.
 - **Minimal OpenSilver changes:** only hooks and the insertion fix, with no behavior change. The rest stays in the library.
 - **The hooks are internal for now**, as the OpenSilver owner asked: `LayoutObserver` is visible to OpenSilver.Animations only, through `InternalsVisibleTo`, so that OpenSilver doesn't commit to an API that isn't stable yet. What the library didn't use was removed at the same time: the `availableSize` parameter of `OnMeasured`, and unregistering (the library registers once, for the lifetime of the app). Every other hook and parameter is used.
 - **Window resizes never animate by default.** Following a window edge with a delay feels laggy; elements opt in with `AlsoOnWindowResize`.
@@ -351,7 +364,7 @@ Checked in the C# Debug build of the Showcase, at 1600 × 950 and 700 × 900, by
 
 1. **The product owner tests chapter 12** with a real mouse and a touch screen.
 2. **The OpenSilver PR.** Open the PR from `feat/layout-observer`, and get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
-3. **The end of phase 3.** The product owner reviews the Showcase port and commits it, then chapter 15 is built. The port replaced `SpringEffect` with `Hover=Nudge`, `Animation.OnAppear` with `Appear`, `AnimatedContentControl` with `OnPageOpen=PushOthers`, and `PropertyAnimator` with `MoveAndResize`.
+3. **The end of phase 3.** The product owner reviews the Showcase port and chapter 15, and commits them. The port replaced `SpringEffect` with `Hover=Nudge`, `Animation.OnAppear` with `Appear`, `AnimatedContentControl` with `OnPageOpen=PushOthers`, and `PropertyAnimator` with `MoveAndResize`.
 4. **Phase 4:** `AnimationCatalog` and `AnimationDesign`, then the playgrounds, the live XAML and the summaries in every chapter.
 5. **Phase 5** (text, chapter 9), then **phase 7** (Magic move, chapter 11).
 
