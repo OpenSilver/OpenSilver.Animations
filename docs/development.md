@@ -4,7 +4,7 @@
 
 | Path | What it is |
 | --- | --- |
-| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/layout-observer`. It holds the core changes (see [architecture.md](architecture.md)). |
+| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/internalhooks`. It holds the core changes (see [architecture.md](architecture.md)). |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations` | This repository (remote `github.com/OpenSilver/OpenSilver.Animations`). It sits inside the OpenSilver folder but is a separate git repository. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Themes.Modern` | Another library repository, the model for this repository's layout and build scripts. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase` | The Showcase, ported to this library on branch `feat/use-new-animations-library` (see "Run the Showcase on the local library"). Its own animation project is removed there. |
@@ -15,11 +15,11 @@ The three nested folders show up as untracked in the OpenSilver repository. They
 
 - **.NET SDK 10** (10.0.401 was used).
 - **Visual Studio's `msbuild` in the PATH** for the `.bat` scripts, for example from a Developer PowerShell. The OpenSilver build scripts need it.
-- The OpenSilver repository on branch `feat/layout-observer`.
+- The OpenSilver repository on branch `feat/internalhooks`.
 
 ## The OpenSilver packages with the hooks
 
-The library needs `OpenSilver.LayoutObserver`, an internal class of OpenSilver that it sees through `InternalsVisibleTo("OpenSilver.Animations")`. It is not in a published OpenSilver package yet, so OpenSilver is built locally:
+The library needs `OpenSilver.InternalHooks`, an internal class of OpenSilver that it sees through `InternalsVisibleTo("OpenSilver.Animations")`. It is not in a published OpenSilver package yet, so OpenSilver is built locally:
 
 ```bat
 build\Build_Local_OpenSilver.bat C:\VSProjects\UserwareSource\OpenSilver
@@ -83,7 +83,7 @@ dotnet run --project src\OpenSilver.Showcase.Browser\OpenSilver.Showcase.Browser
 
 **CI.** `.github/workflows/build-package.yml` is started by hand (`workflow_dispatch`).
 
-- It takes an `opensilver-version` input, which must be a published OpenSilver that includes `LayoutObserver`.
+- It takes an `opensilver-version` input, which must be a published OpenSilver that includes `InternalHooks`.
 - It builds the version `0.1.0-preview-<date>-<sha>` with `Build_NuGet.bat`, and pushes it to the OpenSilver MyGet feed with the `MYGET_TOKEN` secret.
 - It only runs in the `OpenSilver` organization.
 

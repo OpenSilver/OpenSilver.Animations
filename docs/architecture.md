@@ -8,8 +8,8 @@ The library needs to see every layout pass, so OpenSilver gets a small extensibi
 
 ```mermaid
 flowchart LR
-    subgraph core ["OpenSilver core (branch feat/layout-observer)"]
-        measure["UIElement.Measure"] --> observer["LayoutObserver"]
+    subgraph core ["OpenSilver core (branch feat/internalhooks)"]
+        measure["UIElement.Measure"] --> observer["InternalHooks"]
         arrange["UIElement.Arrange"] --> observer
         visibility["OnVisibilityChanged"] --> observer
         detach["DetachVisualChildIfNotNull"] --> observer
@@ -30,21 +30,21 @@ flowchart LR
 
 ## The OpenSilver core changes
 
-They are on branch `feat/layout-observer` of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`): commit `547adac2`, then the `{Responsive}` hook, then the change that made them internal. They don't change any behavior when no observer is registered: each call site is one null check.
+They are on branch `feat/internalhooks` (first called `feat/layout-observer`) of the OpenSilver repository (`C:\VSProjects\UserwareSource\OpenSilver`): commit `547adac2`, then the `{Responsive}` hook, then the change that made them internal, then the rename of `LayoutObserver` to `InternalHooks`, asked for in the PR review. They don't change any behavior when no observer is registered: each call site is one null check.
 
-`LayoutObserver` is internal. OpenSilver's `Properties/AssemblyInfo.cs` has `[assembly: InternalsVisibleTo("OpenSilver.Animations")]`, as the OpenSilver owner asked while the API is not stable, so the library is the only assembly outside OpenSilver that sees it. Its overrides are `protected internal override`. OpenSilver isn't strong-named, so the attribute names the assembly without a public key, and the library's assembly name must stay `OpenSilver.Animations`.
+`InternalHooks` is internal. OpenSilver's `Properties/AssemblyInfo.cs` has `[assembly: InternalsVisibleTo("OpenSilver.Animations")]`, as the OpenSilver owner asked while the API is not stable, so the library is the only assembly outside OpenSilver that sees it. Its overrides are `protected internal override`. OpenSilver isn't strong-named, so the attribute names the assembly without a public key, and the library's assembly name must stay `OpenSilver.Animations`.
 
 
 | File (under `src/Runtime/`)                            | Change                                                                                                                                                                |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Runtime/OpenSilver/LayoutObserver.cs`                 | New internal abstract class with virtual no-op methods. `Register(observer)` registers it for the lifetime of the app. Observers are kept in a copy-on-write array.   |
+| `Runtime/OpenSilver/InternalHooks.cs`                  | New internal abstract class with virtual no-op methods. `Register(observer)` registers it for the lifetime of the app. Observers are kept in a copy-on-write array.   |
 | `Runtime/Properties/AssemblyInfo.cs`                   | `InternalsVisibleTo("OpenSilver.Animations")`.                                                                                                                        |
 | `Runtime/System.Windows/UIElement.Layout.cs`           | `NotifyMeasured` in `Measure`, `NotifyArranging` and `NotifyArranged` in `Arrange`.                                                                                   |
 | `Runtime/System.Windows/UIElement.cs`                  | `NotifyVisibilityChanged` at the very end of `OnVisibilityChanged`.                                                                                                   |
 | `Runtime/Core/Rendering/INTERNAL_VisualTreeManager.cs` | `NotifyDetaching` in `DetachVisualChildIfNotNull`, before `InternalDetachVisual`.                                                                                     |
 | `Runtime/System.Windows/LayoutManager.cs`              | `NotifyLayoutPassCompleted` in the `finally` block of `UpdateLayout`, before `UIRenderer.ProcessRenderQueue(true)`.                                                   |
 | `Runtime/System.Windows/ResponsiveExpression.cs`       | `NotifyResponsiveValueChanged` in `OnSourceElementSizeChanged`, after the new value is applied, when it differs from the previous one.                                |
-| `Runtime/Runtime.OpenSilver.csproj`                    | Compiles `LayoutObserver.cs`.                                                                                                                                         |
+| `Runtime/Runtime.OpenSilver.csproj`                    | Compiles `InternalHooks.cs`.                                                                                                                                          |
 | `Scripts/cshtml5.js`                                   | `osjs.createVisual` skips children marked `data-os-foreign` when it resolves an insertion index.                                                                      |
 
 
@@ -83,7 +83,7 @@ The library repository gets these changes through locally built OpenSilver packa
 | `Easings.cs`                              | The curves `Smooth`, `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut` and `Overshoot`, and `EasingConverter`. The internal `CubicBezierEasing`, `LinearEasing`, `SpringEasing` and `OvershootEasing` classes. |
 | `AnimationSettings.cs`                    | App-wide settings, the `Logged` event and `AnimationLoggedEventArgs`.                                                                                     |
 | `AssemblyInfo.cs`                         | `XmlnsDefinition` and `XmlnsPrefix` for `http://opensilver.net/animations` with the prefix `anim`.                                                        |
-| `Engine/LayoutAnimator.cs`                | The `LayoutObserver`. It collects the pass, groups, decides, culls, emits and logs. Most of the logic is here.                                            |
+| `Engine/LayoutAnimator.cs`                | The `InternalHooks` observer. It collects the pass, groups, decides, culls, emits and logs. Most of the logic is here.                                            |
 | `Engine/LayoutAnimator.MagicMove.cs`      | The Magic moves: the elements that disappear and wait for a partner (`Departure`), the contents swapped in containers with `MagicMoveByName` (`NameSwap`), pairing, the timing of each trip, the waits and their timer. |
 | `Engine/PageOpenHolds.cs`                 | Holds the elements with `OnPageOpen=PushOthers` out of the layout while their page opens, and releases them after their `StartAfter`.                     |
 | `Engine/Reactions.cs`                     | Sends the `Hover` and `Press` of elements to the script, again when they are loaded or enabled or disabled, and the settings they use.                   |

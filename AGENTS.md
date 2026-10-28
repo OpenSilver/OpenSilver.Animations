@@ -19,10 +19,10 @@ Read these before working:
 
 ## Working agreement with the product owner
 
-- **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository (branch `feat/layout-observer`).
+- **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository (branch `feat/internalhooks`).
 - **Beginners first.** Names read as "When it ...". Parameters use plain words (`StartAfter`, not Delay; `Bouncy`, not Spring; `Wave`, not Ripple). Messages and gallery text are plain, complete sentences.
 - **Keep OpenSilver changes minimal**: hooks only, with no behavior change. Everything else goes in this library.
-- **The hooks are internal.** `LayoutObserver` is visible to this library only, through `InternalsVisibleTo("OpenSilver.Animations")`, as the OpenSilver owner asked while the API is not stable. Don't make it public, and keep the assembly name `OpenSilver.Animations`.
+- **The hooks are internal.** `InternalHooks` is visible to this library only, through `InternalsVisibleTo("OpenSilver.Animations")`, as the OpenSilver owner asked while the API is not stable. Don't make it public, and keep the assembly name `OpenSilver.Animations`.
 - **No compatibility layer** with the Showcase's old animation project, which will be removed.
 - **No XAML.io designer tab for now**, but keep `design.md`'s designer section in mind when shaping the API (`AnimationCatalog` and `AnimationDesign` come in phase 4).
 - **Ask** when a decision is the product owner's to make.
@@ -73,7 +73,7 @@ build\Build_NuGet.bat 0.1.0-preview 3.4.0-preview-animations-local
   - Every public member has an XML doc comment written for beginners; the package ships the XML file.
   - Engine types are `internal` and live under `OpenSilver.Animations.Engine`.
 - **Comments.** Only write a comment for a rule or constraint the code can't show, in plain sentences. Match the density and tone of the surrounding code.
-- **The hot path.** The measure and arrange hooks of `LayoutObserver` run for every element of every layout pass, inside `Dispatcher.DisableProcessing()`.
+- **The hot path.** The measure and arrange hooks of `InternalHooks` run for every element of every layout pass, inside `Dispatcher.DisableProcessing()`.
   - Only record data there, with no allocations and no tree walks.
   - Decide in `OnLayoutPassCompleted`, which runs once after the pass, just before the render queue is flushed. Post anything that needs the dispatcher with `BeginInvoke`.
 - **Visual only.** Never change a dependency property to animate. The core writes the final layout, and the library animates on top of it with Web Animations, in the same JavaScript flush.

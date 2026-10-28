@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!--
-      The library needs OpenSilver's LayoutObserver hooks, which are internal and visible to this library
+      The library needs OpenSilver's InternalHooks, which are internal and visible to this library
       through InternalsVisibleTo. Until an OpenSilver build that includes them
       is published, build it locally with build\Build_Local_OpenSilver.bat (it fills build\local-packages).
     -->

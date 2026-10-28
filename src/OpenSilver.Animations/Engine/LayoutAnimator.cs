@@ -50,7 +50,7 @@ namespace OpenSilver.Animations.Engine
     /// An element with a Magic move that appears travels from where another one with the same id
     /// disappeared: see LayoutAnimator.MagicMove.cs.
     /// </remarks>
-    internal sealed partial class LayoutAnimator : LayoutObserver
+    internal sealed partial class LayoutAnimator : InternalHooks
     {
         private const int MaxAnimatedElements = 300;
         private const double MaxWaveDelayMs = 200;

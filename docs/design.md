@@ -11,7 +11,7 @@ This is the full specification of the library for every phase, as agreed with th
 ```mermaid
 flowchart LR
     subgraph core [OpenSilver core - small PR]
-        measure[UIElement.Measure] --> observer[LayoutObserver hooks]
+        measure[UIElement.Measure] --> observer[InternalHooks]
         arrange[UIElement.Arrange] --> observer
         visibility[OnVisibilityChanged] --> observer
         detach[DetachVisualChildIfNotNull] --> observer
@@ -30,14 +30,14 @@ flowchart LR
     end
 ```
 
-## Core change 1: `LayoutObserver` (C#, about 60 lines)
+## Core change 1: `InternalHooks` (C#, about 60 lines)
 
-It costs a single null check when no observer is registered, and doesn't change behavior. It's internal, and visible to this library only, through `[assembly: InternalsVisibleTo("OpenSilver.Animations")]` in OpenSilver's `AssemblyInfo.cs`: the OpenSilver owner asked for that while the API is not stable, so that OpenSilver doesn't commit to a public API. The library overrides its methods with `protected internal override`, which is what C# requires across assemblies with `InternalsVisibleTo`.
+It costs a single null check when no observer is registered, and doesn't change behavior. It was first called `LayoutObserver`; the reviewer of the OpenSilver PR asked for a more generic name, because it also reports visibility changes, detached elements and `{Responsive}` switches. It's internal, and visible to this library only, through `[assembly: InternalsVisibleTo("OpenSilver.Animations")]` in OpenSilver's `AssemblyInfo.cs`: the OpenSilver owner asked for that while the API is not stable, so that OpenSilver doesn't commit to a public API. The library overrides its methods with `protected internal override`, which is what C# requires across assemblies with `InternalsVisibleTo`.
 
 ```csharp
-internal abstract class LayoutObserver
+internal abstract class InternalHooks
 {
-    internal static void Register(LayoutObserver observer); // for the lifetime of the app
+    internal static void Register(InternalHooks observer); // for the lifetime of the app
 
     protected internal virtual void OnMeasured(UIElement element, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure) { }
     protected internal virtual void OnArranging(UIElement element, Rect finalRect, Rect previousFinalRect, bool isFirstArrange) { }
