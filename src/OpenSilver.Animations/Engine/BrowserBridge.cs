@@ -122,6 +122,27 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
+        /// Copies the elements with a Magic move inside a container that disappears, with where
+        /// they are on screen, before the browser hides or removes it, for them to travel from
+        /// there. Called before the container is ghosted, so that its ghost knows them.
+        /// </summary>
+        public static void Capture(string containerId, IList<string> ids)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.capture(");
+            AppendString(sb, containerId);
+            sb.Append(",[");
+            for (int i = 0; i < ids.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+                AppendString(sb, ids[i]);
+            }
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append("])").ToString());
+        }
+
+        /// <summary>
         /// Sets what an element does when the mouse is over it and when it is pressed. A null
         /// reaction does nothing.
         /// </summary>

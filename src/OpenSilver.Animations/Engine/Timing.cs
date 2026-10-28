@@ -177,6 +177,40 @@ namespace OpenSilver.Animations.Engine
             return timing;
         }
 
+        /// <summary>
+        /// The timing of a Magic move. Without a Duration, a longer trip takes longer: the default
+        /// duration up to <paramref name="nearDistance"/>, up to <paramref name="farFactor"/> times
+        /// as much from <paramref name="farDistance"/>, and twice that with Easing=Bouncy.
+        /// </summary>
+        public static Timing FromMagicMove(MagicMove magicMove, double distance, double nearDistance, double farDistance, double farFactor, AnimationSettings settings)
+        {
+            IEasingFunction easing = magicMove?.Easing ?? Easings.Smooth;
+            bool bouncy = easing is SpringEasing;
+            bool byDistance = magicMove?.Duration == null;
+            double share = Math.Max(0, Math.Min(1, (distance - nearDistance) / (farDistance - nearDistance)));
+            double seconds = magicMove?.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (1 + (farFactor - 1) * share) * (bouncy ? 2 : 1);
+
+            var timing = new Timing { DurationMs = Clamp(seconds) * 1000 / settings.Speed };
+            timing.SetCurve(easing, 0.5);
+            if (bouncy)
+            {
+                timing.SizeEasing = ((CubicBezierEasing)Easings.Smooth).Css;
+            }
+            timing.Description = Invariant($"{Easings.GetName(easing)}, {Math.Round(timing.DurationMs / 1000, 2)} s") + (byDistance ? " for the distance" : string.Empty);
+            return timing;
+        }
+
+        /// <summary>
+        /// Smooth, over a duration already at the current speed, like the fade that goes with Magic moves.
+        /// </summary>
+        public static Timing FromMilliseconds(double durationMs)
+        {
+            var timing = new Timing { DurationMs = durationMs };
+            timing.SetCurve(Easings.Smooth, 0.5);
+            timing.Description = Invariant($"Smooth, {Math.Round(durationMs / 1000, 2)} s");
+            return timing;
+        }
+
         public static Timing FromDuration(AnimationTime? duration, AnimationSettings settings)
         {
             double seconds = duration?.Seconds ?? settings.DefaultDuration.Seconds;

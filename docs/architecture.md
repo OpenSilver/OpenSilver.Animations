@@ -1,6 +1,6 @@
 # Architecture: how the built part works
 
-This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), and the first four steps of phase 3 (Appear and Disappear with their presets and OthersMove, the automatic effects of elements that appear or disappear inside an area, StartAfter and OnPageOpen, the item properties, and Hover and Press). The full specification, including the phases not built yet, is in [design.md](design.md).
+This file describes the code as it is: phase 2 (MoveAndResize, with Bouncy and Wave), phase 3 (Appear and Disappear with their presets and OthersMove, the automatic effects of elements that appear or disappear inside an area, StartAfter and OnPageOpen, the item properties, and Hover and Press), phase 5 (the text effects) and phase 7 (Magic move). The full specification, including the phases not built yet, is in [design.md](design.md).
 
 ## The two halves
 
@@ -73,7 +73,8 @@ The library repository gets these changes through locally built OpenSilver packa
 
 | File (under `src/OpenSilver.Animations/`) | Role                                                                                                                                                      |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Hover` and `Press`, `TextChange`, `Animate.Changes` and `Animate.Skip`. |
+| `Animate.cs`                              | The public entry point: the `MoveAndResize`, `Appear` and `Disappear` attached properties, the item properties (`ItemAppear`, `ItemDisappear`, `ItemMoveAndResize`, `ItemCascade`), `Hover` and `Press`, `TextChange`, `MagicMove` and `MagicMoveByName`, `Animate.Changes` and `Animate.Skip`. |
+| `MagicMove.cs`                            | `MagicMove` (a `MarkupExtension` with `Id`, `Travel`, `Duration` and `Easing`), the `MagicMoveTravel` enum and `MagicMoveConverter`.                     |
 | `TextTransition.cs`                       | `TextTransition` (abstract, a `MarkupExtension`), the presets `Roll`, `CrossFade`, `Scramble`, `Retype` and `CountUp`, `TextTransition.None` and `TextTransitionConverter`. |
 | `Reaction.cs`                             | `Reaction` (abstract, a `MarkupExtension`), the presets `Grow`, `Lift`, `Shrink` and `Nudge`, `Reaction.None` and `ReactionConverter`.                   |
 | `Movement.cs`                             | `Movement` (abstract, a `MarkupExtension`), `Smooth`, `Bouncy`, `Movement.None`, `MovementConverter`, the `AnimationScope` enum.                          |
@@ -83,12 +84,13 @@ The library repository gets these changes through locally built OpenSilver packa
 | `AnimationSettings.cs`                    | App-wide settings, the `Logged` event and `AnimationLoggedEventArgs`.                                                                                     |
 | `AssemblyInfo.cs`                         | `XmlnsDefinition` and `XmlnsPrefix` for `http://opensilver.net/animations` with the prefix `anim`.                                                        |
 | `Engine/LayoutAnimator.cs`                | The `LayoutObserver`. It collects the pass, groups, decides, culls, emits and logs. Most of the logic is here.                                            |
+| `Engine/LayoutAnimator.MagicMove.cs`      | The Magic moves: the elements that disappear and wait for a partner (`Departure`), the contents swapped in containers with `MagicMoveByName` (`NameSwap`), pairing, the timing of each trip, the waits and their timer. |
 | `Engine/PageOpenHolds.cs`                 | Holds the elements with `OnPageOpen=PushOthers` out of the layout while their page opens, and releases them after their `StartAfter`.                     |
 | `Engine/Reactions.cs`                     | Sends the `Hover` and `Press` of elements to the script, again when they are loaded or enabled or disabled, and the settings they use.                   |
 | `Engine/TextChanges.cs`                   | Watches the `Text` of TextBlocks that have a `TextChange`, through a private attached property bound to it. Also the columns of a Roll, and `TextNumber`, which finds the number in a text and its format. |
 | `Engine/Timing.cs`                        | The duration and curve of a group, and their JSON form.                                                                                                   |
 | `Engine/BatchBuilder.cs`                  | Builds the JavaScript object sent once per pass.                                                                                                          |
-| `Engine/BrowserBridge.cs`                 | Loads `animations.js` and runs the batch, the holds, the ghosts and the text holds. It keeps `IsDragging` and `PrefersReducedMotion` up to date through JavaScript callbacks. |
+| `Engine/BrowserBridge.cs`                 | Loads `animations.js` and runs the batch, the holds, the ghosts, the Magic move captures and the text holds. It keeps `IsDragging` and `PrefersReducedMotion` up to date through JavaScript callbacks. |
 | `Engine/ElementNames.cs`                  | Names elements in messages: their `x:Name`, or their type and a bit of their text. Items are named by their text and their list: `Item "Buy milk" of Tasks`. |
 | `Scripts/animations.js`                   | Embedded resource (`OpenSilver.Animations.animations.js`). It plays the batch with Web Animations, plays the text effects in an overlay, plays the hover and press reactions, and tracks dragging and reduced motion. |
 
@@ -120,6 +122,10 @@ The library repository gets these changes through locally built OpenSilver packa
     <TextBlock Text="{Binding UnreadCount}" anim:Animate.TextChange="Roll" />
     <TextBlock Text="{Binding Revenue}" anim:Animate.TextChange="{anim:CountUp Duration=1.5s}" />
     <TextBlock Text="Welcome" anim:Animate.Appear="{anim:Typewriter Speed=40, BlinkFirst=1.5s}" anim:Animate.Disappear="Backspace" />
+    <Border anim:Animate.MagicMove="SelectionPill" />
+    <Image anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
+    <Border anim:Animate.MagicMove="{anim:MagicMove Id=Card, Travel=Above, Duration=0.4s, Easing=Bouncy}" />
+    <ContentControl anim:Animate.MagicMoveByName="True" />
 </UserControl>
 ```
 
@@ -130,6 +136,7 @@ Animate.SetAppear(note, new Slide { From = Side.Left, Distance = 60 });
 Animate.SetDisappear(note, "Fade");
 Animate.SetHover(icon, new Nudge { Distance = 6, Tilt = 5 });
 Animate.SetTextChange(badge, new Roll { From = Side.Top });
+Animate.SetMagicMove(chip, "topping-" + name);              // implicit conversion from string
 Animate.Changes(() => Details.Visibility = Visibility.Collapsed);          // animates everything
 Animate.Changes(() => Box.Width = 400, AnimationTime.FromSeconds(0.6));
 Animate.Skip(() => RestoreLayout());                       // nothing animates
@@ -170,6 +177,10 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
 - `Animate.TextChange` (attached, type `TextTransition`, not inherited) starts the engine and watches the TextBlock's `Text` (`TextChanges.Watch`). `CheckTextChange` warns about a value on an element that isn't a TextBlock, `Duration` on `Retype`, `BlinkFirst` on `Retype` with `Cursor=False`, and `From=Left` or `Right` on `Roll`.
   - `TextTransition` works like `Transition`: a string through `TextTransitionConverter` (`Roll`, `CrossFade`, `Scramble`, `Retype`, `CountUp`, `None`; an unknown name throws), a markup extension, an element or a resource.
   - **Parameters:** `Duration` on every preset (default `DefaultDuration`, four times that for `Scramble` and `CountUp`), `From` on `Roll` (automatic until it is set: `HasFrom`), and `Speed`, `Cursor` (default true) and `BlinkFirst` (default 0) on `Retype`.
+- `Animate.MagicMove` (attached, type `MagicMove`, not inherited) starts the engine and turns on the Magic move paths (`LayoutAnimator.AnyMagic`). Until then, the elements that appear or disappear are never checked for an id. A value without an `Id` writes a warning (`OnMagicMoveSet`), and is ignored.
+  - `MagicMove` is a `MarkupExtension` like `Movement`, with a `TypeConverter` (`MagicMoveConverter`) and an implicit conversion from `string`, so a string, a binding to a string, and `{anim:MagicMove Id=...}` all work. `HasParameters` is true when `Travel`, `Duration` or `Easing` is set.
+  - **Parameters:** `Travel` (`MagicMoveTravel.Automatic`, `Above` or `Behind`), `Duration` (`AnimationTime?`, clamped to 0.05 to 3 s) and `Easing` (Smooth by default). `Timing.FromMagicMove` computes the default duration from the distance (see "Magic move" below).
+- `Animate.MagicMoveByName` (attached, `bool`) starts the engine and turns on `AnyMagic` too. On an element that isn't a `ContentControl`, it writes a warning (`CheckMagicMoveByName`). A `Frame` is a `ContentControl`.
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
 - **Nested scopes:** the inner one applies until it exits, then the outer one applies again.
@@ -403,6 +414,29 @@ When the timing has `Wave > 0`, each member gets a delay.
   - Roll's columns: comparable numbers align their prefix on the left, their digits on the right and their suffix on the left; other text aligns on the left. Equal characters merge into one string; a column that changes is `[old, new]`, either side possibly empty.
 - **Letter effects.** `GetEffectLook` adds to the look of a TextBlock the letter kind (`EffectLook.Text`: type, fade or erase), the time per letter, and with a cursor, its blinking time (`CursorBlinkMs`) and `BlinkFirst` (`BlinkFirstMs`), both divided by `AnimationSettings.Speed`; other elements get the plain fade look. `GetEffectMs` is the effect's length, which `OthersMove=After` waits for: for Typewriter and Backspace, `BlinkFirst` plus the letters (`StringInfo` text elements) times the time per letter. The time per letter is `min(1000 / Speed, cap / letters) / AnimationSettings.Speed`, with a cap of 10 s for typing (`MaxTypingMs`) and 3 s for erasing (`MaxErasingMs`).
 
+### Magic move
+
+The code is in `LayoutAnimator.MagicMove.cs`. Nothing in it runs until `AnyMagic` is set.
+
+- **Departures.** An element with a Magic move that disappears becomes a `Departure`: its id (`Key`), its outer div's id, where it is in the window (`TransformToVisual(null)`), its visual ancestors, its `MagicMove`, and whether it is a background (`IsBackground`) or a TextBlock. There are two ways to get one:
+  - **It disappears itself** (Collapsed, or removed). `CaptureDisappearing` copies it like a ghost, even without a Disappear, and marks the `Disappearance` `Magic`, so that it joins no bucket. `Depart` keeps the ghost in the departure.
+  - **It is inside a container that disappears**, or it is a named element of the old content of a `MagicMoveByName` container. `DepartInside` runs before the container's own ghost, from `OnVisibilityChanged` (Collapsed) and `OnDetaching`. `FindMagicInside` finds the visible elements with an id, without going into them, and `CollectNames` the named elements (no control-template parts, and none with their own id). Those that intersect the window get a departure, at most `MaxCaptures`, and `BrowserBridge.Capture(containerId, ids)` copies them in the browser. These departures have no ghost (`TravelFromCapture` in the batch).
+  - A departure for an element that already had one replaces it.
+- **Swaps.** `OnDetaching` of the content of a `MagicMoveByName` host (the host itself, or the `ContentPresenter` of its template) starts a `NameSwap` (`StartSwap`), before `DepartInside`. The old content's ghost is the swap's `Ghost` when it has no Disappear of its own (`swapFade`). A second swap before the new content came is ignored: the first old content goes on.
+- **Holds.** An element with an id that is shown again is held until the pass, like one with an Appear, and so are the elements with an id inside a container shown again (`HoldMagicInside`). Its travel then hides it until its layer arrives.
+- **Pairing, first in `CompletePass`** (`PlayMagicMoves`), so that the elements that travel play nothing else:
+  - The **arrivals** are the records that appeared in the pass, not under a scrolled parent, with an id; and for each swap whose new content shows, the named elements of the new content (`CollectNames`).
+  - `Pair` makes a candidate for each arrival and departure with the same key and the same swap (none, or the same one). The same element ranks first (-1), then the fewest tree hops to the nearest common ancestor (`FindCommonAncestor`, through the departure's ancestors). Candidates are taken in rank order, each arrival and each departure once. A trip whose departure is inside the departure of another trip is dropped: it travels inside that one's copy.
+  - `PlayTrip` marks the arrival's record `Magic` (no Appear, no bucket) and the ghost `Handled`. With a global snap reason, the copy is removed and the element appears at once. Under reduced motion, the ghost fades out and the element fades in, in 0.15 s (`QuickFadeTiming`). Otherwise it adds a travel (`v`) with `Timing.FromMagicMove`.
+  - **Settings:** the arrival's `MagicMove` when `HasParameters`, otherwise the departure's.
+  - **Duration:** `DefaultDuration × (1 + 0.8 × clamp((d − 150) / 750, 0, 1))` (`NearTrip`, `FarTrip`, `FarTripFactor`), twice that with Bouncy, then divided by `Speed`; `d` is the length of (largest left or right edge move, largest top or bottom edge move). With Bouncy, the sizes play the Smooth cubic-bezier (`se`).
+  - **Behind** when `Travel=Behind`, or `Automatic` and both elements are backgrounds (`IsBackground`: the first of at least two children, and at least `BackgroundShare` of the parent's width and height), and the common ancestor has a div. Otherwise Above.
+- **Waits** (`SettleWaits`). At the end of its first pass, a departure without a partner waits until `now + MagicWaitMs`, with its ghost `Handled`, and a swap whose new content didn't show waits the same. `StartMagicTimer` runs a `DispatcherTimer` to the first end of a wait; `OnMagicTimerTick` settles them outside a pass, in a batch of its own.
+  - A departure that waited in vain plays its own Disappear with `PlayGhost` (`GiveUp`), or its copy is removed.
+  - A swap whose new content came (`FinishSwap`) fades its old content's ghost out and its new content in (`FadeLook`), Smooth, for as long as its longest travel (`Timing.FromMilliseconds`), or `DefaultDuration` without one. A new content with an Appear of its own plays it instead. A swap that waited in vain fades out its old content (`GiveUpSwap`).
+  - Dropped departures, and those of a finished swap that found no partner, have their copy removed.
+- **Errors.** An exception in `PlayMagicMoves` or in the timer removes every copy and forgets the waits: the elements appear and disappear without them.
+
 ### Absolute positions
 
 `ComputeAbsolute` adds the record rects along the parent chain. For the root of an arrange session, it adds `TransformToVisual(null)` of its visual parent. Scroll offsets are included, because a `ScrollContentPresenter` arranges its content at the negative offset. Positions are computed only for culling and the wave, and memoized with `_stamp`.
@@ -434,6 +468,8 @@ Messages are produced only when `LogForDebugging` is on or `Logged` has handlers
 - **Items:** "Item "Buy milk" of Tasks appeared; it slides in, 2 other items follow, one every 0.05 s, and 4 elements animate together (Smooth, 0.25 s, from the ItemAppear of Tasks)."
   - A sort, a filter or a refresh: "The items of Products changed order; 8 elements animate together (…, from the ItemMoveAndResize of Products)", or "The items of Products changed" when some appear or disappear too.
   - With the page, and a cascade: "3 elements appeared with their container, and play their effects, one after the other (every 0.05 s), like Item "Buy milk" of Tasks."
+- **A Magic move:** "Pill of RadioButton "Month" appeared as Pill of RadioButton "Week" disappeared, with the same Magic move "SelectionPill"; it travels from where that one was, behind the elements around it (Smooth, 0.25 s for the distance)." `NameOfMagic` adds the control whose template the element is part of. Items: "Item "Basil" of ChosenToppings appeared as Item "Basil" of AvailableToppings disappeared, with the same Magic move "topping-Basil"; …, above the page (…)". The same element, moved to another parent: "SaveButton moved, with its Magic move "save"; it travels to its new place, above the page (…)". Two elements with the same name, like the photos of chapter 11: "Image appeared as another Image disappeared, with the same Magic move "photo-1"; …". With `Travel=Behind` and no common ancestor: "above the page, because the two elements are in no container together". Without a partner: "SaveButton disappeared, and no element with its Magic move "save" appeared within 0.3 s; it fades out (…)", or "it disappears at once". Under reduced motion: "they cross-fade in place quickly, because …".
+  - `MagicMoveByName` writes one message per swap, not per element: "The content of WizardHost changed (MagicMoveByName): 2 elements with the same x:Name in both travel to their new places, like Avatar (Smooth, 0.25 s for the distance), while the old content fades out and the new one fades in (Smooth, 0.25 s)." Also "no element has the same x:Name in both", "changed at once (MagicMoveByName), because …", and "was removed, and no new content came within 0.3 s (MagicMoveByName); it fades out (…)".
 - **A window-resize group:** "The window was resized; SidePanel follows it (Smooth, 0.25 s, from the AlsoOnWindowResize of SidePanel)." For items: "The window was resized; the items of FollowingTiles follow it (Smooth, 0.25 s, from the ItemMoveAndResize of FollowingTiles)." At most one per second.
 - **A switch:** "{Responsive} switched the Orientation of StackPanel; 17 elements animate together (Smooth, 0.25 s, from the EverythingInside of ProfilePanel)." For a target that isn't an element: "{Responsive} switched the Width of a ColumnDefinition in ProfileGrid".
 - **A snap:** "SliderBar changed size; nothing animated because something is being dragged."
@@ -465,6 +501,17 @@ These are at the top of `LayoutAnimator`:
 | `MaxRetypeMs`         | 3000  | The longest Retype, erasing and typing together.      |
 | `CursorBlinkMs`       | 2000  | How long the cursor blinks after the last letter typed; each blink is on, or off, for a fifth of it. |
 
+And at the top of `LayoutAnimator.MagicMove.cs`:
+
+| Constant          | Value | Meaning                                                                                 |
+| ----------------- | ----- | --------------------------------------------------------------------------------------- |
+| `MagicWaitMs`     | 300   | How long an element that disappeared waits for a partner, and a swap for its new content. |
+| `NearTrip`        | 150   | A trip up to this distance (px) takes `DefaultDuration`.                                 |
+| `FarTrip`         | 900   | A trip from this distance (px) takes `FarTripFactor` times as long.                      |
+| `FarTripFactor`   | 1.8   | See `FarTrip`.                                                                           |
+| `BackgroundShare` | 0.9   | The share of its parent's width and height that a background covers.                     |
+| `MaxCaptures`     | 100   | The elements copied inside a container that disappears, at most.                         |
+
 
 
 
@@ -489,8 +536,11 @@ These are at the top of `LayoutAnimator`:
   s: [ [id, newWidth, newHeight] ],
   o: [ [id, durationMs, delayMs, isOrigin] ],
   r: [ ids to release ],
-  w: [ [id, kind, timingIndex, ...] ] }
+  w: [ [id, kind, timingIndex, ...] ],
+  v: [ [fromId, toId, timingIndex, behind, ancestorId, flags] ] }
 ```
+
+- `v` holds the Magic moves. `behind` is 1 for Behind, and then `ancestorId` is the common ancestor. The flags are 1 (`TravelFromCapture`: from a capture, not a ghost), 2 (`TravelOldText`: the element that disappeared is a TextBlock) and 4 (`TravelNewText`: the one that appears is).
 
 - `letters` is 1 to type, 2 to fade the letters and 3 to erase them, for the TextBlock presets. `cursorMs` is 0 without a cursor, and then `blinkFirstMs` is 0 too.
 - `w` holds the text changes. The kinds are:
@@ -501,7 +551,7 @@ These are at the top of `LayoutAnimator`:
   - 4, Retype: `letterMs, oldText, newText, cursorMs, blinkFirstMs`;
   - 5, CountUp: `from, to, decimals, prefix, suffix, groupSeparator, decimalSeparator`.
 
-They run in this order: cancels, retargets, moves, reveals, effects, keep-in-place moves, ghosts, ghost removals, outlines, releases, text changes. `osAnimations.hold(id)`, `osAnimations.ghost(id)` and `osAnimations.ghostInView(ids)` are called on their own, from the hooks, and `osAnimations.textHold(id, oldText)` and `osAnimations.textStop(id)` when a text changes.
+They run in this order: cancels, the preparation of the travels, retargets, moves, reveals, effects, keep-in-place moves, ghosts, ghost removals, outlines, releases, text changes, then the travels. `osAnimations.hold(id)`, `osAnimations.ghost(id)`, `osAnimations.ghostInView(ids)` and `osAnimations.capture(containerId, ids)` are called on their own, from the hooks, and `osAnimations.textHold(id, oldText)` and `osAnimations.textStop(id)` when a text changes.
 
 - **Elements** are found by the id of their outer div (`Interop.GetDiv(element).Uid`).
 - **Moves.** The core has already written the final `left`/`top`/`width`/`height`. The library only animates on top of them, and never touches a dependency property.
@@ -540,6 +590,18 @@ They run in this order: cancels, retargets, moves, reveals, effects, keep-in-pla
   - **Letters** (`appear` and `vanish` with `e[13..16]` and `g[13..16]`). The letters are split into spans (`splitLetters`, by grapheme through `Intl.Segmenter`): in a copy of the content for an Appear, and in the ghost for a Disappear. Typing hides each letter until its time, after `blinkFirst`, with `fill: 'backwards'` because of `startAtNextFrame`. Erasing hides them from the last one, after `blinkFirst`, with `fill: 'forwards'`. FadeLetters gives each letter half the duration, staggered over the other half.
   - **The cursor** (`makeCursor`, `playCursor`) is an absolute span, a tenth of the first letter's computed font size wide and in its color, because OpenSilver puts the font on the Run, not on the TextBlock's div. It goes where the letters are (`offsetLeft` and `offsetTop`, from the same padding edge as its own `left: 0; top: 0`) with `steps(1, end)` keyframes: one position per step, before the first letter at the start. It blinks there for `blinkFirst`, on and off for a fifth of `cursorMs` each, stays on while the letters change, then, after typing, blinks twice in `cursorMs` and fades out. It has no fill, so nothing shows during `StartAfter`. Backspace's cursor is in the ghost, and goes with it.
   - `ghost` ends the element's text effect and removes the overlays from its copy (`removeTextOverlays`), so a ghost shows the real text.
+- **Magic move.**
+  - **Captures.** `capture(containerId, ids)` copies the elements inside a container that disappears (`captureOne`), with where they are on screen (`getBoundingClientRect`), their opacity and their look (`lookOf`, below), before the core hides or removes the container. A collapsed container loses its `uielement-collapsed` class while they are measured, in the same task, so the browser never paints it. The copies wait in `captures` for 1.5 s at most. Each element gets `data-os-magic-src`, which the container's ghost turns into `data-os-magic` in its copy (`copyOf`), so that the travel can hide that copy once it starts. An element that is still travelling is captured from its layer, stopped where it is (`freezeTravel`).
+  - **Preparation** (`prepareTravels`), before the batch moves anything: each travel takes its copy out of `ghosts` or `captures`, so the rest of the batch leaves it alone, and measures where the element it goes to is (`end`) and its look (`endLook`), and the common ancestor for Behind. A travel to an element that already has one ends that one.
+  - **The layer** (`startTravel`, after the batch): a div with `data-os-foreign` and `pointer-events: none`, holding the old copy, placed at the start. Above, it goes in `travelOverlay`, a fixed div on `body` at `z-index: 2147483000`; Behind, it is the first child of the ancestor, in the ancestor's padding box without its scale on screen (`boxIn`). The copies keep the inherited text styles of their element (`keepInherited`), since they leave it. The element that arrives is hidden with an opacity 0 animation (`hide`). The state of the travel is in `travels`, per element it goes to.
+  - **Waiting for a size** (`startTravels`). When every end has a size, all the travels leave at once (`fly`). Otherwise they wait as a group: a `ResizeObserver` on the elements they go to, and a timer of `TRAVEL_SIZE_WAIT` (300 ms). They leave together, with their ends measured again, when all have a size, or at the timer; those without a size then end. A travel that stops while waiting leaves the group (`stopWaiting`).
+  - **Looks** (`lookOf`). What a travel needs of an element besides its rectangle: its own size (`offsetWidth`, without its scale on screen), its corners and borders (computed style), and for a TextBlock, the rectangle of its letters (a `Range` over its content, `textRectOf`) and its `text-align`. For a box, its content (`contentOf`): the letters of its TextBlocks, its images and its shapes (`img`, `video`, `canvas`, `svg`), or its child elements when it has none of these, and its largest font size, read on the Runs. The old look is read at capture time, or from the ghost before it leaves; the new one at preparation, or again after a wait for a size.
+  - **The flight** (`fly`). The new copy goes on top of the old one (`copyOf`, with media replaced). The layer animates `translate` (the move curve) and `width` and `height` (the size curve); everything else plays on the size curve, so that it keeps up with the size.
+    - **Boxes** fill the layer (`fitCopy`). When their corners or borders differ, both copies animate `borderRadius` and `borderWidth` from the old ones to the new ones: the corners the browser shows (`cornersOf`, scaled down when two of them don't fit along a side, like a `CornerRadius` of 999), times the copy's scale on screen. Their child elements go into a wrapper (`zoomContent`, at the padding box, `transform-origin: 0 0`) that animates `translate` and `scale`. The content goes from where the old content is in the old box to where the new one is in the new box, anchored on each axis at its center where it is centered in both boxes (`centered`, within 1 px), and at its start otherwise; its translate takes off the borders, which move the padding box. Its scale changes by the ratio of the largest font sizes, or, without letters at both ends, by `zoomOf` of the content sizes: the ratio of the side that changes least, and 1 when one side grows and the other shrinks. A content that doesn't move or zoom isn't wrapped.
+    - **TextBlocks** keep their own size (`fitCopy` with their look), with `transform-origin: 0 0`, and animate `translate` and `scale` (`textFrames`): their letters go from the old letters' rectangle to the new letters', anchored by `text-align`. The scale is uniform, from the heights, or stretched to the width when both texts are the same and their aspect ratios are within 15%, so that the two copies cover each other exactly. A TextBlock without letters travels by its box.
+    - **Opacity.** With `PLUS_LIGHTER` (`CSS.supports('mix-blend-mode', 'plus-lighter')`), the layer has `isolation: isolate` and the copies `mix-blend-mode: plus-lighter`, so they add up in the layer only, and their opacities are `oldOpacity × (1 − q)` and `newOpacity × q`, q being the size progress. Without it, the old copy stays until 0.5 and the new one is complete at 0.5. Two different texts take turns either way, the old one gone by 0.6 and the new one from 0.4.
+    - Every animation, wrappers included, is in `travel.animations`. At the end, or after the duration plus 1 s in case it never finishes, the layer is removed and the element shown (`endTravel`).
+  - **Interruptions.** `freezeTravel` commits the styles of the running animations, cancels them, and places the layer where it was on screen; the layer is then the copy that travels on, or disappears. Layers have `data-os-layer`: as the old copy of a new travel, a stopped layer has the look of its top copy, no letters and no content, so its content isn't wrapped again.
 
 **Hover and press.** `osAnimations.react(id, hover, press, enabled)` is called by `Reactions` when `Hover` or `Press` changes, when the element is loaded (its div is new each time), and when it is enabled or disabled. `osAnimations.reactSettings(on, speed, defaultMs, respect, simulate)` is called when `AnimationSettings` change.
 
@@ -562,6 +624,7 @@ hover, press: { k: 1 Nudge | 2 Grow or Shrink | 3 Lift, t: timing (d is 0 for th
 ## Things to know before changing the engine
 
 - **The hot path.** The hooks are called for every measured and arranged element of every pass. Keep them to set and dictionary operations, with no allocations and no tree walks. Tree walks (areas, typing, settling, scroll chrome, ancestors) only happen in `CompletePass`, for origins and members. The exceptions are outside the layout hooks: `OnVisibilityChanged` walks the content of a container that is shown again only once an app uses `OnPageOpen=PushOthers` (`AnyPushOthers`), and the page-open holds look up the ancestors of the few elements they hold.
+- **Magic move walks** what disappears and what is shown again, once an app uses a Magic move (`AnyMagic`): `OnVisibilityChanged` and `OnDetaching` look for the elements with an id inside the container (`FindMagicInside`), and for the named elements of a swapped content (`CollectNames`). `OnDetaching` can run during a measure, when a virtualizing panel removes its containers, so these walks are the exception to the hot path rule: they go through the visual tree of what disappears, and allocate nothing when they find nothing.
 - **Final values are reported at once.** `ActualWidth`, `TransformToVisual` and `SizeChanged` report final values immediately. Anything that app code positions from them jumps to its final place.
 - **ChildWindow.**
   - While it's open, its `Width` reads as the width of the page (`UpdateOverlaySize`). Code that toggles it must keep its own state, as `ResizableDialog` does.

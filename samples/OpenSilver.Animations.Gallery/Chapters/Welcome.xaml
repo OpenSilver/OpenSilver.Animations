@@ -54,7 +54,7 @@
             <StackPanel>
                 <TextBlock Text="Where to start" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="This version of the library animates elements that appear and disappear, page intros, lists, moves and size changes, text that changes, and what the mouse is over. The chapter about Magic move arrives with a next version, and is marked 'soon' in the list of chapters." />
+                           Text="The library animates elements that appear and disappear, page intros, lists, moves and size changes, text that changes, elements that travel from one place to another, and what the mouse is over. The chapters go from the simplest to the most advanced: start with chapter 1, and come back to any chapter from the list." />
             </StackPanel>
         </Border>
 

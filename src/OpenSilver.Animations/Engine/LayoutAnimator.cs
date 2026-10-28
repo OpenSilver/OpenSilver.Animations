@@ -46,8 +46,11 @@ namespace OpenSilver.Animations.Engine
     /// effect while the group fills its place. Inside an area, the topmost element that appears or
     /// disappears without an effect of its own gets an automatic wipe or fade. Elements that appear
     /// with their container play their own effects, without making room.
+    ///
+    /// An element with a Magic move that appears travels from where another one with the same id
+    /// disappeared: see LayoutAnimator.MagicMove.cs.
     /// </remarks>
-    internal sealed class LayoutAnimator : LayoutObserver
+    internal sealed partial class LayoutAnimator : LayoutObserver
     {
         private const int MaxAnimatedElements = 300;
         private const double MaxWaveDelayMs = 200;
@@ -536,11 +539,13 @@ namespace OpenSilver.Animations.Engine
             int parent = _stack.Count > 0 ? _stack[_stack.Count - 1] : -1;
 
             // Everything inside an element that appears appears with it. Only the elements that have
-            // an Appear of their own are recorded, to play it, unless it appears by scrolling.
+            // an Appear or a Magic move of their own are recorded, to play it, unless it appears by
+            // scrolling.
             // An item that glides to its new place keeps its content as it was, without effects.
             if (parent >= 0 && (_records[parent].Flags & (RecordFlags.Appears | RecordFlags.Paired)) != 0)
             {
-                if (AnyEffects && (_records[parent].Flags & (RecordFlags.Scrolled | RecordFlags.Paired)) == 0 && GetAppearEffect(element) != null)
+                if ((_records[parent].Flags & (RecordFlags.Scrolled | RecordFlags.Paired)) == 0 &&
+                    ((AnyEffects && GetAppearEffect(element) != null) || (AnyMagic && GetMagicId(element) != null)))
                 {
                     int nested = GetOrAddRecord(element);
                     _records[nested].Parent = parent;
@@ -707,9 +712,14 @@ namespace OpenSilver.Animations.Engine
                     _shown.Remove(element);
                 }
 
-                if (oldValue == Visibility.Visible && (AnyEffects || AnyAreas))
+                if (oldValue == Visibility.Visible && (AnyEffects || AnyAreas || AnyMagic))
                 {
-                    CaptureDisappearing(element, VisualTreeHelper.GetParent(element) as UIElement, newValue == Visibility.Hidden);
+                    UIElement parent = VisualTreeHelper.GetParent(element) as UIElement;
+                    if (AnyMagic && newValue == Visibility.Collapsed)
+                    {
+                        DepartInside(element, parent, swap: null);
+                    }
+                    CaptureDisappearing(element, parent, newValue == Visibility.Hidden);
                 }
                 return;
             }
@@ -735,8 +745,10 @@ namespace OpenSilver.Animations.Engine
             // The browser shows the element at once, but it is only arranged in the next layout
             // pass. With an effect of its own, or inside an area, it stays hidden until then, so that
             // it never shows where it was before it was collapsed, nor before its effect starts.
+            // With a Magic move, it stays hidden until it travels.
             if (!_held.Contains(element) &&
-                ((AnyEffects && GetAppearEffect(element) != null) || (AnyAreas && !HasNoEffect(element, appear: true) && IsInsideArea(element))) &&
+                ((AnyEffects && GetAppearEffect(element) != null) || (AnyMagic && GetMagicId(element) != null) ||
+                 (AnyAreas && !HasNoEffect(element, appear: true) && IsInsideArea(element))) &&
                 Interop.GetDiv(element).Uid is string id && id.Length > 0)
             {
                 _held.Add(element);
@@ -749,6 +761,11 @@ namespace OpenSilver.Animations.Engine
                 var batch = new BatchBuilder();
                 batch.AddGhostRemoval(ghostId);
                 BrowserBridge.Run(batch.ToJson());
+            }
+
+            if (AnyMagic)
+            {
+                HoldMagicInside(element);
             }
         }
 
@@ -784,10 +801,18 @@ namespace OpenSilver.Animations.Engine
                 _copiedBeforeRemoval.Remove(child);
             }
 
-            bool captured = false;
-            if ((AnyEffects || AnyAreas || copy != null || (list != null && moving)) && child.Visibility == Visibility.Visible)
+            // The elements inside it that travel are copied before it, so that its copy knows them.
+            NameSwap swap = null;
+            if (AnyMagic && child.Visibility == Visibility.Visible)
             {
-                captured = CaptureDisappearing(child, parent, hidden: false, keepOffset: list != null && (moving || copy != null), copied: copy != null);
+                swap = StartSwap(child, parent);
+                DepartInside(child, parent, swap);
+            }
+
+            bool captured = false;
+            if ((AnyEffects || AnyAreas || AnyMagic || copy != null || (list != null && moving)) && child.Visibility == Visibility.Visible)
+            {
+                captured = CaptureDisappearing(child, parent, hidden: false, keepOffset: list != null && (moving || copy != null), copied: copy != null, swap: swap);
                 if (list?.Owner != null && _ghostOf.TryGetValue(child, out Disappearance disappearance))
                 {
                     disappearance.Owner = list.Owner;
@@ -808,9 +833,11 @@ namespace OpenSilver.Animations.Engine
         /// With <paramref name="keepOffset"/>, an item that moves is copied anyway, so that its
         /// item goes on from where it is if it is shown again in the next pass. With
         /// <paramref name="copied"/>, it was copied already (<see cref="CopyBeforeRemoval"/>).
-        /// Says whether the copy is kept, to play or for where it is on screen.
+        /// An element with a Magic move is copied to travel from there, and the old content of a
+        /// container with MagicMoveByName (<paramref name="swap"/>) to fade out, unless it has a
+        /// Disappear of its own. Says whether the copy is kept, to play or for where it is on screen.
         /// </summary>
-        private bool CaptureDisappearing(UIElement element, UIElement parent, bool hidden, bool keepOffset = false, bool copied = false)
+        private bool CaptureDisappearing(UIElement element, UIElement parent, bool hidden, bool keepOffset = false, bool copied = false, NameSwap swap = null)
         {
             if (parent == null || !parent.IsVisible || _skip || _held.Contains(element) || !AnimationSettings.Current.IsEnabled)
             {
@@ -825,8 +852,10 @@ namespace OpenSilver.Animations.Engine
 
             ItemList effectList = null;
             Transition effect = AnyEffects ? GetDisappearEffect(element, parent, out effectList) : null;
+            string magic = AnyMagic && !hidden ? GetMagicId(element) : null;
+            bool swapFade = swap != null && effect == null;
             bool offsetOnly = false;
-            if (effect == null &&
+            if (effect == null && magic == null && !swapFade &&
                 (hidden || !AnyAreas || HasNoEffect(element, appear: false, parent) || CountAutomaticGhosts() >= MaxAutomaticGhosts || !IsInsideArea(element)))
             {
                 if (!keepOffset)
@@ -854,11 +883,24 @@ namespace OpenSilver.Animations.Engine
                 return true;
             }
 
-            var disappearance = new Disappearance { Element = element, Parent = parent, Id = id, Effect = effect, List = effectList, NoEffect = offsetOnly, ParentIndex = -1 };
+            var disappearance = new Disappearance
+            {
+                Element = element, Parent = parent, Id = id, Effect = effect, List = effectList, NoEffect = offsetOnly, ParentIndex = -1,
+                Magic = magic != null || swapFade,
+            };
             _disappearing.Add(disappearance);
             if (AnyItems || AnyAreas)
             {
                 _ghostOf[element] = disappearance;
+            }
+
+            if (magic != null)
+            {
+                Depart(element, magic, parent, disappearance, swap: null, Rect.Empty);
+            }
+            if (swapFade)
+            {
+                swap.Ghost = disappearance;
             }
             return true;
         }
@@ -868,7 +910,7 @@ namespace OpenSilver.Animations.Engine
             int count = 0;
             foreach (Disappearance disappearance in _disappearing)
             {
-                if (disappearance.Effect == null && !disappearance.NoEffect)
+                if (disappearance.Effect == null && !disappearance.NoEffect && !disappearance.Magic)
                 {
                     count++;
                 }
@@ -1147,7 +1189,7 @@ namespace OpenSilver.Animations.Engine
                 _copiedBeforeRemoval.Clear();
             }
 
-            if (_recordCount == 0 && _disappearing.Count == 0 && !_forced && !_skip)
+            if (_recordCount == 0 && _disappearing.Count == 0 && _departures.Count == 0 && _swaps.Count == 0 && !_forced && !_skip)
             {
                 ReleaseHeld();
                 ClearMeasureState();
@@ -1482,12 +1524,19 @@ namespace OpenSilver.Animations.Engine
             _quickFades = IsReducedMotion(snapReason);
             _effectsPlay = snapReason == null || _quickFades || (_switchOnly && ReferenceEquals(snapReason, DraggingReason));
 
+            // First, so that the elements that travel play nothing else.
+            var batch = new BatchBuilder();
+            if (_departures.Count > 0 || _swaps.Count > 0)
+            {
+                PlayMagicMoves(settings, snapReason, logging, now, batch);
+            }
+
             for (int i = 0; i < _recordCount; i++)
             {
                 ref Record record = ref _records[i];
                 if ((record.Flags & RecordFlags.Appears) != 0)
                 {
-                    if ((record.Flags & RecordFlags.Scrolled) != 0)
+                    if ((record.Flags & (RecordFlags.Scrolled | RecordFlags.Magic)) != 0)
                     {
                         continue;
                     }
@@ -1540,7 +1589,7 @@ namespace OpenSilver.Animations.Engine
             // ghost of an item shown again in its new place has nothing to play.
             foreach (Disappearance disappearance in _disappearing)
             {
-                if (disappearance.Paired || disappearance.NoEffect)
+                if (disappearance.Paired || disappearance.NoEffect || disappearance.Magic)
                 {
                     continue;
                 }
@@ -1574,7 +1623,6 @@ namespace OpenSilver.Animations.Engine
                 }
             }
 
-            var batch = new BatchBuilder();
             foreach (KeyValuePair<int, Bucket> pair in _buckets)
             {
                 ProcessGroup(pair.Key, pair.Value, settings, snapReason, logging, now, batch);
@@ -3941,6 +3989,9 @@ namespace OpenSilver.Animations.Engine
             Released = 128,
             // A container that shows an item its list showed in the last pass: it glides from there.
             Paired = 256,
+            // Travels from where an element with the same Magic move disappeared, or fades in with
+            // the new content of a container with MagicMoveByName: it plays nothing else.
+            Magic = 512,
         }
 
         private struct Record
@@ -4070,6 +4121,9 @@ namespace OpenSilver.Animations.Engine
             // Copied without an effect to play: only for where it is on screen, or because it was
             // only scrolled or virtualized out of view.
             public bool NoEffect;
+            // Its copy travels (Magic move), or fades out as the old content of a container with
+            // MagicMoveByName: the Magic move decides what it plays.
+            public bool Magic;
             // For an item of an ItemsControl: the ItemsControl, and the data item it showed.
             public ItemsControl Owner;
             public object Item;

@@ -253,8 +253,15 @@ Animate.Skip(() => LoadInitialData());
   - **Messages:** "The text of BadgeCount changed; it rolls up (0.25 s, from its TextChange)." or "The text of BadgeCount changed at once, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion)."
   - **Around it.** The TextBlock gets its new size at once. To move what is around it smoothly, add `MoveAndResize` to the TextBlock or to its container; both play together.
 - **Magic move.**
-  - `Animate.MagicMove`: an id, which can be bound. Or `{anim:MagicMove Id=..., Travel=Automatic|Above|Behind, Duration=..., Easing=...}`.
-  - `Animate.MagicMoveByName` (bool) on a Frame or ContentControl: elements with the same `x:Name` in the old and new content morph into each other.
+  - `Animate.MagicMove`: an id, which can be bound. Or `{anim:MagicMove Id=..., Travel=Automatic|Above|Behind, Duration=..., Easing=...}`. A markup extension can't hold a binding, so a bound id uses the default parameters.
+    - When an element with an id disappears (collapsed or removed) and another one with the same id appears, the old one seems to travel to the new one's place and turn into it. Moving the same element to another parent works too.
+    - `Duration`: 0.05 to 3 s. By default it depends on the distance: `DefaultDuration` up to 150 px, growing to 1.8 times that at 900 px and beyond (0.25 s to 0.45 s with the defaults), and twice that with Bouncy.
+    - `Easing`: Smooth by default. With Bouncy, only the move bounces; the size changes Smooth.
+    - `Travel`: see "Magic move" below.
+    - The parameters of the element that appears are used; when it has none, those of the element that disappeared.
+  - `Animate.MagicMoveByName` (bool) on a ContentControl or a Frame: when its content changes, the elements with the same `x:Name` in the old and new content travel, while the old content fades out and the new one fades in. An element with its own `MagicMove` travels by its id instead, and the parts of control templates don't count, because their names are the same in every control. An old content with its own Disappear, or a new one with its own Appear, plays it instead of the fade.
+  - **Messages:** "Pill of RadioButton "Month" appeared as Pill of RadioButton "Week" disappeared, with the same Magic move "SelectionPill"; it travels from where that one was, behind the elements around it (Smooth, 0.25 s for the distance)." and "The content of WizardHost changed (MagicMoveByName): 3 elements with the same x:Name in both travel to their new places, like Avatar (…), while the old content fades out and the new one fades in (…)."
+  - **Snaps.** With `IsEnabled` off, inside `Animate.Skip`, while dragging, or in the designer, the new element appears at once.
 - **Globals.**
   - `AnimationSettings`:
     - `IsEnabled` (true) and `RespectReducedMotion` (true).
@@ -275,7 +282,7 @@ Animate.Skip(() => LoadInitialData());
   - appear and disappear effects become a 0.15 s fade;
   - hover and press reactions don't play;
   - text changes show the new text at once, and Typewriter, Backspace and FadeLetters become the 0.15 s fade;
-  - Magic move becomes a cross-fade in place.
+  - Magic move becomes a 0.15 s cross-fade in place: the old element fades out where it was, and the new one fades in where it is.
 - **No compatibility layer.** The Showcase's own `OpenSilver.Animations` project will be removed. The Showcase is ported to this API.
 
 ## Designer panel (XAML.io)
@@ -571,7 +578,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
 8. **When the window or a panel is resized.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window". A profile panel resized with a GridSplitter, whose content switches layout with `{Responsive ElementName=...}` while it's dragged. Cards that switch from a row to a column with the window.
 9. **Text that moves.** Roll on a badge, Count up on a dashboard, a clock that rolls, Retype, Cross-fade and Scramble on a tagline, and Typewriter, Backspace and FadeLetters on a message. The title uses Typewriter, with its cursor blinking first. The message has Speed, Cursor and Blink first choices.
 10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
-11. **Magic move.** A segmented control with a selection pill, a tab underline, a list-to-detail photo, and a wizard with `MagicMoveByName`.
+11. **Magic move.** A segmented control with a selection pill, toppings that move between two lists, a list-to-detail photo, and a wizard with `MagicMoveByName`. The tab underline is in chapter 10: it's one element that moves, which `MoveAndResize` does.
 12. **Hover and press.** `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, icons that the mouse nudges with Distance and Tilt sliders, and a button that doesn't react while it's disabled.
 13. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource) and reduced motion.
 14. **What never animates, and why.** Live proof that the following stay instant:
@@ -597,7 +604,7 @@ Each chapter is added in the phase that implements its feature, so the gallery g
 - Phase 7: chapter 11.
 - Chapter 13 and the rest of chapter 14 are completed along the way.
 
-Chapters 1 to 8, 10 and 12 to 15 are built (chapter 10 early, with Bouncy and Wave); the others show a "coming soon" page. Their exact status is in [roadmap.md](roadmap.md).
+Every chapter is built (chapter 10 early, with Bouncy and Wave); the playgrounds, the live XAML and the summaries come with phase 4. Their exact status is in [roadmap.md](roadmap.md).
 
 ## Acceptance scenarios (covered by the gallery chapters)
 
@@ -625,9 +632,10 @@ Each line is what the developer sets, and what must happen.
 - **A side panel whose content switches layout while its edge is dragged:** `Orientation="{Responsive ElementName=Panel, Threshold=220, ...}"` on its content, and `ApplyTo=EverythingInside` on the panel. The edge follows the pointer; at the breakpoint, the content glides into its new layout while the drag goes on.
 - **Settings form with toggles that show sub-options:** `ApplyTo=EverythingInside` on the form.
 - **Page intro:** `Appear` with `StartAfter` on each element; the subtitle has `OnPageOpen=PushOthers`; the title uses `Typewriter`.
-- **Selection pill across radio buttons:** `MagicMove=SelectionPill` on the template background. Travel is automatic, and resolves to Behind, whichever direction it travels.
-- **Wizard pages:** `MagicMoveByName` on the Frame.
-- **List to detail photo:** a bound `MagicMove` id on the thumbnail and on the detail image.
+- **Selection pill across radio buttons:** `MagicMove=SelectionPill` on the template background. Travel is automatic, and resolves to Behind, whichever direction it travels: the pill slides under the labels.
+- **Chips that move between two lists:** the same `MagicMove` id on the chip in each list, and `ItemMoveAndResize` on both lists. The chip travels above the page while the chips around it make room.
+- **Wizard pages:** `MagicMoveByName` on the Frame or ContentControl. The elements that both steps have travel, the rest cross-fades.
+- **List to detail photo:** a bound `MagicMove` id on the thumbnail and on the detail image, and on their titles. The photo and its title leave together, also while the detail image is still loading; going back, the other thumbnails show at once.
 
 ## When things animate (library logic)
 
@@ -751,18 +759,28 @@ Each line is what the developer sets, and what must happen.
 ## Magic move
 
 - **Pairing.**
-  - An element with id K disappears and another with K appears in the same pass. Or the disappearing one comes first and the appearing one follows within 300 ms; meanwhile the disappearing one's ghost stays frozen. If nothing arrives, it plays its normal disappear effect.
-  - When several candidates exist, the pair with the closest common ancestor wins, so templates can share ids safely.
+  - An element with id K disappears and another with K appears in the same pass. Or the disappearing one comes first and the appearing one follows within 0.3 s; meanwhile the disappearing one's copy stays where it was. If nothing arrives, it plays its own Disappear, or disappears at once. An element that appears waits for nothing: with no partner that disappeared, it plays its own Appear.
+  - The same element first, when it moved to a new parent. Then, when several candidates exist, the pair with the closest common ancestor wins, so templates can share ids safely.
   - A pair replaces both elements' Appear and Disappear effects. Unpaired elements run their normal effects.
-  - Moving the same element to a new parent in one pass also pairs with itself.
-- **Geometry.** Measured in JS (`getBoundingClientRect`), which includes transforms, scrolling and in-flight animations.
-- **Travel.** A travelling layer (a clone of the old element plus a clone of the new one, cross-fading) moves from the old rectangle to the new one. The real new element stays invisible until the layer arrives; then the layer is removed.
-  - `Above`: the layer goes in an overlay at the top of the window root, which escapes clipping.
-  - `Behind`: the layer is inserted as the first child of the common ancestor's div. It's painted above the ancestor's own background but below all its children, whichever direction it travels.
-  - `Automatic`: Behind when the element is the bottom-most child covering its container (a background); otherwise Above.
-- **Look.** For identical elements the cross-fade looks exactly like a move, so there's no option. Images are resized by scaling; everything else by width and height.
+  - A pair inside another pair travels with it, inside its copy.
+- **What disappears.** An element that is collapsed or removed itself is copied in its parent, like a ghost. An element inside a container that is collapsed or removed is copied with where it is on screen, before the browser hides it, at most 100 per container; the container plays its own effect, with that element's copy hidden once it travels. Only `Collapsed` and removed elements travel: a `Hidden` one keeps its space and plays its own effects. An element inside a container that disappears travels only if it is in view.
+- **Geometry.** Measured in JS (`getBoundingClientRect`), which includes transforms, scrolling and in-flight animations. The distance that sets the default duration is the largest move of the left or right edge, and of the top or bottom edge, so a growth counts too.
+- **Travel.** A travelling layer (a copy of the old element under a copy of the new one, cross-fading) moves from the old rectangle to the new one. The real new element stays invisible until the layer arrives; then the layer is removed.
+  - `Above`: the layer goes in an overlay above everything on the page, which escapes clipping.
+  - `Behind`: the layer is inserted as the first child of the common ancestor's div. It's painted above the ancestor's own background but below all its children, whichever direction it travels. Without a common ancestor, it travels Above.
+  - `Automatic`: Behind when both elements are backgrounds, the first of several children and at least 90% of their parent's width and height, like a selection pill; otherwise Above.
+- **Look.**
+  - **A box** fills the layer, which changes width and height, so it changes size like the element would. Its corners and its borders go from the old element's to the new one's, in both copies, so that the two copies keep the same shape on the way: a round avatar stays round at every size, and a card with small corners can become a pill.
+  - **What is inside a box** goes from where it is in the old box to where it is in the new one, and zooms as much as its largest letters change size, or, without letters, as much as its content does. It stays centered when it is centered in both boxes, and keeps its top-left corner otherwise. It travels as one picture: its parts don't go to their own new places, unless they have a Magic move of their own.
+  - **A TextBlock's copy** keeps its own size and is scaled instead, so that its letters don't wrap differently on the way (chosen by the product owner). It travels by its letters, not by its box: they go from where the old letters are to where the new ones are, so a short title in a wide box isn't scaled by the box. The same text at both ends also stretches a little (at most 15%), so that its two copies cover each other exactly.
+  - **The cross-fade.** The two copies add up, where the browser can (`mix-blend-mode: plus-lighter`): the old one fades out while the new one fades in, so wherever they are the same, the picture stays as it is. A color, a gradient, an image or a shadow that changes between the two elements changes like a color animation, and a text that fades into itself doesn't look bolder halfway. Where the browser can't add them, the old copy stays until halfway and the new one is complete by halfway, so two identical elements still look like one that moves.
+  - Two different texts take turns instead, so that their letters don't mix: the old one is gone by 60% of the way and the new one starts at 40%.
+- **Waiting for a size.** When an element that arrives has no size yet, like an image that is still loading, all the travels of the pass wait for it, at most 0.3 s, with the old copies where they were. Then they leave together, measured again; one that still has no size appears at once.
+- **Interruptions.** When the element a layer goes to disappears again during the travel, the layer stops where it is and becomes the copy of that element, which travels on from there, or disappears.
 - **Templates.** Visibility changes from the VisualStateManager are detected. Templates whose states use Opacity need to switch to Visibility (the designer hints this).
-- **MagicMoveByName.** When the content is swapped, the library collects the named elements of the old content (walking its visual tree) and captures their clones before removal. It pairs them with the named elements of the new content through `FindName`. The old content itself runs a fade.
+- **MagicMoveByName.** When the content is swapped, the library collects the named elements of the old content (walking its visual tree) and copies them with where they are on screen, before removal. At the end of the pass where the new content shows, it collects the named elements of the new content the same way, and pairs them by name. The old content fades out and the new one fades in, Smooth, for as long as the longest travel. When no new content comes within 0.3 s, the old content fades out.
+- **Reduced motion.** Each pair becomes a 0.15 s cross-fade in place.
+- **Show what animates** outlines the element that arrives, for the time of its travel.
 
 ## Text animations
 
@@ -803,6 +821,10 @@ Each line is what the developer sets, and what must happen.
 - An element whose layout clip isn't its own box, like an items panel that overflows its list, moves its clip with it when it animates.
 - An element without a `Background` only reacts to Hover and Press while the pointer is over its content.
 - An Appear effect with an offset, a zoom or a rotation hides the element's hover or press until it ends, and a ghost starts from the element at rest.
+- In a Magic move, what is inside a box travels as one picture: when the old and the new contents differ, like a card's two lines and a pill's label, they cross-fade on the way rather than each part going to its new place.
+- A Magic move that stops halfway and goes on from there keeps the corners and the zoom of its content where they stopped.
+- An element with a Magic move that disappears without a partner plays its Disappear 0.3 s later, and the elements around it don't wait for it: they move with their own settings, or snap.
+- When the travels wait for a size, their ends are measured after the wait, including what the other animations of the pass have moved by then.
 - In the Simulator, JS batches can arrive a frame apart.
 
 ## Phases

@@ -6,7 +6,8 @@ namespace OpenSilver.Animations
 {
     /// <summary>
     /// Makes elements animate when they appear, disappear, move or change size, when the mouse is
-    /// over them or presses them, and when the text of a TextBlock changes.
+    /// over them or presses them, when the text of a TextBlock changes, and when an element travels
+    /// to another one (Magic move).
     /// </summary>
     /// <example>
     /// <code>
@@ -16,6 +17,7 @@ namespace OpenSilver.Animations
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
     /// &lt;ItemsControl anim:Animate.ItemAppear="Fade" anim:Animate.ItemDisappear="Fade" anim:Animate.ItemMoveAndResize="Smooth" /&gt;
     /// &lt;Button Content="Buy" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;
+    /// &lt;Border anim:Animate.MagicMove="SelectionPill" /&gt;
     /// </code>
     /// </example>
     public static class Animate
@@ -489,6 +491,118 @@ namespace OpenSilver.Animations
             if (d is UIElement element)
             {
                 Reactions.OnChanged(element, e.NewValue as Reaction, press: e.Property == PressProperty);
+            }
+        }
+
+        /// <summary>
+        /// Identifies the MagicMove attached property.
+        /// </summary>
+        public static readonly DependencyProperty MagicMoveProperty =
+            DependencyProperty.RegisterAttached(
+                "MagicMove",
+                typeof(MagicMove),
+                typeof(Animate),
+                new PropertyMetadata(null, OnMagicMoveChanged));
+
+        /// <summary>
+        /// Gets the id that links the element to the other elements it travels to and from.
+        /// </summary>
+        public static MagicMove GetMagicMove(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (MagicMove)element.GetValue(MagicMoveProperty);
+        }
+
+        /// <summary>
+        /// Gives the element an id, so that it travels to another element with the same id: when
+        /// one of them disappears and the other one appears, the old one moves and changes size
+        /// into the new one, as if it were the same element going to its new place. Put it, for
+        /// example, on the selection background in the template of a RadioButton, which is only
+        /// visible when the button is checked, or on a photo in a list and on the same photo in its
+        /// detail view. The elements are hidden with Visibility; a template whose states use
+        /// Opacity instead needs to use Visibility. Its Appear and Disappear only play when it
+        /// doesn't travel.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// &lt;Border anim:Animate.MagicMove="SelectionPill" /&gt;
+        /// &lt;Image anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" /&gt;
+        /// </code>
+        /// </example>
+        public static void SetMagicMove(UIElement element, MagicMove value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(MagicMoveProperty, value);
+        }
+
+        private static void OnMagicMoveChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is UIElement element && e.NewValue is MagicMove magicMove)
+            {
+                LayoutAnimator.AnyMagic = true;
+                LayoutAnimator.EnsureStarted();
+                LayoutAnimator.OnMagicMoveSet(element, magicMove);
+            }
+        }
+
+        /// <summary>
+        /// Identifies the MagicMoveByName attached property.
+        /// </summary>
+        public static readonly DependencyProperty MagicMoveByNameProperty =
+            DependencyProperty.RegisterAttached(
+                "MagicMoveByName",
+                typeof(bool),
+                typeof(Animate),
+                new PropertyMetadata(false, OnMagicMoveByNameChanged));
+
+        /// <summary>
+        /// Gets whether the elements with the same name travel when the content changes.
+        /// </summary>
+        public static bool GetMagicMoveByName(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (bool)element.GetValue(MagicMoveByNameProperty);
+        }
+
+        /// <summary>
+        /// Set it to true on a Frame or a ContentControl: when its content changes, like the pages
+        /// of a wizard, each element of the old content travels to the element with the same
+        /// x:Name in the new content, like <see cref="SetMagicMove">MagicMove</see>. Meanwhile, the
+        /// old content fades out and the new one fades in, unless they have a Disappear or an
+        /// Appear of their own.
+        /// </summary>
+        /// <example>
+        /// <code>&lt;ContentControl x:Name="WizardHost" anim:Animate.MagicMoveByName="True" /&gt;</code>
+        /// </example>
+        public static void SetMagicMoveByName(UIElement element, bool value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(MagicMoveByNameProperty, value);
+        }
+
+        private static void OnMagicMoveByNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is UIElement element && (bool)e.NewValue)
+            {
+                LayoutAnimator.AnyMagic = true;
+                LayoutAnimator.EnsureStarted();
+                LayoutAnimator.CheckMagicMoveByName(element);
             }
         }
 

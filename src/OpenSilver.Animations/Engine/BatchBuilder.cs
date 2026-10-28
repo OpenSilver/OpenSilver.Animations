@@ -13,7 +13,8 @@ namespace OpenSilver.Animations.Engine
     /// where a look is <c>opacity, x, y, scale, rotate, blur, wipe, relX, relY</c>, relX and relY being fractions
     /// of the element's own width and height added to x and y, and text is <c>kind, letterMs, cursorMs, blinkFirstMs</c> for
     /// the letters of a TextBlock, cursorMs being 0 without a cursor. <c>w</c> has the text changes of TextBlocks,
-    /// after a hold of their old text.
+    /// after a hold of their old text. <c>v: [[fromId, toId, timing, behind, ancestorId, flags]]</c> has the
+    /// Magic moves, from a ghost or from a capture (<see cref="TravelFromCapture"/>).
     /// </summary>
     internal sealed class BatchBuilder
     {
@@ -34,6 +35,10 @@ namespace OpenSilver.Animations.Engine
         public const int TextRetype = 4;
         public const int TextCountUp = 5;
 
+        public const int TravelFromCapture = 1;
+        public const int TravelOldText = 2;
+        public const int TravelNewText = 4;
+
         private readonly List<Timing> _timings = new List<Timing>();
         private readonly StringBuilder _moves = new StringBuilder();
         private readonly StringBuilder _reveals = new StringBuilder();
@@ -46,10 +51,11 @@ namespace OpenSilver.Animations.Engine
         private readonly StringBuilder _outlines = new StringBuilder();
         private readonly StringBuilder _releases = new StringBuilder();
         private readonly StringBuilder _texts = new StringBuilder();
+        private readonly StringBuilder _travels = new StringBuilder();
 
         public bool IsEmpty => _moves.Length == 0 && _reveals.Length == 0 && _effects.Length == 0 && _keeps.Length == 0 && _ghosts.Length == 0 &&
                                _ghostRemovals.Length == 0 && _cancels.Length == 0 && _retargets.Length == 0 &&
-                               _outlines.Length == 0 && _releases.Length == 0 && _texts.Length == 0;
+                               _outlines.Length == 0 && _releases.Length == 0 && _texts.Length == 0 && _travels.Length == 0;
 
         public int AddTiming(Timing timing)
         {
@@ -373,6 +379,28 @@ namespace OpenSilver.Animations.Engine
             BrowserBridge.AppendString(sb, id);
         }
 
+        /// <summary>
+        /// Makes an element travel from where another one disappeared: from its ghost, or from its
+        /// capture with <see cref="TravelFromCapture"/>. With <paramref name="behind"/>, it travels
+        /// in <paramref name="ancestorId"/>, behind everything in it; otherwise above the page.
+        /// </summary>
+        public void AddTravel(string fromId, string toId, int timing, bool behind, string ancestorId, int flags)
+        {
+            StringBuilder sb = _travels;
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append('[');
+            BrowserBridge.AppendString(sb, fromId);
+            sb.Append(',');
+            BrowserBridge.AppendString(sb, toId);
+            sb.Append(',').Append(timing).Append(',').Append(behind ? '1' : '0').Append(',');
+            BrowserBridge.AppendString(sb, ancestorId ?? string.Empty);
+            sb.Append(',').Append(flags).Append(']');
+        }
+
         public void AddOutline(string id, double duration, double delay, bool isOrigin)
         {
             StringBuilder sb = _outlines;
@@ -406,7 +434,7 @@ namespace OpenSilver.Animations.Engine
             sb.Append("],m:[").Append(_moves).Append("],a:[").Append(_reveals).Append("],e:[").Append(_effects).Append("],k:[").Append(_keeps)
               .Append("],g:[").Append(_ghosts)
               .Append("],x:[").Append(_ghostRemovals).Append("],c:[").Append(_cancels).Append("],s:[").Append(_retargets)
-              .Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("],w:[").Append(_texts).Append("]}");
+              .Append("],o:[").Append(_outlines).Append("],r:[").Append(_releases).Append("],w:[").Append(_texts).Append("],v:[").Append(_travels).Append("]}");
             return sb.ToString();
         }
     }

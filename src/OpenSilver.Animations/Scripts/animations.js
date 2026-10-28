@@ -467,6 +467,25 @@
         return true;
     }
 
+    // A copy of an element that nobody can click, without ids. The elements inside it that travel
+    // (Magic move) are marked with their id, to hide them once their travel starts.
+    function copyOf(element) {
+        const clone = element.cloneNode(true);
+        for (const e of clone.querySelectorAll('[data-os-magic-src]')) {
+            e.setAttribute('data-os-magic', e.id);
+            e.removeAttribute('data-os-magic-src');
+        }
+        clone.removeAttribute('data-os-magic-src');
+        clone.removeAttribute('id');
+        for (const e of clone.querySelectorAll('[id]')) e.removeAttribute('id');
+        removeTextOverlays(clone);
+        clone.classList.remove('uielement-collapsed', 'uielement-hidden');
+        clone.setAttribute('data-os-foreign', '');
+        clone.style.pointerEvents = 'none';
+        copyFormState(element, clone);
+        return clone;
+    }
+
     // Copies an element that disappears, before the browser hides or removes it, at the same place
     // among its siblings, so that it stacks the same way. The copy starts from where the element is
     // on screen, so that an element that disappears while it appears or moves doesn't jump. It
@@ -474,7 +493,20 @@
     function ghost(id) {
         const element = document.getElementById(id);
         const parent = element && element.parentNode;
-        if (!parent || holds.has(element) || element.matches(MEDIA)) return;
+        if (!parent) return;
+
+        // It disappears while it travels to its place: the layer stops where it is, and is its copy.
+        const travel = travels.get(element);
+        if (travel) {
+            removeGhost(id);
+            const layer = freezeTravel(element, travel);
+            const entry = { clone: layer, from: 1, x: 0, y: 0, opacity: 1, media: null, animation: null, curve: null, timer: 0 };
+            entry.timer = setTimeout(() => removeGhost(id, entry), 1500);
+            ghosts.set(id, entry);
+            return;
+        }
+
+        if (holds.has(element) || element.matches(MEDIA)) return;
         removeGhost(id);
         endText(element);
 
@@ -487,7 +519,7 @@
         }
         const opacity = ownOpacity(element);
 
-        const clone = element.cloneNode(true);
+        const clone = copyOf(element);
         let x = 0, y = 0;
         const state = states.get(element);
         if (state) {
@@ -502,15 +534,8 @@
             cancelState(element, state);
         }
 
-        clone.removeAttribute('id');
-        for (const e of clone.querySelectorAll('[id]')) e.removeAttribute('id');
-        removeTextOverlays(clone);
-        clone.classList.remove('uielement-collapsed', 'uielement-hidden');
-        clone.setAttribute('data-os-foreign', '');
-        clone.style.pointerEvents = 'none';
         if (x !== 0 || y !== 0) clone.style.translate = px(x) + ' ' + px(y);
         if (from < 1) clone.style.opacity = String(opacity * from);
-        copyFormState(element, clone);
         const media = replaceMedia(element, clone);
         parent.insertBefore(clone, element);
 
@@ -582,6 +607,536 @@
 
         // In case it never finishes, like in a tab in the background.
         ghost.timer = setTimeout(() => removeGhost(id, ghost), delay + timing.d + 1000);
+    }
+
+    // Magic move. The copies of the elements with an id inside a container that disappears, per
+    // id, until an element with their id appears, for at most 1.5 seconds: { clone, rect, opacity,
+    // look, element, timer }, rect being where the element was on screen, and look what lookOf
+    // says of it. The element stays marked, so that the ghost of its container hides it once it
+    // travels. And the travels in flight, per element they go to: { p, layer, container, from,
+    // fromText, fromContent, oldLook, oldOpacity, newOpacity, animations, hide, timer, group },
+    // group being the travels of its batch it waits with, before it leaves.
+    const captures = new Map();
+    const travels = new WeakMap();
+    const TRAVEL_SIZE_WAIT = 300;
+    // The two copies of a travel add up instead of covering each other, where the browser can: the
+    // same pixel in both stays as it is, so a color changes like a color animation, and a text that
+    // fades into itself doesn't look bolder halfway.
+    const PLUS_LIGHTER = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('mix-blend-mode', 'plus-lighter');
+    const TRAVEL_BEHIND = 1;
+    const TRAVEL_FROM_COPY = 1, TRAVEL_OLD_TEXT = 2, TRAVEL_NEW_TEXT = 4;
+    const LAYER_STYLE = 'position:absolute;left:0;top:0;margin:0;padding:0;border:0;box-sizing:border-box;' +
+                        'overflow:visible;pointer-events:none;z-index:0;';
+    // What a copy inherits where its element is, and loses in the layer.
+    const INHERITED = ['color', 'fontFamily', 'fontSize', 'fontStyle', 'fontWeight', 'fontStretch', 'lineHeight',
+                       'letterSpacing', 'textAlign', 'whiteSpace', 'direction'];
+    let travelOverlay = null;
+
+    // Copies the elements with an id inside a container that disappears, with where they are on
+    // screen, before the browser hides or removes it. A collapsed container is shown while they
+    // are measured, which the browser never paints.
+    function capture(containerId, ids) {
+        const container = document.getElementById(containerId);
+        const collapsed = container && container.classList.contains('uielement-collapsed');
+        if (collapsed) container.classList.remove('uielement-collapsed');
+        try {
+            for (const id of ids) captureOne(id);
+        } finally {
+            if (collapsed) container.classList.add('uielement-collapsed');
+        }
+    }
+
+    function captureOne(id) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        removeCapture(id);
+
+        let clone, rect, look, opacity = 1;
+        const travel = travels.get(element);
+        if (travel) {
+            clone = freezeTravel(element, travel);
+            rect = clone.getBoundingClientRect();
+            look = lookOf(clone);
+            clone.remove();
+        } else {
+            endText(element);
+            rect = element.getBoundingClientRect();
+            look = lookOf(element);
+            opacity = ownOpacity(element);
+            clone = copyOf(element);
+            keepInherited(element, clone);
+            replaceMedia(element, clone);
+        }
+
+        element.setAttribute('data-os-magic-src', '');
+        const entry = { clone, rect, opacity, look, element, timer: 0 };
+        entry.timer = setTimeout(() => removeCapture(id, entry), 1500);
+        captures.set(id, entry);
+    }
+
+    function removeCapture(id, entry) {
+        const c = captures.get(id);
+        if (!c || (entry && c !== entry)) return;
+        captures.delete(id);
+        clearTimeout(c.timer);
+        c.element.removeAttribute('data-os-magic-src');
+    }
+
+    function keepInherited(element, copy) {
+        const style = getComputedStyle(element);
+        for (const name of INHERITED) {
+            if (!copy.style[name]) copy.style[name] = style[name];
+        }
+    }
+
+    // Above the page, out of every container that cuts off its content.
+    function travelOverlayOf() {
+        if (!travelOverlay || !travelOverlay.isConnected) {
+            travelOverlay = document.createElement('div');
+            travelOverlay.setAttribute('data-os-foreign', '');
+            travelOverlay.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:2147483000;';
+            document.body.appendChild(travelOverlay);
+        }
+        return travelOverlay;
+    }
+
+    // A box on screen, in a container: in the overlay, the screen itself; otherwise, the padding
+    // box of the container, without its scale on screen.
+    function boxIn(container, rect, containerRect) {
+        if (container === travelOverlay) return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+        const c = containerRect || container.getBoundingClientRect();
+        const kx = container.offsetWidth > 0 && c.width > 0 ? c.width / container.offsetWidth : 1;
+        const ky = container.offsetHeight > 0 && c.height > 0 ? c.height / container.offsetHeight : 1;
+        return {
+            x: (rect.left - c.left) / kx - container.clientLeft,
+            y: (rect.top - c.top) / ky - container.clientTop,
+            w: rect.width / kx,
+            h: rect.height / ky,
+        };
+    }
+
+    // Stops a travel where it is, because the element it goes to disappears again: the layer
+    // stays, as the copy of that element, to travel on from there or to disappear.
+    function freezeTravel(element, travel) {
+        travels.delete(element);
+        stopWaiting(travel);
+        const layer = travel.layer;
+        const rect = layer.getBoundingClientRect();
+        for (const animation of travel.animations) {
+            try { animation.commitStyles(); } catch { }
+            animation.cancel();
+        }
+        travel.hide.cancel();
+
+        layer.style.translate = '';
+        placeLayer(layer, boxIn(travel.container, rect));
+        return layer;
+    }
+
+    function endTravel(element, travel) {
+        if (travels.get(element) === travel) travels.delete(element);
+        stopWaiting(travel);
+        travel.layer.remove();
+        travel.hide.cancel();
+    }
+
+    // A copy fills the layer, or, for a text, keeps its own size and is zoomed with its letters
+    // (textFrames), so that they don't wrap differently on the way.
+    function fitCopy(copy, ownSize) {
+        copy.style.left = '0px';
+        copy.style.top = '0px';
+        copy.style.translate = '';
+        copy.style.margin = '0px';
+        if (PLUS_LIGHTER) copy.style.mixBlendMode = 'plus-lighter';
+        if (ownSize) {
+            copy.style.width = px(ownSize.w);
+            copy.style.height = px(ownSize.h);
+            copy.style.transformOrigin = '0px 0px';
+        } else {
+            copy.style.width = '100%';
+            copy.style.height = '100%';
+        }
+    }
+
+    // Before the batch moves anything: where each element that travels goes, and the copy it
+    // travels from, taken out of the ghosts so that the rest of the batch leaves it alone.
+    function prepareTravels(list, timings) {
+        const prepared = [];
+        for (const v of list) {
+            const fromCopy = (v[5] & TRAVEL_FROM_COPY) !== 0;
+            const source = fromCopy ? captures.get(v[0]) : ghosts.get(v[0]);
+            if (!source) continue;
+            if (fromCopy) {
+                removeCapture(v[0]);
+            } else {
+                ghosts.delete(v[0]);
+                clearTimeout(source.timer);
+                if (source.animation) cancelEffect(source.animation);
+            }
+
+            const to = document.getElementById(v[1]);
+            if (!to) {
+                if (!fromCopy) source.clone.remove();
+                continue;
+            }
+
+            const previous = travels.get(to);
+            if (previous) endTravel(to, previous);
+            const ancestor = v[3] === TRAVEL_BEHIND ? document.getElementById(v[4]) : null;
+            prepared.push({
+                v, timing: timings[v[2]], source, fromCopy, to, end: to.getBoundingClientRect(), endLook: lookOf(to),
+                ancestor, ancestorEnd: ancestor ? ancestor.getBoundingClientRect() : null,
+            });
+        }
+        return prepared;
+    }
+
+    // After the batch: for each element that travels, a layer with a copy of the old element
+    // under a copy of the new one moves and changes size from where the old one is on screen to
+    // the new one's place, while the copies cross-fade. The new elements stay hidden until their
+    // layer arrives. When one of them has no size yet, like an image that is still loading, they
+    // all wait for it, for at most TRAVEL_SIZE_WAIT, with the old copies where they were, so
+    // that they leave together.
+    function startTravels(trips) {
+        const started = [];
+        for (const p of trips) {
+            const travel = startTravel(p);
+            if (travel) started.push(travel);
+        }
+        if (started.every((travel) => hasSize(travel.p.end))) {
+            for (const travel of started) fly(travel, travel.p.end, travel.p.ancestor ? travel.p.ancestorEnd : null, travel.p.endLook);
+            return;
+        }
+
+        const group = { travels: new Set(started), observer: null, timer: 0 };
+        const leave = (timedOut) => {
+            const waiting = [...group.travels];
+            if (!timedOut && !waiting.every((travel) => hasSize(travel.p.to.getBoundingClientRect()))) return;
+            endWait(group);
+            for (const travel of waiting) {
+                travel.group = null;
+                const end = travel.p.to.getBoundingClientRect();
+                if (hasSize(end)) fly(travel, end, null, lookOf(travel.p.to));
+                else endTravel(travel.p.to, travel);
+            }
+        };
+        group.observer = new ResizeObserver(() => leave(false));
+        for (const travel of started) {
+            travel.group = group;
+            group.observer.observe(travel.p.to);
+        }
+        group.timer = setTimeout(() => leave(true), TRAVEL_SIZE_WAIT);
+    }
+
+    function hasSize(rect) {
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function endWait(group) {
+        group.observer.disconnect();
+        clearTimeout(group.timer);
+    }
+
+    // The layer of an element that travels, with the copy of the old element where it is.
+    function startTravel(p) {
+        const { v, source, fromCopy, to } = p;
+        const oldCopy = source.clone;
+        if (!fromCopy && !oldCopy.isConnected) return null;
+
+        const start = fromCopy ? source.rect : oldCopy.getBoundingClientRect();
+        const oldOpacity = fromCopy ? source.opacity : ownOpacity(oldCopy);
+        const oldLook = fromCopy ? source.look : lookOf(oldCopy);
+        if (!fromCopy) {
+            keepInherited(oldCopy, oldCopy);
+            oldCopy.remove();
+        }
+        const newOpacity = ownOpacity(to);
+
+        const ancestor = p.ancestor && p.ancestor.isConnected ? p.ancestor : null;
+        const container = ancestor || travelOverlayOf();
+        const from = boxIn(container, start);
+        const fromText = oldLook.text ? boxIn(container, oldLook.text) : null;
+        const fromContent = oldLook.content ? boxIn(container, oldLook.content) : null;
+
+        const layer = document.createElement('div');
+        layer.setAttribute('data-os-foreign', '');
+        layer.setAttribute('data-os-layer', '');
+        layer.style.cssText = LAYER_STYLE;
+        if (PLUS_LIGHTER) layer.style.isolation = 'isolate';
+        placeLayer(layer, from);
+        if ((v[5] & TRAVEL_OLD_TEXT) !== 0) {
+            fitCopy(oldCopy, oldLook);
+            oldCopy.style.scale = (from.w / oldLook.w) + ' ' + (from.h / oldLook.h);
+        } else {
+            fitCopy(oldCopy, null);
+        }
+        layer.appendChild(oldCopy);
+        if (ancestor) ancestor.insertBefore(layer, ancestor.firstChild);
+        else container.appendChild(layer);
+
+        // Its copy in the ghost of the container it was in, which may be fading out.
+        if (fromCopy) {
+            for (const e of document.querySelectorAll('[data-os-magic="' + v[0] + '"]')) e.style.visibility = 'hidden';
+        }
+
+        const hide = startAtNextFrame(to.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'forwards' }));
+        const travel = { p, layer, container, from, fromText, fromContent, oldLook, oldOpacity, newOpacity, animations: [], hide, timer: 0, group: null };
+        travels.set(to, travel);
+        return travel;
+    }
+
+    // A travel that stops before it leaves no longer holds back the others of its batch.
+    function stopWaiting(travel) {
+        clearTimeout(travel.timer);
+        const group = travel.group;
+        if (!group) return;
+        travel.group = null;
+        group.travels.delete(travel);
+        if (group.travels.size === 0) endWait(group);
+    }
+
+    function placeLayer(layer, box) {
+        layer.style.left = px(box.x);
+        layer.style.top = px(box.y);
+        layer.style.width = px(box.w);
+        layer.style.height = px(box.h);
+    }
+
+    // What a travel needs to know of an element, besides where it is on screen: its own size,
+    // without its scale on screen, its corners and borders, for a text, where its letters are on
+    // screen and how they are aligned, and for a box, where what is inside it is on screen, with
+    // the size of its largest letters. A stopped layer looks like the copy on top in it.
+    function lookOf(element) {
+        const layer = element.hasAttribute('data-os-layer');
+        const box = layer && element.lastElementChild ? element.lastElementChild : element;
+        const style = getComputedStyle(box);
+        const isText = !layer && element.classList.contains('opensilver-textblock');
+        const content = layer || isText ? null : contentOf(element);
+        const rect = element.getBoundingClientRect();
+        return {
+            w: element.offsetWidth || rect.width || 1,
+            h: element.offsetHeight || rect.height || 1,
+            radii: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius]
+                .map((r) => parseFloat(r) || 0),
+            borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth]
+                .map((b) => parseFloat(b) || 0),
+            text: isText ? textRectOf(element) : null,
+            align: isText ? alignOf(style.textAlign) : 0,
+            content: content ? content.rect : null,
+            font: content ? content.font : 0,
+        };
+    }
+
+    const MAX_MEASURED = 50;
+
+    // What shows inside a box: its letters, pictures and shapes, rather than the panels that hold
+    // them, which often fill the box. Its elements otherwise.
+    function contentOf(element) {
+        let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+        const add = (r) => {
+            if (!r || !hasSize(r)) return;
+            left = Math.min(left, r.left);
+            top = Math.min(top, r.top);
+            right = Math.max(right, r.right);
+            bottom = Math.max(bottom, r.bottom);
+        };
+        const texts = element.querySelectorAll('.opensilver-textblock');
+        for (let i = 0; i < texts.length && i < MAX_MEASURED; i++) add(textRectOf(texts[i]));
+        const media = element.querySelectorAll('img, video, canvas, svg');
+        for (let i = 0; i < media.length && i < MAX_MEASURED; i++) add(media[i].getBoundingClientRect());
+        if (left === Infinity) {
+            for (const child of element.children) {
+                if (child.classList.contains('opensilver-uielement')) add(child.getBoundingClientRect());
+            }
+        }
+        if (left === Infinity) return null;
+        // The fonts are on the runs, not on their TextBlock.
+        let font = 0;
+        const runs = element.querySelectorAll('.opensilver-inline');
+        for (let i = 0; i < runs.length && i < MAX_MEASURED; i++) {
+            font = Math.max(font, parseFloat(getComputedStyle(runs[i]).fontSize) || 0);
+        }
+        return { rect: new DOMRect(left, top, right - left, bottom - top), font };
+    }
+
+    function textRectOf(element) {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const rect = range.getBoundingClientRect();
+        return hasSize(rect) ? rect : null;
+    }
+
+    // Where a line of text is held: 0 at its left, 0.5 in its middle, 1 at its right.
+    function alignOf(textAlign) {
+        if (textAlign === 'center' || textAlign === '-webkit-center') return 0.5;
+        if (textAlign === 'right' || textAlign === 'end' || textAlign === '-webkit-right') return 1;
+        return 0;
+    }
+
+    // The corners a box shows: the browser makes them all smaller when two of them don't fit
+    // along a side, like the 999 of a round button.
+    function cornersOf(look) {
+        const [tl, tr, br, bl] = look.radii;
+        const f = Math.min(1, look.w / (tl + tr), look.w / (bl + br), look.h / (tl + bl), look.h / (tr + br));
+        return look.radii.map((r) => r * f);
+    }
+
+    // How much what is inside a box zooms, without letters to tell: as much as its side that
+    // changes the least, so that it grows or shrinks the same way in both directions, and not at
+    // all when it gets wider and shorter.
+    function zoomOf(rx, ry) {
+        if (rx >= 1 && ry >= 1) return Math.min(rx, ry);
+        if (rx <= 1 && ry <= 1) return Math.max(rx, ry);
+        return 1;
+    }
+
+    function centered(inner, innerSize, outer, outerSize) {
+        return Math.abs(inner + innerSize / 2 - (outer + outerSize / 2)) < 1;
+    }
+
+    // What is inside the copy of a box goes, in a wrapper of its own, from where the old content
+    // is in the old box (way.fromContent in way.from) to where the new content is in the new box,
+    // its scale going from z0 to z1 times its own size: it stays centered where it is centered
+    // at both ends, and keeps its top left corner otherwise. own and ownContent are where the
+    // copy and its content are at their end. The content of a stopped layer stays as it is.
+    function zoomContent(copy, look, own, ownContent, k, z0, z1, way, play) {
+        if (copy.hasAttribute('data-os-layer')) return;
+        const children = [...copy.children].filter((c) => c.classList.contains('opensilver-uielement'));
+        if (children.length === 0) return;
+        const { from, fromContent: c0, end, endContent: c1, b0, b1 } = way;
+        const ax = centered(c0.x, c0.w, from.x, from.w) && centered(c1.x, c1.w, end.x, end.w) ? 0.5 : 0;
+        const ay = centered(c0.y, c0.h, from.y, from.h) && centered(c1.y, c1.h, end.y, end.h) ? 0.5 : 0;
+        const lx = (ownContent.x - own.x + ax * ownContent.w) / k - look.borders[3];
+        const ly = (ownContent.y - own.y + ay * ownContent.h) / k - look.borders[0];
+        const x0 = c0.x - from.x + ax * c0.w, x1 = c1.x - end.x + ax * c1.w;
+        const y0 = c0.y - from.y + ay * c0.h, y1 = c1.y - end.y + ay * c1.h;
+        const s0 = k * z0, s1 = k * z1;
+        // The wrapper is in the padding box, which moves with the borders.
+        const frame = (q) => {
+            const s = s0 + (s1 - s0) * q;
+            const x = x0 + (x1 - x0) * q - (b0[3] + (b1[3] - b0[3]) * q) - s * lx;
+            const y = y0 + (y1 - y0) * q - (b0[0] + (b1[0] - b0[0]) * q) - s * ly;
+            return { translate: px(x) + ' ' + px(y), scale: String(s) };
+        };
+        const first = frame(0), last = frame(1);
+        if (first.translate === '0px 0px' && last.translate === '0px 0px' && Math.abs(s0 - 1) < 1e-3 && Math.abs(s1 - 1) < 1e-3) return;
+        const wrapper = document.createElement('div');
+        wrapper.setAttribute('data-os-foreign', '');
+        wrapper.style.cssText = 'position:absolute;left:0;top:0;margin:0;padding:0;border:0;transform-origin:0 0;pointer-events:none;';
+        wrapper.style.width = px(look.w - look.borders[1] - look.borders[3]);
+        wrapper.style.height = px(look.h - look.borders[0] - look.borders[2]);
+        for (const child of children) wrapper.appendChild(child);
+        copy.appendChild(wrapper);
+        play(wrapper, frame);
+    }
+
+    // The way of a copy of a text, so that its letters go from where the old text's letters are
+    // (fromText, in a box at from) to where the new text's letters are (endText, in a box at end):
+    // own and ownText are where the copy and its letters are at their end. The same text at both
+    // ends also stretches a little, so that its two copies cover each other exactly.
+    function textFrames(look, own, ownText, from, fromText, end, endText, same) {
+        const kx = own.w / look.w, ky = own.h / look.h;
+        const lx = (ownText.x - own.x) / kx, ly = (ownText.y - own.y) / ky;
+        const lw = Math.max(1e-3, ownText.w / kx), lh = Math.max(1e-3, ownText.h / ky);
+        const ox0 = fromText.x - from.x, oy0 = fromText.y - from.y, ox1 = endText.x - end.x, oy1 = endText.y - end.y;
+        const stretch = same && Math.abs((fromText.w * endText.h) / (fromText.h * endText.w) - 1) < 0.15;
+        const a = look.align;
+        return (q) => {
+            const tw = fromText.w + (endText.w - fromText.w) * q, th = fromText.h + (endText.h - fromText.h) * q;
+            const sy = th / lh, sx = stretch ? tw / lw : sy;
+            const x = ox0 + (ox1 - ox0) * q + a * tw - sx * (lx + a * lw);
+            const y = oy0 + (oy1 - oy0) * q - sy * ly;
+            return { translate: px(x) + ' ' + px(y), scale: sx + ' ' + sy };
+        };
+    }
+
+    function lerpPx(a, b, q) {
+        return a.map((v, i) => px(v + (b[i] - v) * q)).join(' ');
+    }
+
+    function differ(a, b) {
+        return a.some((v, i) => Math.abs(v - b[i]) > 0.01);
+    }
+
+    function fly(travel, endRect, ancestorRect, endLook) {
+        const { v, timing, to } = travel.p;
+        const { layer, container, from, oldLook, oldOpacity, newOpacity } = travel;
+        const oldCopy = layer.firstChild;
+        const newCopy = copyOf(to);
+        keepInherited(to, newCopy);
+        replaceMedia(to, newCopy);
+
+        const end = boxIn(container, endRect, ancestorRect);
+        placeLayer(layer, end);
+        const oldText = (v[5] & TRAVEL_OLD_TEXT) !== 0, newText = (v[5] & TRAVEL_NEW_TEXT) !== 0;
+        fitCopy(newCopy, newText ? endLook : null);
+        layer.appendChild(newCopy);
+
+        const d = Math.max(1, timing.d);
+        const moveCurve = curveOf(timing, false), sizeCurve = curveOf(timing, true);
+        const sizeOptions = { duration: d, fill: 'both', easing: sizeCurve.easing };
+        const fade = { duration: d, fill: 'both' };
+        const dx = from.x - end.x, dy = from.y - end.y;
+        const animations = [
+            layer.animate(
+                lerpKeyframes(moveCurve, (q) => ({ translate: px(dx * (1 - q)) + ' ' + px(dy * (1 - q)) })),
+                { duration: d, fill: 'both', easing: moveCurve.easing }),
+            layer.animate(
+                lerpKeyframes(sizeCurve, (q) => ({ width: px(from.w + (end.w - from.w) * q), height: px(from.h + (end.h - from.h) * q) })),
+                sizeOptions),
+        ];
+        const play = (element, make) => animations.push(element.animate(lerpKeyframes(sizeCurve, make), sizeOptions));
+
+        // A text travels by its letters.
+        const fromText = travel.fromText || from;
+        const endText = endLook.text ? boxIn(container, endLook.text, ancestorRect) : end;
+        const same = oldText && newText && oldCopy.textContent === newCopy.textContent;
+        if (oldText) play(oldCopy, textFrames(oldLook, from, fromText, from, fromText, end, endText, same));
+        if (newText) play(newCopy, textFrames(endLook, end, endText, from, fromText, end, endText, same));
+
+        // A box changes its width and height with the layer, and its corners and borders go from
+        // the old ones to the new ones in both copies, so that they keep the same shape. What is
+        // inside it goes from where it is in the old box to where it is in the new one, and zooms
+        // as much as its largest letters change size.
+        const k0 = from.w / oldLook.w, k1 = end.w / endLook.w;
+        const r0 = cornersOf(oldLook).map((r) => r * k0), r1 = cornersOf(endLook).map((r) => r * k1);
+        const b0 = oldLook.borders.map((b) => b * k0), b1 = endLook.borders.map((b) => b * k1);
+        const shape = differ(r0, r1) || differ(b0, b1)
+            ? (q) => ({ borderRadius: lerpPx(r0, r1, q), borderWidth: lerpPx(b0, b1, q) })
+            : null;
+        const fromContent = travel.fromContent || from;
+        const endContent = endLook.content ? boxIn(container, endLook.content, ancestorRect) : end;
+        let z = oldLook.font > 0 && endLook.font > 0
+            ? (endLook.font * k1) / (oldLook.font * k0)
+            : zoomOf(endContent.w / fromContent.w, endContent.h / fromContent.h);
+        if (!(z > 0 && isFinite(z))) z = 1;
+        const way = { from, fromContent, end, endContent, b0, b1 };
+        if (!oldText) {
+            if (shape) play(oldCopy, shape);
+            zoomContent(oldCopy, oldLook, from, fromContent, k0, 1, z, way, play);
+        }
+        if (!newText) {
+            if (shape) play(newCopy, shape);
+            zoomContent(newCopy, endLook, end, endContent, k1, 1 / z, 1, way, play);
+        }
+
+        // Two different texts take turns, so that their letters don't mix on the way. Otherwise
+        // the copies add up, or, where the browser can't, the new one comes over the old one.
+        if (oldText && newText && !same) {
+            animations.push(oldCopy.animate([{ opacity: oldOpacity }, { opacity: 0, offset: 0.6 }, { opacity: 0 }], fade));
+            animations.push(newCopy.animate([{ opacity: 0 }, { opacity: 0, offset: 0.4 }, { opacity: newOpacity }], fade));
+        } else if (PLUS_LIGHTER) {
+            play(oldCopy, (q) => ({ opacity: oldOpacity * (1 - q) }));
+            play(newCopy, (q) => ({ opacity: newOpacity * q }));
+        } else {
+            animations.push(oldCopy.animate([{ opacity: oldOpacity }, { opacity: oldOpacity, offset: 0.5 }, { opacity: 0 }], fade));
+            animations.push(newCopy.animate([{ opacity: 0 }, { opacity: newOpacity, offset: 0.5 }, { opacity: newOpacity }], fade));
+        }
+        for (const animation of animations) startAtNextFrame(animation);
+        travel.animations = animations;
+        animations[0].addEventListener('finish', () => endTravel(to, travel));
+        // In case it never finishes, like in a tab in the background.
+        travel.timer = setTimeout(() => endTravel(to, travel), d + 1000);
     }
 
     // The text effects of TextBlocks, per element: { overlay, visibility, overflow, observer,
@@ -1117,6 +1672,8 @@
             }
         }
 
+        const trips = batch.v && batch.v.length > 0 ? prepareTravels(batch.v, batch.t) : null;
+
         if (batch.s) {
             for (const s of batch.s) {
                 const element = document.getElementById(s[0]);
@@ -1159,7 +1716,10 @@
         }
 
         if (batch.x) {
-            for (const id of batch.x) removeGhost(id);
+            for (const id of batch.x) {
+                removeGhost(id);
+                removeCapture(id);
+            }
         }
 
         if (batch.o) {
@@ -1182,6 +1742,8 @@
                 if (element) playText(element, w, batch.t[w[2]]);
             }
         }
+
+        if (trips) startTravels(trips);
     }
 
     // Hover and press reactions, per element: { hover, press, enabled, hovered, levels, nudge }.
@@ -1561,5 +2123,5 @@
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView, react, reactSettings, textHold, textStop });
+    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView, capture, react, reactSettings, textHold, textStop });
 })();
