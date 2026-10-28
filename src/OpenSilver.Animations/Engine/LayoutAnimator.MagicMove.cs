@@ -13,8 +13,9 @@ namespace OpenSilver.Animations.Engine
     // aside. At the end of the pass, each element with a Magic move that appeared is paired with one
     // that disappeared with the same id, in the pass or up to 0.3 s before, and travels from there:
     // in the browser, a layer with a copy of each moves and changes size from one place to the
-    // other, while they cross-fade. A container with MagicMoveByName pairs the elements with the
-    // same x:Name in its old content and in its new one, which cross-fade.
+    // other, while they cross-fade. One that disappears after its partner's pass, but in the same
+    // task, so before the browser paints, pairs in the next pass. A container with MagicMoveByName
+    // pairs the elements with the same x:Name in its old content and in its new one, which cross-fade.
     internal sealed partial class LayoutAnimator
     {
         // How long an element that disappeared waits for another one with its id, and a container
@@ -45,6 +46,12 @@ namespace OpenSilver.Animations.Engine
         private readonly List<Departure> _departures = new List<Departure>();
         private readonly List<NameSwap> _swaps = new List<NameSwap>();
         private DispatcherTimer _magicTimer;
+
+        // The elements with a Magic move that appeared without a partner in a pass that ended in this
+        // task, like the content of a popup, which is laid out as it opens, before the element it
+        // replaces is collapsed. Until the end of the task, nothing was painted yet.
+        private readonly List<EarlyArrival> _earlyArrivals = new List<EarlyArrival>();
+        private bool _earlyArrivalsExpire;
 
         public static void OnMagicMoveSet(UIElement element, MagicMove magicMove)
         {
@@ -199,7 +206,32 @@ namespace OpenSilver.Animations.Engine
                 IsText = element is TextBlock,
             };
             _departures.Add(departure);
+            if (swap == null && _earlyArrivals.Count > 0)
+            {
+                ClaimEarlyArrival(key, element);
+            }
             return departure;
+        }
+
+        /// <summary>
+        /// An element with the same id that appeared earlier in this task stays hidden, to travel
+        /// from this one in the next pass.
+        /// </summary>
+        private void ClaimEarlyArrival(string key, UIElement element)
+        {
+            foreach (EarlyArrival early in _earlyArrivals)
+            {
+                if (!early.Claimed && !ReferenceEquals(early.Element, element) && string.Equals(early.Key, key, StringComparison.Ordinal) &&
+                    IsAnimatable(early.Element, out string id))
+                {
+                    early.Claimed = true;
+                    if (_held.Add(early.Element))
+                    {
+                        BrowserBridge.Hold(id);
+                    }
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -316,17 +348,29 @@ namespace OpenSilver.Animations.Engine
             try
             {
                 var arrivals = new List<Arrival>();
-                if (_departures.Count > 0)
+                for (int i = 0; i < _recordCount; i++)
                 {
-                    for (int i = 0; i < _recordCount; i++)
+                    ref Record record = ref _records[i];
+                    if ((record.Flags & (RecordFlags.Appears | RecordFlags.Scrolled)) == RecordFlags.Appears && GetMagicId(record.Element) is string key)
                     {
-                        ref Record record = ref _records[i];
-                        if ((record.Flags & (RecordFlags.Appears | RecordFlags.Scrolled)) == RecordFlags.Appears && GetMagicId(record.Element) is string key)
-                        {
-                            arrivals.Add(new Arrival { Key = key, Element = record.Element, Record = i });
-                        }
+                        arrivals.Add(new Arrival { Key = key, Element = record.Element, Record = i });
                     }
                 }
+
+                foreach (EarlyArrival early in _earlyArrivals)
+                {
+                    if (early.Claimed && early.Element.IsVisible)
+                    {
+                        arrivals.Add(new Arrival
+                        {
+                            Key = early.Key,
+                            Element = early.Element,
+                            Record = _recordIndex.TryGetValue(early.Element, out int index) ? index : -1,
+                            Early = true,
+                        });
+                    }
+                }
+                _earlyArrivals.RemoveAll(early => early.Claimed);
 
                 foreach (NameSwap swap in _swaps)
                 {
@@ -370,6 +414,7 @@ namespace OpenSilver.Animations.Engine
                     }
                 }
 
+                KeepEarlyArrivals(arrivals, trips);
                 SettleWaits(now, settings, snapReason, logging, batch, inPass: true);
             }
             catch (Exception ex)
@@ -381,6 +426,7 @@ namespace OpenSilver.Animations.Engine
                 }
                 _departures.Clear();
                 _swaps.Clear();
+                _earlyArrivals.Clear();
             }
 
             // What the Magic moves don't play plays like without them.
@@ -394,6 +440,35 @@ namespace OpenSilver.Animations.Engine
             }
 
             StartMagicTimer(now);
+        }
+
+        /// <summary>
+        /// The elements that appeared in this pass without a partner wait until the end of the task
+        /// for one that disappears.
+        /// </summary>
+        private void KeepEarlyArrivals(List<Arrival> arrivals, List<Trip> trips)
+        {
+            foreach (Arrival arrival in arrivals)
+            {
+                if (arrival.Swap != null || arrival.Early ||
+                    (trips != null && trips.Exists(trip => ReferenceEquals(trip.Arrival.Element, arrival.Element))) ||
+                    _earlyArrivals.Exists(early => ReferenceEquals(early.Element, arrival.Element)))
+                {
+                    continue;
+                }
+
+                _earlyArrivals.Add(new EarlyArrival { Key = arrival.Key, Element = arrival.Element });
+            }
+
+            if (_earlyArrivals.Count > 0 && !_earlyArrivalsExpire)
+            {
+                _earlyArrivalsExpire = true;
+                Deployment.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    _earlyArrivalsExpire = false;
+                    _earlyArrivals.RemoveAll(early => !early.Claimed);
+                });
+            }
         }
 
         /// <summary>
@@ -981,6 +1056,19 @@ namespace OpenSilver.Animations.Engine
             public UIElement Element;
             public NameSwap Swap;
             public int Record;
+            // It appeared in an earlier pass of this task (see EarlyArrival).
+            public bool Early;
+        }
+
+        /// <summary>
+        /// An element with a Magic move that appeared without a partner in a pass of this task, and
+        /// whether one with its id disappeared since (<see cref="Claimed"/>), which hides it.
+        /// </summary>
+        private sealed class EarlyArrival
+        {
+            public string Key;
+            public UIElement Element;
+            public bool Claimed;
         }
 
         private struct Candidate

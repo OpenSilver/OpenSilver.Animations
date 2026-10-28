@@ -1526,7 +1526,7 @@ namespace OpenSilver.Animations.Engine
 
             // First, so that the elements that travel play nothing else.
             var batch = new BatchBuilder();
-            if (_departures.Count > 0 || _swaps.Count > 0)
+            if (AnyMagic)
             {
                 PlayMagicMoves(settings, snapReason, logging, now, batch);
             }

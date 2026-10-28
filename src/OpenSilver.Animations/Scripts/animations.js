@@ -471,6 +471,7 @@
     // (Magic move) are marked with their id, to hide them once their travel starts.
     function copyOf(element) {
         const clone = element.cloneNode(true);
+        copyShadowRoots(element, clone);
         for (const e of clone.querySelectorAll('[data-os-magic-src]')) {
             e.setAttribute('data-os-magic', e.id);
             e.removeAttribute('data-os-magic-src');
@@ -484,6 +485,32 @@
         clone.style.pointerEvents = 'none';
         copyFormState(element, clone);
         return clone;
+    }
+
+    // cloneNode leaves out shadow roots, like the one of an HtmlPresenter with UseShadowDom. It must
+    // run before the copy is changed: until then, its elements are in the same order as the original's.
+    function copyShadowRoots(from, to) {
+        if (from.shadowRoot) copyShadowRoot(from.shadowRoot, to);
+        const originals = from.querySelectorAll('*');
+        let copies = null;
+        for (let i = 0; i < originals.length; i++) {
+            const root = originals[i].shadowRoot;
+            if (!root) continue;
+            copies = copies || to.querySelectorAll('*');
+            copyShadowRoot(root, copies[i]);
+        }
+    }
+
+    // A shadow root with media stays empty, like media in the copy (see MEDIA).
+    function copyShadowRoot(root, host) {
+        if (!host || host.shadowRoot || root.querySelector(MEDIA)) return;
+        let shadow;
+        try { shadow = host.attachShadow({ mode: 'open' }); } catch { return; }
+        for (const node of root.childNodes) {
+            const copy = node.cloneNode(true);
+            shadow.appendChild(copy);
+            if (node.nodeType === 1) copyShadowRoots(node, copy);
+        }
     }
 
     // Copies an element that disappears, before the browser hides or removes it, at the same place

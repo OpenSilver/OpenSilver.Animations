@@ -1,6 +1,6 @@
 # Status and roadmap
 
-Last updated: October 28, 2026, after phase 7, Magic move and chapter 11, the feedback on its corners, content and letters, and the list properties renamed to `ItemsAppear`, `ItemsDisappear`, `ItemsMoveAndResize` and `ItemsCascade`.
+Last updated: October 28, 2026, after the first animations in XAML.io's own interface (the AI input and the side panels), which brought early arrivals, the hook for popups that close, and copies of shadow roots.
 
 ## Phases
 
@@ -8,7 +8,7 @@ Last updated: October 28, 2026, after phase 7, Magic move and chapter 11, the fe
 | Phase | Content                                                                                            | Status                                                                                                                          |
 | ----- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | 0     | Spike: validate the risky parts                                                                    | Partly done (see below).                                                                                                        |
-| 1     | OpenSilver core changes: `InternalHooks` and the insertion fix                                     | Done: commit `547adac2` on branch `feat/internalhooks` (first called `feat/layout-observer`), then the `{Responsive}` hook (`OnResponsiveValueChanged`), then the hooks made internal, with `InternalsVisibleTo("OpenSilver.Animations")`, and their unused parts removed, then `LayoutObserver` renamed `InternalHooks` in the PR review. |
+| 1     | OpenSilver core changes: `InternalHooks` and the insertion fix                                     | Done: commit `547adac2` on branch `feat/internalhooks` (first called `feat/layout-observer`), then the `{Responsive}` hook (`OnResponsiveValueChanged`), then the hooks made internal, with `InternalsVisibleTo("OpenSilver.Animations")`, and their unused parts removed, then `LayoutObserver` renamed `InternalHooks` in the PR review. Then `OnDetaching` for a popup that closes, in `PopupRoot.Close`, not committed yet. |
 | 2     | `MoveAndResize` (Smooth), grouping, exclusions, performance guards, diagnostics; the gallery shell | Done. The product owner tested it; the first round of feedback is addressed and verified in Chromium (see "Verified").          |
 | 3     | `Appear`/`Disappear`, `OnPageOpen`, `OthersMove`, the `Items...` properties, `Hover` and `Press`; then the Showcase port | Built, in four steps, then the port and chapter 15; the product owner reviews them. Step 1 is done: `Appear`/`Disappear` with their presets, `OthersMove`, the automatic disappear inside areas, and chapters 1 to 3. Step 2 is done: `StartAfter` and `OnPageOpen`, and chapter 4. Step 3 is done: `ItemsAppear`, `ItemsDisappear`, `ItemsMoveAndResize` and `ItemsCascade`, chapter 6, and the chapter 8 tiles. Step 4 is done: `Hover` and `Press` with `Grow`, `Lift`, `Shrink` and `Nudge`, and chapter 12. The Showcase port is done, not committed yet, with what it needed to look as before: the classic curves and `Overshoot`, `OthersDuration`, `Fade=False`, distances in percent, `Zoom` sizes, and elements that stay where they end. Chapter 15 is built: a small copy of the Showcase's window, and how each of its animations is made. |
 | 4     | `AnimationCatalog` and `AnimationDesign`, and the gallery playgrounds built on them                | Not started.                                                                                                                    |
@@ -290,6 +290,15 @@ Checked in the Debug build, at about 1766 × 994, by recording every `element.an
 - **Show what animates** outlines the element that arrives.
 - **Regressions.** Chapter 1 (the details appear and disappear), with no console errors in any chapter tried.
 
+### XAML.io's own interface
+
+Checked in XAML.io's Debug build, on the local OpenSilver and library packages, at 1600 × 900. The library's messages went to the console (`LogForDebugging`, turned on for the test only), every `element.animate` call was recorded, and buttons were clicked with the pointer capture patch of development.md. Halfway frames were taken with `Page.captureScreenshot`, with each new 250 ms animation paused as it was created and its `startTime` kept from changing.
+
+- **The AI input.** Clicking the pill opens the popup's card: "GlobalAiPopupRoot appeared as AIControlBase disappeared, with the same Magic move "GlobalAiInput"; it travels from where that one was, above the page (Smooth, 0.25 s for the distance)." The layer grows from 819 × 26 to 819 × 173. Clicking outside closes it, and the card goes back into the pill the same way. Nothing stays in the page, nothing keeps running, and there are no console errors. Before the fixes, opening played the card's own Appear, because the popup is laid out as it opens, before the binding to its `IsOpen` collapses the pill. Closing played nothing, because OpenSilver said nothing when a popup closed. Halfway, the page shows faintly through the layer, because the pill's background is partly transparent.
+- **The side panels.** My Solutions and the Solution Explorer slide out when they are collapsed, and slide in when they are docked again from the popup of their strip: "LeftPanelContainer disappeared; it slides out, and 54 elements animate together (Smooth, 0.25 s, from the Disappear of LeftPanelContainer)", then "appeared; it slides in", and the same for SolutionExplorer. The document area moves by 181 px, and its width changes with it. The strip that replaces a panel shows at once, above the end of the panel's copy.
+- **Shadow roots.** The copy of the Solution Explorer had no icons: they are `SvgImage` controls, an `HtmlPresenter` with `UseShadowDom`, and `cloneNode` leaves shadow roots out. Paused at 8% of the slide, the copy now shows them.
+- **Regressions.** Gallery chapter 11 after these changes: the pill, a photo opened and closed, the wizard both ways, and the toppings both ways. Chapter 1: the details. Nothing stays in the page but the empty overlay, and there are no console errors.
+
 ## Not verified yet
 
 - The Showcase's loading popup itself: it's hard to open on purpose. Its effect was checked in the copy of chapter 15 (see "Chapter 15").
@@ -312,6 +321,7 @@ Checked in the Debug build, at about 1766 × 994, by recording every `element.an
 - The gallery on a real phone and tablet. The phone layout was only checked with an emulated screen.
 - Presets declared as resources or in Style Setters.
 - The XAML.io design surface.
+- XAML.io's own interface: sending from the AI card while signed in (the card should disappear after its 0.3 s wait, since the pill is collapsed by then), Escape, switching solution while the card is open, the phone and tablet layouts, and a window narrower than 1024 px, which collapses the panels.
 - After the review on October 23, only chapter 5 was re-run in the browser. The review changes are:
   - `ThisElement` ancestors must have moved to give their timing;
   - nested scopes;
@@ -347,6 +357,7 @@ Checked in the Debug build, at about 1766 × 994, by recording every `element.an
 - **Without `plus-lighter`**, in browsers that can't add the two copies up, a Magic move cross-fades as before: the old copy stays until halfway, so a text that fades into itself looks a little bolder there.
 - **A Magic move without a partner is late.** An element with a Magic move that disappears and finds no partner plays its Disappear 0.3 s later, and the elements around it don't wait for it: they move with their own settings, or snap.
 - **Some elements don't travel.** An element inside a container that disappears travels only if it is in view; otherwise its partner plays its own Appear. A `Hidden` element doesn't travel either: it keeps its space.
+- **A popup that closes** plays only the Magic moves inside it. A Disappear on its content doesn't play: its copy would be removed with the popup.
 - **A travel that waits for a size** measures its end after the wait, including what the other animations of the pass have moved by then.
 - **A disabled button doesn't always look disabled.** In the PrimaryButton style of the gallery, a button disabled while the mouse is elsewhere keeps its normal look, even without reactions. That's an OpenSilver issue; chapter 12 says that the button doesn't react rather than showing it dimmed.
 - **The Simulator:** JavaScript batches can arrive a frame apart.
@@ -434,6 +445,9 @@ Checked in the Debug build, at about 1766 × 994, by recording every `element.an
 - **Corners and borders change on the way; colors don't need to.** The product owner asked for `CornerRadius`, colors and other properties. Corners and borders change the shape, so both copies animate them, and the two copies keep the same shape. The two copies then add up (`plus-lighter`) instead of covering each other: two identical shapes that cross-fade that way change color exactly like a color animation, and so do gradients, images and shadows, which couldn't be animated one by one.
 - **What is inside a box zooms as much as its letters change size**, not as much as the box: the avatar's "AM" goes from 20 to 13 px with its circle, and the plan card's "Pro" from 15 to 13 px while the card shrinks into a pill. Zooming as much as the box made that "Pro" 6 px. Without letters, it zooms as much as the content does.
 - **A text travels by its letters, not by its box.** The photo titles are wide boxes with a short word in them: their copies were scaled by the boxes' heights and placed by the boxes, so the two words didn't cover each other, and the old one, still opaque, made the title look bolder. The same text at both ends also stretches a little, so that its copies match exactly.
+- **A popup that closes tells the library**, chosen by the product owner: `PopupRoot.Close` calls `OnDetaching` for the element that holds the popup's content, in a new commit for the OpenSilver PR in review. Without it, XAML.io's AI card couldn't go back into its pill.
+- **Early arrivals pair.** An element with a Magic move that appears without a partner can still pair until the end of the task, because nothing was painted yet. A popup is laid out as it opens, before a binding to its `IsOpen` collapses the element it replaces. Waiting longer would delay the Appear of every element with a Magic move.
+- **Copies include shadow roots**, except those with media, so that an `HtmlPresenter` with `UseShadowDom`, like XAML.io's icons, isn't empty while it disappears or travels.
 - **Chapter 11 has toppings instead of a tab underline**, because chapter 10 already has the underline, and it's one element that moves, which `MoveAndResize` does. The toppings show what only Magic move does: an element that goes from one list to another.
 
 
@@ -441,10 +455,11 @@ Checked in the Debug build, at about 1766 × 994, by recording every `element.an
 ## Next steps
 
 1. **The product owner tests chapter 12** with a real mouse and a touch screen.
-2. **The OpenSilver PR**, from `feat/internalhooks`, is in review. When it's merged, get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
+2. **The OpenSilver PR**, from `feat/internalhooks`, is in review. It needs one more commit: the call to `OnDetaching` in `PopupRoot.Close`, and its doc comment in `InternalHooks`. When it's merged, get a published preview package. Then set the default `OpenSilverVersion` in `Directory.Build.props` to it, and use it in CI.
 3. **The end of phase 3.** The product owner reviews the Showcase port and chapter 15, and commits them. The port replaced `SpringEffect` with `Hover=Nudge`, `Animation.OnAppear` with `Appear`, `AnimatedContentControl` with `OnPageOpen=PushOthers`, and `PropertyAnimator` with `MoveAndResize`.
 4. **Phase 4:** `AnimationCatalog` and `AnimationDesign`, then the playgrounds, the live XAML and the summaries in every chapter.
 5. **The end of phase 5.** The product owner reviews the text effects and chapter 9, and commits them.
 6. **The end of phase 7.** The product owner reviews Magic move and chapter 11, and commits them.
-7. **Later:** ContentTransition.
+7. **XAML.io's own interface.** The product owner tests the AI input and the side panels. Then the next batches: status texts, things that appear, menus and dialogs, sliding selections, lists, and hover and press.
+8. **Later:** ContentTransition.
 

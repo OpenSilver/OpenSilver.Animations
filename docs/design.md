@@ -54,6 +54,7 @@ Call sites, each a guarded one-liner:
 - `Arrange`: before `ArrangeCore(finalRect)`, and after the `RenderLayout()` block. The previous rect comes from the existing `oldOffset`/`oldSize` locals.
 - [UIElement.cs](src/Runtime/Runtime/System.Windows/UIElement.cs), `OnVisibilityChanged`: at the very end, after `UpdateIsVisibleCache()`. The library may re-enter here, and an earlier call would let the outer callback overwrite the caches with a stale value.
 - [INTERNAL_VisualTreeManager.cs](src/Runtime/Runtime/Core/Rendering/INTERNAL_VisualTreeManager.cs), `DetachVisualChildIfNotNull`: before `InternalDetachVisual(child)`. The DOM still exists at that point: `RemoveFromDom` either queues the removal to `ProcessRenderQueue` or appends it to the same JS buffer, so it always runs after the library's clone call.
+- [PopupRoot.cs](src/Runtime/Runtime/System.Windows.Controls.Primitives/PopupRoot.cs), `Close`: before `DetachPopupRoot`, for the element that holds the popup's content, with the `PopupRoot` as its parent. `DetachPopupRoot` removes the popup from the page without detaching any child, so without this call the library wouldn't know that its content leaves.
 - [LayoutManager.cs](src/Runtime/Runtime/System.Windows/LayoutManager.cs), the `finally` block of `UpdateLayout`: before `UIRenderer.ProcessRenderQueue(true)`. The library's JS goes into the same flush.
 - [ResponsiveExpression.cs](src/Runtime/Runtime/System.Windows/ResponsiveExpression.cs), `OnSourceElementSizeChanged`: after the expression is applied again, when it had a value and the new one differs. It passes the mentor (the element, or the owner of a ColumnDefinition, for example), the target and the property. This runs in the `SizeChanged` of the watched element, inside `UpdateLayout`, between two layout rounds.
 
@@ -741,12 +742,13 @@ Each line is what the developer sets, and what must happen.
 - **Ghosts.**
   - **Capture.** At `OnDetaching`, or in the `OnVisibilityChanged` hook, the library deep-clones the element's DOM.
     - It strips ids, sets `pointer-events: none` and `data-os-foreign`, and copies canvas bitmaps.
+    - It copies open shadow roots, which a plain clone leaves out, like the content of an `HtmlPresenter` with `UseShadowDom`.
     - It removes the `uielement-collapsed` class (`display: none !important`, which no animation can override) and the `uielement-hidden` class.
     - The clone stays in the parent at the element's old DOM position, so its stacking among siblings doesn't change, and at its last arranged rectangle.
   - **Starting look.** The clone starts from the element's computed look at capture time (opacity, translate, scale), so an element that disappears while still appearing doesn't jump.
   - **Animate.** It animates at `OnLayoutPassCompleted`, then is removed. An element that becomes Hidden keeps its space, so there is no layout pass: its ghost plays at once. A ghost that no batch plays is removed after 1.5 s.
   - **Toggling back.** If the element appears again while its ghost is animating, the ghost is removed and the appear effect starts from the ghost's current look.
-  - **Fidelity limits.** Video, audio, iframes and plugins become an empty box of the same size in the clone, so that they don't load or play again, and the ghost fades out in 0.15 s instead of playing its effect. An element that is itself a video or an iframe gets no ghost.
+  - **Fidelity limits.** Video, audio, iframes and plugins become an empty box of the same size in the clone, so that they don't load or play again, and the ghost fades out in 0.15 s instead of playing its effect. An element that is itself a video or an iframe gets no ghost. A shadow root that holds media stays empty, and a closed shadow root can't be read, so it stays empty too.
 
 ## Bouncy and Wave
 
@@ -759,7 +761,7 @@ Each line is what the developer sets, and what must happen.
 ## Magic move
 
 - **Pairing.**
-  - An element with id K disappears and another with K appears in the same pass. Or the disappearing one comes first and the appearing one follows within 0.3 s; meanwhile the disappearing one's copy stays where it was. If nothing arrives, it plays its own Disappear, or disappears at once. An element that appears waits for nothing: with no partner that disappeared, it plays its own Appear.
+  - An element with id K disappears and another with K appears in the same pass. Or the disappearing one comes first and the appearing one follows within 0.3 s; meanwhile the disappearing one's copy stays where it was. If nothing arrives, it plays its own Disappear, or disappears at once. An element that appears waits for nothing: with no partner that disappeared, it plays its own Appear. But when its partner disappears right after it, before the browser paints, they still pair. That's what happens when a popup opens, because it's laid out at once, before a binding to its `IsOpen` collapses the element it replaces.
   - The same element first, when it moved to a new parent. Then, when several candidates exist, the pair with the closest common ancestor wins, so templates can share ids safely.
   - A pair replaces both elements' Appear and Disappear effects. Unpaired elements run their normal effects.
   - A pair inside another pair travels with it, inside its copy.
