@@ -176,12 +176,12 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Text="AVAILABLE" Style="{StaticResource OverlineText}" Margin="0,0,0,8" />
-                    <WrapPanel x:Name="AvailableToppings" MinHeight="40" anim:Animate.ItemMoveAndResize="Smooth" />
+                    <WrapPanel x:Name="AvailableToppings" MinHeight="40" anim:Animate.ItemsMoveAndResize="Smooth" />
                 </StackPanel>
                 <Border Grid.Column="2" Style="{StaticResource Card}" Padding="12,12,4,4">
                     <StackPanel>
                         <TextBlock Text="ON YOUR PIZZA" Style="{StaticResource OverlineText}" Margin="0,0,0,8" />
-                        <WrapPanel x:Name="ChosenToppings" MinHeight="40" anim:Animate.ItemMoveAndResize="Smooth" />
+                        <WrapPanel x:Name="ChosenToppings" MinHeight="40" anim:Animate.ItemsMoveAndResize="Smooth" />
                     </StackPanel>
                 </Border>
             </Grid>

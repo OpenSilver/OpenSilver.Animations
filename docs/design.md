@@ -88,7 +88,7 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
 - **Named after what the developer sees.** Every property reads as "When it ...".
 - **The XAML names and the designer labels match**:
   - `Appear` is "When it appears", `Disappear` is "When it disappears", and `MoveAndResize` is "When it moves or changes size".
-  - `ItemAppear`, `ItemDisappear` and `ItemMoveAndResize` are "When an item appears / disappears / moves or changes size", and `ItemCascade` is "Cascade".
+  - `ItemsAppear`, `ItemsDisappear` and `ItemsMoveAndResize` are "When an item appears / disappears / moves or changes size", and `ItemsCascade` is "Cascade".
   - `TextChange` is "When its text changes", and `MagicMove` is "Magic move".
   - `Hover` is "When the mouse is over it", and `Press` is "When it is pressed".
   - For parameters, the label is the XAML name split into words: `StartAfter` is "Start after", `OthersMove` is "Other elements move", `OnPageOpen` is "When the page opens", `ApplyTo` is "Apply to", and `AlsoOnWindowResize` is "Also when the browser window is resized". `BlinkFirst` is "Blink first". `From`, `To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `Wave`, `Speed`, `Cursor` and `Travel` keep their names.
@@ -114,9 +114,9 @@ The NuGet package is `OpenSilver.Animations`, described as "Easy animations for 
 <Border x:Name="SettingsForm" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}" />
 
 <!-- When its items change (Panel or ItemsControl) -->
-<ListBox anim:Animate.ItemAppear="{anim:Slide From=Right}" anim:Animate.ItemDisappear="Fade"
-         anim:Animate.ItemMoveAndResize="Smooth" anim:Animate.ItemCascade="0.04s" />
-<WrapPanel anim:Animate.ItemMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}" />
+<ListBox anim:Animate.ItemsAppear="{anim:Slide From=Right}" anim:Animate.ItemsDisappear="Fade"
+         anim:Animate.ItemsMoveAndResize="Smooth" anim:Animate.ItemsCascade="0.04s" />
+<WrapPanel anim:Animate.ItemsMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}" />
 
 <!-- When the mouse is over it / when it is pressed -->
 <Button Content="Buy now" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" />
@@ -204,7 +204,7 @@ Animate.Skip(() => LoadInitialData());
   - **ApplyTo=EverythingInside.** Exactly as if every element inside, at any depth (including templates and items created later), had `MoveAndResize` with the same settings. Two additions:
     - Elements inside that appear or disappear without their own effect get an automatic one: Wipe when they push others or the others fill their place, Fade otherwise. It follows the curve of the sizes, so that the wiped part keeps up with the elements that move. Only the topmost element gets it, never on page open.
     - `Appear=None` or `Disappear=None` turns it off for an element. An element that becomes Hidden keeps its space, so it gets no automatic effect. At most 40 elements get an automatic Disappear in one change; the others vanish at once.
-    - Lists inside track their items by data item, as with `ItemMoveAndResize`.
+    - Lists inside track their items by data item, as with `ItemsMoveAndResize`.
 
     Nothing is copied to the elements inside: the area is found by a lookup when a change happens (see "Areas").
     - A nested `EverythingInside` starts a new area with its own settings.
@@ -215,13 +215,13 @@ Animate.Skip(() => LoadInitialData());
     - Each resize event retargets from the current on-screen position, so elements keep following the window edge.
     - A `{Responsive}` value that switches when the window, or the element it watches, crosses a breakpoint animates without this flag, like a click (see "Window resizes" in "When things animate").
 - **Items** (Panel or ItemsControl). Items are the containers of an ItemsControl, or the children of a Panel. Setting the properties on the items panel inside an ItemsControl's template also works.
-  - `Animate.ItemAppear` and `Animate.ItemDisappear`: the same presets and parameters as Appear/Disappear. `OnPageOpen` accepts `InPlace` or `Skip`. The text presets play on the children of a Panel that are TextBlocks, and the others fade. The items of an ItemsControl are containers, so there a text preset fades them, with a warning.
-  - `Animate.ItemMoveAndResize`: `Smooth`, `Bouncy` or `None`, with the same parameters as `MoveAndResize` except `ApplyTo`. Each item moves and resizes smoothly, including when the list is re-sorted, filtered or refreshed. `None` carves each item out, like `MoveAndResize=None` on it: changes that start inside an item never animate.
-  - `Animate.ItemCascade`: the time between items that appear or disappear together, from 0 to 0.3 s (default 0, all together). The total is capped at 0.6 s: with many items, they come closer together.
+  - `Animate.ItemsAppear` and `Animate.ItemsDisappear`: the same presets and parameters as Appear/Disappear. `OnPageOpen` accepts `InPlace` or `Skip`. The text presets play on the children of a Panel that are TextBlocks, and the others fade. The items of an ItemsControl are containers, so there a text preset fades them, with a warning.
+  - `Animate.ItemsMoveAndResize`: `Smooth`, `Bouncy` or `None`, with the same parameters as `MoveAndResize` except `ApplyTo`. Each item moves and resizes smoothly, including when the list is re-sorted, filtered or refreshed. `None` carves each item out, like `MoveAndResize=None` on it: changes that start inside an item never animate.
+  - `Animate.ItemsCascade`: the time between items that appear or disappear together, from 0 to 0.3 s (default 0, all together). The total is capped at 0.6 s: with many items, they come closer together.
     - The items follow the order in which the list arranges them. Those that appear and those that disappear in the same change make two cascades, which start together.
     - The time is divided by `Speed`, like durations.
   - An item's own `Appear`, `Disappear` or `MoveAndResize` wins.
-  - A value that doesn't apply writes a warning, like the effects do: an item setting on an element that is not a Panel or an ItemsControl, `ApplyTo` on `ItemMoveAndResize`, `OnPageOpen=PushOthers` on `ItemAppear`, and a cascade longer than 0.3 s.
+  - A value that doesn't apply writes a warning, like the effects do: an item setting on an element that is not a Panel or an ItemsControl, `ApplyTo` on `ItemsMoveAndResize`, `OnPageOpen=PushOthers` on `ItemsAppear`, and a cascade longer than 0.3 s.
 - **Animate.Hover and Animate.Press**: what an element does while the mouse is over it, and while it is pressed with the mouse, a finger or a pen. Any element can react, not only buttons.
   - **Presets:**
     - `Grow` (`Zoom`, 0.5 to 2, default 1.05) and `Shrink` (`Zoom`, default 0.96) zoom around the center.
@@ -305,7 +305,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
    - **"Show or hide it with an effect":** `Appear=Fade` and `Disappear=Fade`; opens both sections.
    - **"Animate its size and position changes":** `MoveAndResize=Smooth`.
    - **"Animate every change inside it":** `MoveAndResize={anim:Smooth ApplyTo=EverythingInside}`.
-   - **"Animate list items":** on a Panel or ItemsControl, `ItemAppear=Fade`, `ItemDisappear=Fade` and `ItemMoveAndResize=Smooth`. On anything else it shows "Select the list first" and a "Select the nearest list" button.
+   - **"Animate list items":** on a Panel or ItemsControl, `ItemsAppear=Fade`, `ItemsDisappear=Fade` and `ItemsMoveAndResize=Smooth`. On anything else it shows "Select the list first" and a "Select the nearest list" button.
    - **"Animate text changes"** (TextBlock): `TextChange=Roll` when the current text is a number, `CrossFade` otherwise.
    - **"Page intro":** `Appear={anim:Slide From=Bottom}` on the selected elements, with Start after spread by 0.1 s in reading order; opens the page intro timeline.
    - **"Move between two elements (Magic move)":** sets `MagicMove` to an id suggested from `x:Name`, and shows "Give the same id to the other element".
@@ -567,7 +567,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
    - a search box that widens on focus.
 
    The intro suggests turning on Show what animates, to see that everything involved moves together.
-6. **Lists.** `ItemAppear`, `ItemDisappear`, `ItemMoveAndResize` and `ItemCascade`. Demos:
+6. **Lists.** `ItemsAppear`, `ItemsDisappear`, `ItemsMoveAndResize` and `ItemsCascade`. Demos:
    - a to-do list (add and remove);
    - toasts;
    - sort and filter;
@@ -620,20 +620,20 @@ Each line is what the developer sets, and what must happen.
 - **Bar chart** (Width bound to data): `MoveAndResize=Smooth` in the bar template.
 - **Image loads, card grows:** `MoveAndResize=Smooth` on the card.
 - **Search box widens on focus:** `MoveAndResize=Smooth` on the TextBox. Typing inside it never animates.
-- **AI chat, streaming answer:** `ItemMoveAndResize=Smooth` and `ItemAppear` Slide from Bottom on the message list. The growing bubble pushes what is below it smoothly while text streams in.
-- **Toasts:** on the toast StackPanel, `ItemAppear` Slide from Right, `ItemDisappear=Fade`, `ItemMoveAndResize=Smooth`.
-- **Sortable, filterable list:** `ItemMoveAndResize=Smooth`. Items glide to their new places, also with recycling virtualization.
-- **Drag to reorder:** `ItemMoveAndResize=Smooth`. While dragging, the other items glide out of the way; the dragged item follows the pointer without lag.
+- **AI chat, streaming answer:** `ItemsMoveAndResize=Smooth` and `ItemsAppear` Slide from Bottom on the message list. The growing bubble pushes what is below it smoothly while text streams in.
+- **Toasts:** on the toast StackPanel, `ItemsAppear` Slide from Right, `ItemsDisappear=Fade`, `ItemsMoveAndResize=Smooth`.
+- **Sortable, filterable list:** `ItemsMoveAndResize=Smooth`. Items glide to their new places, also with recycling virtualization.
+- **Drag to reorder:** `ItemsMoveAndResize=Smooth`. While dragging, the other items glide out of the way; the dragged item follows the pointer without lag.
 - **GridSplitter and Slider drags:** nothing lags behind the pointer, even inside an `EverythingInside` area.
-- **Scrolling a virtualized ListBox with ItemAppear:** no effects play while scrolling.
-- **WrapPanel of tiles that re-flow when the browser window is resized:** `ItemMoveAndResize` Smooth with `AlsoOnWindowResize=True` on the WrapPanel. Tiles glide to their new rows while the edge is dragged; the rest of the page snaps.
+- **Scrolling a virtualized ListBox with ItemsAppear:** no effects play while scrolling.
+- **WrapPanel of tiles that re-flow when the browser window is resized:** `ItemsMoveAndResize` Smooth with `AlsoOnWindowResize=True` on the WrapPanel. Tiles glide to their new rows while the edge is dragged; the rest of the page snaps.
 - **Accordion that expands its content only after the space has opened:** `Appear` Fade with `OthersMove=Before`.
 - **Responsive page** (breakpoint switches from 2 columns to 1): `MoveAndResize` Smooth with `ApplyTo=EverythingInside` on the page root. The rearrangement animates; the window resize itself doesn't.
 - **A side panel whose content switches layout while its edge is dragged:** `Orientation="{Responsive ElementName=Panel, Threshold=220, ...}"` on its content, and `ApplyTo=EverythingInside` on the panel. The edge follows the pointer; at the breakpoint, the content glides into its new layout while the drag goes on.
 - **Settings form with toggles that show sub-options:** `ApplyTo=EverythingInside` on the form.
 - **Page intro:** `Appear` with `StartAfter` on each element; the subtitle has `OnPageOpen=PushOthers`; the title uses `Typewriter`.
 - **Selection pill across radio buttons:** `MagicMove=SelectionPill` on the template background. Travel is automatic, and resolves to Behind, whichever direction it travels: the pill slides under the labels.
-- **Chips that move between two lists:** the same `MagicMove` id on the chip in each list, and `ItemMoveAndResize` on both lists. The chip travels above the page while the chips around it make room.
+- **Chips that move between two lists:** the same `MagicMove` id on the chip in each list, and `ItemsMoveAndResize` on both lists. The chip travels above the page while the chips around it make room.
 - **Wizard pages:** `MagicMoveByName` on the Frame or ContentControl. The elements that both steps have travel, the rest cross-fades.
 - **List to detail photo:** a bound `MagicMove` id on the thumbnail and on the detail image, and on their titles. The photo and its title leave together, also while the detail image is still loading; going back, the other thumbnails show at once.
 
@@ -658,7 +658,7 @@ Each line is what the developer sets, and what must happen.
   - The lookup is used both for origins ("does this change start inside an area?") and for affected elements ("does this element count as having `MoveAndResize`?"). So a change that starts outside the area but moves or resizes something inside it also animates.
 - **Deciding, per origin at `OnLayoutPassCompleted`.** The whole group (the origin chain plus every affected element) animates when any of these holds:
   - it starts inside an `EverythingInside` area;
-  - it moves or resizes an element with `MoveAndResize`, or an item of a list with `ItemMoveAndResize`;
+  - it moves or resizes an element with `MoveAndResize`, or an item of a list with `ItemsMoveAndResize`;
   - it's a runtime appearance or disappearance of an element that has an effect (its own, an item effect, or an automatic one).
 - **One timing per group** (Duration and curve), which keeps the containment guarantee. **The nearest setting wins:** going up from where the change starts, the timing comes from the first of:
   - the setting of the element where the change starts, even when its own box stays the same: an effect gives its Duration (or its OthersDuration) and Easing, a bouncy effect moves the others with Smooth, and an overshooting one with EaseOut;

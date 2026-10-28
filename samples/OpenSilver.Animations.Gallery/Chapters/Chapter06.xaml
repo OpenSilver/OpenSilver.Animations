@@ -46,14 +46,14 @@
         <TextBlock Text="CHAPTER 6" Style="{StaticResource OverlineText}" />
         <TextBlock Text="Lists" Style="{StaticResource ChapterTitleText}" />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="Set these on a list, and they apply to each of its items: ItemAppear when an item is added, ItemDisappear when it is removed, ItemMoveAndResize when items move or change size, and ItemCascade to make items that come or go together do it one after the other. A list is an ItemsControl, a ListBox, or any panel, whose children are its items." />
+                   Text="Set these on a list, and they apply to each of its items: ItemsAppear when an item is added, ItemsDisappear when it is removed, ItemsMoveAndResize when items move or change size, and ItemsCascade to make items that come or go together do it one after the other. A list is an ItemsControl, a ListBox, or any panel, whose children are its items." />
         <TextBlock Style="{StaticResource IntroText}"
                    Text="When a list is sorted, filtered or refreshed, each item glides from where it was to its new place, even when the list makes new rows for it." />
 
         <!-- 1. To-do list -->
         <controls:DemoCard Title="A to-do list"
                            Description="Add a task, or three at once. Check some, then clear them. New tasks slide in at the top, and the others make room or close the gaps."
-                           Xaml='&lt;ItemsControl ItemsSource="{Binding Tasks}"&#10;              anim:Animate.ItemAppear="{anim:Slide From=Top, Distance=Short}"&#10;              anim:Animate.ItemDisappear="Fade"&#10;              anim:Animate.ItemMoveAndResize="Smooth"&#10;              anim:Animate.ItemCascade="0.05s" /&gt;'
+                           Xaml='&lt;ItemsControl ItemsSource="{Binding Tasks}"&#10;              anim:Animate.ItemsAppear="{anim:Slide From=Top, Distance=Short}"&#10;              anim:Animate.ItemsDisappear="Fade"&#10;              anim:Animate.ItemsMoveAndResize="Smooth"&#10;              anim:Animate.ItemsCascade="0.05s" /&gt;'
                            Expectations="• Add: the new task slides in at the top, and the tasks below slide down while it does.&#10;• Add 3: the three tasks slide in one after the other, 0.05 s apart.&#10;• Remove a task with ×: it fades out, and the tasks below slide up.&#10;• Clear the done ones: the checked tasks fade out one after the other, and the others close the gaps.">
             <StackPanel Width="{Responsive Mobile=NaN, Tablet=420}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
                 <Grid>
@@ -69,10 +69,10 @@
                     <Button Content="Clear the done ones" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ClearDone_Click" />
                 </StackPanel>
                 <ItemsControl x:Name="Tasks"
-                              anim:Animate.ItemAppear="{anim:Slide From=Top, Distance=Short}"
-                              anim:Animate.ItemDisappear="Fade"
-                              anim:Animate.ItemMoveAndResize="Smooth"
-                              anim:Animate.ItemCascade="0.05s">
+                              anim:Animate.ItemsAppear="{anim:Slide From=Top, Distance=Short}"
+                              anim:Animate.ItemsDisappear="Fade"
+                              anim:Animate.ItemsMoveAndResize="Smooth"
+                              anim:Animate.ItemsCascade="0.05s">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource Row}" Height="44">
@@ -95,14 +95,14 @@
         <!-- 2. Toasts -->
         <controls:DemoCard Title="Toasts"
                            Description="A StackPanel is a list too: its children are its items. Each toast closes by itself after 3 seconds, or when you click it."
-                           Xaml='&lt;StackPanel x:Name="Toasts"&#10;            anim:Animate.ItemAppear="{anim:Slide From=Right}"&#10;            anim:Animate.ItemDisappear="Fade"&#10;            anim:Animate.ItemMoveAndResize="Smooth" /&gt;'
+                           Xaml='&lt;StackPanel x:Name="Toasts"&#10;            anim:Animate.ItemsAppear="{anim:Slide From=Right}"&#10;            anim:Animate.ItemsDisappear="Fade"&#10;            anim:Animate.ItemsMoveAndResize="Smooth" /&gt;'
                            Expectations="• Show a toast: it slides in from the right, below the others.&#10;• After 3 s, the oldest toast fades out, and the others slide up.&#10;• Click a toast: it fades out at once.&#10;• With three toasts shown, a new one makes the oldest fade out at once.">
             <StackPanel>
                 <Border Style="{StaticResource Stage}" Height="270" ClipToBounds="True">
                     <StackPanel x:Name="Toasts" Width="{Responsive Mobile=230, Tablet=270}" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                anim:Animate.ItemAppear="{anim:Slide From=Right}"
-                                anim:Animate.ItemDisappear="Fade"
-                                anim:Animate.ItemMoveAndResize="Smooth" />
+                                anim:Animate.ItemsAppear="{anim:Slide From=Right}"
+                                anim:Animate.ItemsDisappear="Fade"
+                                anim:Animate.ItemsMoveAndResize="Smooth" />
                 </Border>
                 <Button Content="Show a toast" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ShowToast_Click" />
             </StackPanel>
@@ -111,7 +111,7 @@
         <!-- 3. Sort and filter -->
         <controls:DemoCard Title="Sort and filter"
                            Description="Each button gives the list a new list of the same products, sorted or filtered. The list makes new tiles for all of them, and each product glides from where it was."
-                           Xaml='&lt;ItemsControl ItemsSource="{Binding VisibleProducts}"&#10;              anim:Animate.ItemAppear="Fade"&#10;              anim:Animate.ItemDisappear="Fade"&#10;              anim:Animate.ItemMoveAndResize="Smooth"&gt;&#10;    &lt;ItemsControl.ItemsPanel&gt;&#10;        &lt;ItemsPanelTemplate&gt;&#10;            &lt;WrapPanel /&gt;'
+                           Xaml='&lt;ItemsControl ItemsSource="{Binding VisibleProducts}"&#10;              anim:Animate.ItemsAppear="Fade"&#10;              anim:Animate.ItemsDisappear="Fade"&#10;              anim:Animate.ItemsMoveAndResize="Smooth"&gt;&#10;    &lt;ItemsControl.ItemsPanel&gt;&#10;        &lt;ItemsPanelTemplate&gt;&#10;            &lt;WrapPanel /&gt;'
                            Expectations="• Sort by name, by price, or shuffle: every tile glides to its new place, also from one row to another.&#10;• Only the ones in stock: the others fade out while the rest close the gaps. Uncheck it: they fade back in, and the others make room.&#10;• Click the buttons quickly, one after the other: the tiles change direction without jumping.">
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -121,9 +121,9 @@
                 </StackPanel>
                 <CheckBox x:Name="InStockOnly" Content="Only the ones in stock" Margin="0,0,0,12" Checked="InStockOnly_Changed" Unchecked="InStockOnly_Changed" />
                 <ItemsControl x:Name="Products"
-                              anim:Animate.ItemAppear="Fade"
-                              anim:Animate.ItemDisappear="Fade"
-                              anim:Animate.ItemMoveAndResize="Smooth">
+                              anim:Animate.ItemsAppear="Fade"
+                              anim:Animate.ItemsDisappear="Fade"
+                              anim:Animate.ItemsMoveAndResize="Smooth">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
@@ -147,10 +147,10 @@
         <!-- 4. Drag to reorder -->
         <controls:DemoCard Title="Drag to reorder"
                            Description="Drag a step up or down. The list changes order while you drag, and the steps you pass glide out of the way."
-                           Xaml='&lt;ItemsControl ItemsSource="{Binding Steps}"&#10;              anim:Animate.ItemMoveAndResize="Smooth" /&gt;'
+                           Xaml='&lt;ItemsControl ItemsSource="{Binding Steps}"&#10;              anim:Animate.ItemsMoveAndResize="Smooth" /&gt;'
                            Expectations="• The step you drag follows the pointer exactly, without lag.&#10;• The steps you pass glide out of the way, up or down, also when you drag back and forth quickly.&#10;• Drop it: it settles into its place.">
             <ItemsControl x:Name="Steps" Width="{Responsive Mobile=NaN, Tablet=420}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}"
-                          anim:Animate.ItemMoveAndResize="Smooth">
+                          anim:Animate.ItemsMoveAndResize="Smooth">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Style="{StaticResource Row}" Height="44" Cursor="SizeNS"
@@ -176,14 +176,14 @@
         <!-- 5. Streaming chat -->
         <controls:DemoCard Title="A streaming chat"
                            Description="Ask a question: your message slides in, then the answer arrives word by word, and the growing bubble pushes what is below it. To keep the chat short, the oldest question and answer go away when you ask a third one."
-                           Xaml='&lt;ItemsControl ItemsSource="{Binding Messages}"&#10;              anim:Animate.ItemAppear="{anim:Slide From=Bottom, Distance=Short}"&#10;              anim:Animate.ItemDisappear="Fade"&#10;              anim:Animate.ItemMoveAndResize="Smooth" /&gt;'
+                           Xaml='&lt;ItemsControl ItemsSource="{Binding Messages}"&#10;              anim:Animate.ItemsAppear="{anim:Slide From=Bottom, Distance=Short}"&#10;              anim:Animate.ItemsDisappear="Fade"&#10;              anim:Animate.ItemsMoveAndResize="Smooth" /&gt;'
                            Expectations="• Your message slides up into its place.&#10;• A bubble with … appears, then the answer streams in word by word.&#10;• Each time the answer gets a new line, the bubble grows smoothly and pushes the buttons below it, without jumps.&#10;• From the third question on, the oldest question and answer fade out while the other messages slide up.">
             <StackPanel Width="{Responsive Mobile=NaN, Tablet=420}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
                 <Border Style="{StaticResource Stage}">
                     <ItemsControl x:Name="Chat"
-                                  anim:Animate.ItemAppear="{anim:Slide From=Bottom, Distance=Short}"
-                                  anim:Animate.ItemDisappear="Fade"
-                                  anim:Animate.ItemMoveAndResize="Smooth">
+                                  anim:Animate.ItemsAppear="{anim:Slide From=Bottom, Distance=Short}"
+                                  anim:Animate.ItemsDisappear="Fade"
+                                  anim:Animate.ItemsMoveAndResize="Smooth">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border CornerRadius="14" Padding="12,8" Margin="0,4,0,4" MaxWidth="290"
@@ -205,13 +205,13 @@
         <!-- 6. Virtualized list -->
         <controls:DemoCard Title="A long list that scrolls"
                            Description="A ListBox with 300 orders and a VirtualizingStackPanel, which only makes the rows you see and reuses them while you scroll. Scroll it: no row plays its effect. Then add, move or remove orders."
-                           Xaml='&lt;ListBox ItemsSource="{Binding Orders}"&#10;         anim:Animate.ItemAppear="Fade"&#10;         anim:Animate.ItemDisappear="Fade"&#10;         anim:Animate.ItemMoveAndResize="Smooth"&gt;&#10;    &lt;ListBox.ItemsPanel&gt;&#10;        &lt;ItemsPanelTemplate&gt;&#10;            &lt;VirtualizingStackPanel /&gt;'
+                           Xaml='&lt;ListBox ItemsSource="{Binding Orders}"&#10;         anim:Animate.ItemsAppear="Fade"&#10;         anim:Animate.ItemsDisappear="Fade"&#10;         anim:Animate.ItemsMoveAndResize="Smooth"&gt;&#10;    &lt;ListBox.ItemsPanel&gt;&#10;        &lt;ItemsPanelTemplate&gt;&#10;            &lt;VirtualizingStackPanel /&gt;'
                            Expectations="• Scroll, with the wheel or the scroll bar: the rows follow at once, and no row fades in.&#10;• Add an order: it fades in at the top, and the rows below slide down.&#10;• Select an order, then move it to the top: it glides up, and the rows it passes slide down.&#10;• Remove the selected order: it fades out, and the rows below slide up.">
             <StackPanel Width="{Responsive Mobile=NaN, Tablet=420}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
                 <ListBox x:Name="Orders" Height="280"
-                         anim:Animate.ItemAppear="Fade"
-                         anim:Animate.ItemDisappear="Fade"
-                         anim:Animate.ItemMoveAndResize="Smooth">
+                         anim:Animate.ItemsAppear="Fade"
+                         anim:Animate.ItemsDisappear="Fade"
+                         anim:Animate.ItemsMoveAndResize="Smooth">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <VirtualizingStackPanel />
@@ -249,7 +249,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• An item's own Appear, Disappear or MoveAndResize wins over the ones of its list." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• ItemCascade goes from 0 to 0.3 s. However many items come or go together, the last one starts within 0.6 s." />
+                           Text="• ItemsCascade goes from 0 to 0.3 s. However many items come or go together, the last one starts within 0.6 s." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Rows that appear or disappear because you scroll never play their effects. While you drag, only the items that change places glide; the one you hold follows the pointer." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"

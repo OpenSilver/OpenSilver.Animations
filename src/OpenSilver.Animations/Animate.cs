@@ -15,7 +15,7 @@ namespace OpenSilver.Animations
     /// &lt;Button Content="Save" anim:Animate.MoveAndResize="Smooth" /&gt;
     /// &lt;TextBlock Text="{Binding Total}" anim:Animate.TextChange="CountUp" /&gt;
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
-    /// &lt;ItemsControl anim:Animate.ItemAppear="Fade" anim:Animate.ItemDisappear="Fade" anim:Animate.ItemMoveAndResize="Smooth" /&gt;
+    /// &lt;ItemsControl anim:Animate.ItemsAppear="Fade" anim:Animate.ItemsDisappear="Fade" anim:Animate.ItemsMoveAndResize="Smooth" /&gt;
     /// &lt;Button Content="Buy" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;
     /// &lt;Border anim:Animate.MagicMove="SelectionPill" /&gt;
     /// </code>
@@ -232,11 +232,11 @@ namespace OpenSilver.Animations
         }
 
         /// <summary>
-        /// Identifies the ItemAppear attached property.
+        /// Identifies the ItemsAppear attached property.
         /// </summary>
-        public static readonly DependencyProperty ItemAppearProperty =
+        public static readonly DependencyProperty ItemsAppearProperty =
             DependencyProperty.RegisterAttached(
-                "ItemAppear",
+                "ItemsAppear",
                 typeof(Transition),
                 typeof(Animate),
                 new PropertyMetadata(null, OnItemSettingChanged));
@@ -244,14 +244,14 @@ namespace OpenSilver.Animations
         /// <summary>
         /// Gets what the items of a list do when they appear.
         /// </summary>
-        public static Transition GetItemAppear(UIElement element)
+        public static Transition GetItemsAppear(UIElement element)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            return (Transition)element.GetValue(ItemAppearProperty);
+            return (Transition)element.GetValue(ItemsAppearProperty);
         }
 
         /// <summary>
@@ -260,22 +260,22 @@ namespace OpenSilver.Animations
         /// ItemsControl, for its items. An item's own Appear wins. When the list appears with its
         /// page, <see cref="Transition.OnPageOpen"/> can be InPlace or Skip.
         /// </summary>
-        public static void SetItemAppear(UIElement element, Transition value)
+        public static void SetItemsAppear(UIElement element, Transition value)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            element.SetValue(ItemAppearProperty, value);
+            element.SetValue(ItemsAppearProperty, value);
         }
 
         /// <summary>
-        /// Identifies the ItemDisappear attached property.
+        /// Identifies the ItemsDisappear attached property.
         /// </summary>
-        public static readonly DependencyProperty ItemDisappearProperty =
+        public static readonly DependencyProperty ItemsDisappearProperty =
             DependencyProperty.RegisterAttached(
-                "ItemDisappear",
+                "ItemsDisappear",
                 typeof(Transition),
                 typeof(Animate),
                 new PropertyMetadata(null, OnItemSettingChanged));
@@ -283,14 +283,14 @@ namespace OpenSilver.Animations
         /// <summary>
         /// Gets what the items of a list do when they disappear.
         /// </summary>
-        public static Transition GetItemDisappear(UIElement element)
+        public static Transition GetItemsDisappear(UIElement element)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            return (Transition)element.GetValue(ItemDisappearProperty);
+            return (Transition)element.GetValue(ItemsDisappearProperty);
         }
 
         /// <summary>
@@ -298,22 +298,22 @@ namespace OpenSilver.Animations
         /// <see cref="SetDisappear">Disappear</see>. Set it on a Panel, for its children, or on an
         /// ItemsControl, for its items. An item's own Disappear wins.
         /// </summary>
-        public static void SetItemDisappear(UIElement element, Transition value)
+        public static void SetItemsDisappear(UIElement element, Transition value)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            element.SetValue(ItemDisappearProperty, value);
+            element.SetValue(ItemsDisappearProperty, value);
         }
 
         /// <summary>
-        /// Identifies the ItemMoveAndResize attached property.
+        /// Identifies the ItemsMoveAndResize attached property.
         /// </summary>
-        public static readonly DependencyProperty ItemMoveAndResizeProperty =
+        public static readonly DependencyProperty ItemsMoveAndResizeProperty =
             DependencyProperty.RegisterAttached(
-                "ItemMoveAndResize",
+                "ItemsMoveAndResize",
                 typeof(Movement),
                 typeof(Animate),
                 new PropertyMetadata(null, OnItemSettingChanged));
@@ -321,14 +321,14 @@ namespace OpenSilver.Animations
         /// <summary>
         /// Gets how the items of a list animate when they move or change size.
         /// </summary>
-        public static Movement GetItemMoveAndResize(UIElement element)
+        public static Movement GetItemsMoveAndResize(UIElement element)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            return (Movement)element.GetValue(ItemMoveAndResizeProperty);
+            return (Movement)element.GetValue(ItemsMoveAndResizeProperty);
         }
 
         /// <summary>
@@ -338,22 +338,22 @@ namespace OpenSilver.Animations
         /// <see cref="Movement.None"/>. Set it on a Panel, for its children, or on an ItemsControl,
         /// for its items. <see cref="Movement.ApplyTo"/> is not used. An item's own MoveAndResize wins.
         /// </summary>
-        public static void SetItemMoveAndResize(UIElement element, Movement value)
+        public static void SetItemsMoveAndResize(UIElement element, Movement value)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            element.SetValue(ItemMoveAndResizeProperty, value);
+            element.SetValue(ItemsMoveAndResizeProperty, value);
         }
 
         /// <summary>
-        /// Identifies the ItemCascade attached property.
+        /// Identifies the ItemsCascade attached property.
         /// </summary>
-        public static readonly DependencyProperty ItemCascadeProperty =
+        public static readonly DependencyProperty ItemsCascadeProperty =
             DependencyProperty.RegisterAttached(
-                "ItemCascade",
+                "ItemsCascade",
                 typeof(AnimationTime),
                 typeof(Animate),
                 new PropertyMetadata(AnimationTime.Zero, OnItemSettingChanged));
@@ -361,31 +361,31 @@ namespace OpenSilver.Animations
         /// <summary>
         /// Gets the time between the items of a list that appear or disappear together.
         /// </summary>
-        public static AnimationTime GetItemCascade(UIElement element)
+        public static AnimationTime GetItemsCascade(UIElement element)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            return (AnimationTime)element.GetValue(ItemCascadeProperty);
+            return (AnimationTime)element.GetValue(ItemsCascadeProperty);
         }
 
         /// <summary>
         /// Sets the time between the items of a list that appear or disappear together, so that
         /// they play their effects one after the other: from 0 (all together, the default) to
         /// 0.3 s. The whole cascade lasts at most 0.6 s: with many items, they come closer together.
-        /// Set it on a Panel or an ItemsControl, with <see cref="SetItemAppear">ItemAppear</see> or
-        /// <see cref="SetItemDisappear">ItemDisappear</see>.
+        /// Set it on a Panel or an ItemsControl, with <see cref="SetItemsAppear">ItemsAppear</see> or
+        /// <see cref="SetItemsDisappear">ItemsDisappear</see>.
         /// </summary>
-        public static void SetItemCascade(UIElement element, AnimationTime value)
+        public static void SetItemsCascade(UIElement element, AnimationTime value)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            element.SetValue(ItemCascadeProperty, value);
+            element.SetValue(ItemsCascadeProperty, value);
         }
 
         private static void OnItemSettingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

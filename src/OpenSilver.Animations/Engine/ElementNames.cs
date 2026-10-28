@@ -56,8 +56,8 @@ namespace OpenSilver.Animations.Engine
             }
 
             return LayoutAnimator.AnyItems &&
-                   (panel.GetValue(Animate.ItemAppearProperty) != null || panel.GetValue(Animate.ItemDisappearProperty) != null ||
-                    panel.GetValue(Animate.ItemMoveAndResizeProperty) != null)
+                   (panel.GetValue(Animate.ItemsAppearProperty) != null || panel.GetValue(Animate.ItemsDisappearProperty) != null ||
+                    panel.GetValue(Animate.ItemsMoveAndResizeProperty) != null)
                 ? panel
                 : null;
         }

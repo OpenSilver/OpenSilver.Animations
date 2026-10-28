@@ -29,7 +29,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private static readonly (string Question, string Answer)[] Conversation =
         {
             ("What is OpenSilver?", "OpenSilver runs your XAML and C# applications in the browser, with WebAssembly. Your pages look and work the same, and you keep the skills and the code you already have."),
-            ("Can lists animate?", "Yes. Set ItemAppear, ItemDisappear and ItemMoveAndResize on the list, and each item animates when it comes, goes or moves, also when the list is sorted."),
+            ("Can lists animate?", "Yes. Set ItemsAppear, ItemsDisappear and ItemsMoveAndResize on the list, and each item animates when it comes, goes or moves, also when the list is sorted."),
             ("Is it hard to set up?", "Not at all. Pick an effect in XAML and the library does the rest: every parameter has a good default, and the log explains what animated and why."),
         };
         private static readonly string[] Customers = { "Alex Martin", "Sam Lee", "Priya Shah", "Jonas Berg", "Maria Rossi", "Tom Baker", "Yuki Sato", "Lena Novak" };

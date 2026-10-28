@@ -72,7 +72,7 @@ namespace OpenSilver.Animations.Engine
         // How far up from an element that is removed a container of a list is searched for.
         private const int MaxContainerDepth = 6;
 
-        // ItemCascade: the time between two items, and the whole cascade, at most.
+        // ItemsCascade: the time between two items, and the whole cascade, at most.
         private const double MaxCascadeMs = 300;
         private const double MaxCascadeTotalMs = 600;
 
@@ -183,7 +183,7 @@ namespace OpenSilver.Animations.Engine
         // the id of their copy.
         private readonly Dictionary<UIElement, string> _copiedBeforeRemoval = new Dictionary<UIElement, string>();
 
-        // The items of each list that play their effects together in this pass, for ItemCascade.
+        // The items of each list that play their effects together in this pass, for ItemsCascade.
         private readonly Dictionary<ItemList, Cascade> _appearCascades = new Dictionary<ItemList, Cascade>();
         private readonly Dictionary<ItemList, Cascade> _disappearCascades = new Dictionary<ItemList, Cascade>();
 
@@ -455,10 +455,10 @@ namespace OpenSilver.Animations.Engine
                 return;
             }
 
-            string name = property == Animate.ItemAppearProperty ? "ItemAppear"
-                : property == Animate.ItemDisappearProperty ? "ItemDisappear"
-                : property == Animate.ItemMoveAndResizeProperty ? "ItemMoveAndResize"
-                : "ItemCascade";
+            string name = property == Animate.ItemsAppearProperty ? "ItemsAppear"
+                : property == Animate.ItemsDisappearProperty ? "ItemsDisappear"
+                : property == Animate.ItemsMoveAndResizeProperty ? "ItemsMoveAndResize"
+                : "ItemsCascade";
 
             if (element is not Panel && element is not ItemsControl)
             {
@@ -468,7 +468,7 @@ namespace OpenSilver.Animations.Engine
 
             if (value is Transition effect)
             {
-                CheckEffect(effect, property == Animate.ItemAppearProperty, element, items: true);
+                CheckEffect(effect, property == Animate.ItemsAppearProperty, element, items: true);
             }
             else if (value is Movement movement && movement.ApplyTo == AnimationScope.EverythingInside)
             {
@@ -974,15 +974,15 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// Where an effect comes from: "its Appear" (<paramref name="own"/>) or "the Appear of
-        /// Banner", or, for an item, "the ItemAppear of TodoList".
+        /// Banner", or, for an item, "the ItemsAppear of TodoList".
         /// </summary>
         private string DescribeEffectSource(UIElement element, Transition effect, bool appear, UIElement parent, bool own)
         {
             Transition elementEffect = appear ? Animate.GetAppear(element) : Animate.GetDisappear(element);
             if (!ReferenceEquals(elementEffect, effect) && parent is Panel panel && GetList(panel) is ItemList list)
             {
-                DependencyProperty property = appear ? Animate.ItemAppearProperty : Animate.ItemDisappearProperty;
-                return $"the {(appear ? "ItemAppear" : "ItemDisappear")} of {ElementNames.Of(list.HolderOf(property))}";
+                DependencyProperty property = appear ? Animate.ItemsAppearProperty : Animate.ItemsDisappearProperty;
+                return $"the {(appear ? "ItemsAppear" : "ItemsDisappear")} of {ElementNames.Of(list.HolderOf(property))}";
             }
 
             string name = appear ? "Appear" : "Disappear";
@@ -2114,13 +2114,13 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// "the MoveAndResize of Card", "the EverythingInside of Form", or, for an item, "the
-        /// ItemMoveAndResize of TodoList".
+        /// ItemsMoveAndResize of TodoList".
         /// </summary>
         private string DescribeSource(Movement movement, UIElement owner, UIElement origin)
         {
             if (!ReferenceEquals(Animate.GetMoveAndResize(owner), movement) && GetListOf(owner) is ItemList list && ReferenceEquals(list.Movement, movement))
             {
-                return "the ItemMoveAndResize of " + ElementNames.Of(list.HolderOf(Animate.ItemMoveAndResizeProperty));
+                return "the ItemsMoveAndResize of " + ElementNames.Of(list.HolderOf(Animate.ItemsMoveAndResizeProperty));
             }
 
             return (movement.ApplyTo == AnimationScope.EverythingInside && owner != origin
@@ -2454,7 +2454,7 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// The MoveAndResize of the element, or else the ItemMoveAndResize of the list it is an
+        /// The MoveAndResize of the element, or else the ItemsMoveAndResize of the list it is an
         /// item of (<paramref name="fromItems"/>), whose ApplyTo is not used.
         /// </summary>
         private Movement GetOwnMovement(UIElement element, out bool fromItems)
@@ -2475,7 +2475,7 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// Says whether the setting of the element comes from the ItemMoveAndResize of its list.
+        /// Says whether the setting of the element comes from the ItemsMoveAndResize of its list.
         /// </summary>
         private bool IsItemOfList(UIElement element, out ItemList list)
         {
@@ -3339,8 +3339,8 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// Counts, for each list with ItemCascade, the items that play its ItemAppear or its
-        /// ItemDisappear together, for <see cref="NextCascadeDelay"/>.
+        /// Counts, for each list with ItemsCascade, the items that play its ItemsAppear or its
+        /// ItemsDisappear together, for <see cref="NextCascadeDelay"/>.
         /// </summary>
         private void CountCascades(List<int> appearing, List<Disappearance> ghosts)
         {
@@ -3595,7 +3595,7 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// The Appear of the element, or else the ItemAppear of the list it is an item of.
+        /// The Appear of the element, or else the ItemsAppear of the list it is an item of.
         /// </summary>
         private Transition GetAppearEffect(UIElement element) => GetAppearEffect(element, out _);
 
@@ -3613,7 +3613,7 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// The Disappear of the element, or else the ItemDisappear of the list it is an item of
+        /// The Disappear of the element, or else the ItemsDisappear of the list it is an item of
         /// (<paramref name="itemList"/>). <paramref name="parent"/> is where it is removed from.
         /// </summary>
         private Transition GetDisappearEffect(UIElement element, UIElement parent, out ItemList itemList)
@@ -3631,7 +3631,7 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// Says whether the element turned off its automatic effect with Appear=None or Disappear=None,
-        /// or the list it is an item of with ItemAppear=None or ItemDisappear=None.
+        /// or the list it is an item of with ItemsAppear=None or ItemsDisappear=None.
         /// </summary>
         private bool HasNoEffect(UIElement element, bool appear, UIElement parent = null)
         {
@@ -4112,7 +4112,7 @@ namespace OpenSilver.Animations.Engine
             public UIElement Parent;
             public string Id;
             public Transition Effect;
-            // The list whose ItemDisappear it plays, or null.
+            // The list whose ItemsDisappear it plays, or null.
             public ItemList List;
             public int ParentIndex;
             public bool Handled;
@@ -4154,20 +4154,20 @@ namespace OpenSilver.Animations.Engine
             /// </summary>
             public UIElement Element => (UIElement)Owner ?? Panel;
 
-            public Transition Appear => (Transition)Read(Animate.ItemAppearProperty);
+            public Transition Appear => (Transition)Read(Animate.ItemsAppearProperty);
 
-            public Transition Disappear => (Transition)Read(Animate.ItemDisappearProperty);
+            public Transition Disappear => (Transition)Read(Animate.ItemsDisappearProperty);
 
-            public Movement Movement => (Movement)Read(Animate.ItemMoveAndResizeProperty);
+            public Movement Movement => (Movement)Read(Animate.ItemsMoveAndResizeProperty);
 
             public double CascadeMs
             {
                 get
                 {
-                    AnimationTime cascade = Animate.GetItemCascade(Panel);
+                    AnimationTime cascade = Animate.GetItemsCascade(Panel);
                     if (cascade == AnimationTime.Zero && Owner != null)
                     {
-                        cascade = Animate.GetItemCascade(Owner);
+                        cascade = Animate.GetItemsCascade(Owner);
                     }
 
                     return Math.Min(MaxCascadeMs, cascade.Seconds * 1000);
@@ -4198,10 +4198,10 @@ namespace OpenSilver.Animations.Engine
             }
 
             public static bool HasSettings(UIElement element)
-                => element.GetValue(Animate.ItemAppearProperty) != null ||
-                   element.GetValue(Animate.ItemDisappearProperty) != null ||
-                   element.GetValue(Animate.ItemMoveAndResizeProperty) != null ||
-                   Animate.GetItemCascade(element) != AnimationTime.Zero;
+                => element.GetValue(Animate.ItemsAppearProperty) != null ||
+                   element.GetValue(Animate.ItemsDisappearProperty) != null ||
+                   element.GetValue(Animate.ItemsMoveAndResizeProperty) != null ||
+                   Animate.GetItemsCascade(element) != AnimationTime.Zero;
 
             private object Read(DependencyProperty property) => Panel.GetValue(property) ?? Owner?.GetValue(property);
         }

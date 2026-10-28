@@ -27,20 +27,20 @@
 
         <!-- 1. With AlsoOnWindowResize -->
         <controls:DemoCard Title="Tiles that follow the window"
-                           Description="A WrapPanel whose tiles have ItemMoveAndResize with AlsoOnWindowResize=True. When a row gets too narrow, its last tile glides to the next row."
-                           Xaml='&lt;WrapPanel anim:Animate.ItemMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}"&gt;'
+                           Description="A WrapPanel whose tiles have ItemsMoveAndResize with AlsoOnWindowResize=True. When a row gets too narrow, its last tile glides to the next row."
+                           Xaml='&lt;WrapPanel anim:Animate.ItemsMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}"&gt;'
                            Expectations="• While you resize the window, the tiles glide to their new places, and keep following it.&#10;• The card around them snaps to its new size, so tiles can stick out of it for a moment.">
             <WrapPanel x:Name="FollowingTiles"
-                       anim:Animate.ItemMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}" />
+                       anim:Animate.ItemsMoveAndResize="{anim:Smooth AlsoOnWindowResize=True}" />
         </controls:DemoCard>
 
         <!-- 2. Without -->
         <controls:DemoCard Title="Tiles that don't"
-                           Description="The same WrapPanel, with ItemMoveAndResize but without AlsoOnWindowResize. Changes of the tiles themselves still animate: click a tile to make it wider."
-                           Xaml='&lt;WrapPanel anim:Animate.ItemMoveAndResize="Smooth"&gt;'
+                           Description="The same WrapPanel, with ItemsMoveAndResize but without AlsoOnWindowResize. Changes of the tiles themselves still animate: click a tile to make it wider."
+                           Xaml='&lt;WrapPanel anim:Animate.ItemsMoveAndResize="Smooth"&gt;'
                            Expectations="• While you resize the window, the tiles jump to their new places.&#10;• When you click a tile, it widens smoothly and the tiles after it glide, because the change came from a tile, not from the window.">
             <WrapPanel x:Name="SnappingTiles"
-                       anim:Animate.ItemMoveAndResize="Smooth" />
+                       anim:Animate.ItemsMoveAndResize="Smooth" />
         </controls:DemoCard>
 
         <!-- 3. A {Responsive} switch while a panel is resized -->
