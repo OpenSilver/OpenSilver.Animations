@@ -149,6 +149,17 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
+        /// The same timing with another wave. The timings of the effects are shared, so they are
+        /// copied rather than changed.
+        /// </summary>
+        public Timing WithWave(double wave)
+        {
+            var timing = (Timing)MemberwiseClone();
+            timing.Wave = wave;
+            return timing;
+        }
+
+        /// <summary>
         /// The short fade that replaces effects when the device asks for reduced motion.
         /// </summary>
         public static Timing QuickFade()

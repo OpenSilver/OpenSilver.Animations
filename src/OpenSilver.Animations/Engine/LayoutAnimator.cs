@@ -2005,6 +2005,14 @@ namespace OpenSilver.Animations.Engine
             if (bucket.Effect != null && !_switchOnly)
             {
                 timing = Timing.ForOthers(GetEffectTiming(bucket.Effect, settings), bucket.Effect, settings);
+
+                // The others still move like a wave when their own setting asks for one.
+                double wave = (nearest ?? FindNearestMemberMovement(bucket, eligible, out _))?.Wave ?? 0;
+                if (wave > 0)
+                {
+                    timing = timing.WithWave(wave);
+                }
+
                 source = DescribeEffectSource(bucket.EffectElement, bucket.Effect, bucket.EffectAppears, bucket.EffectParent, own: false);
                 firstOrigin = bucket.EffectElement;
                 return null;
@@ -2921,6 +2929,18 @@ namespace OpenSilver.Animations.Engine
                     _memberStamp[index] = _waveStamp;
                     _delays[index] = 0;
                     for (int parent = _records[index].Parent; parent >= 0 && _chainStamp[parent] != _waveStamp; parent = _records[parent].Parent)
+                    {
+                        _chainStamp[parent] = _waveStamp;
+                    }
+                }
+
+                // An element that appears starts the wave. Its parent is an origin too, but it holds
+                // the elements that are pushed, which would all start at once with it.
+                if (originIndex >= 0 && _memberStamp[originIndex] != _waveStamp)
+                {
+                    _memberStamp[originIndex] = _waveStamp;
+                    _delays[originIndex] = 0;
+                    for (int parent = _records[originIndex].Parent; parent >= 0 && _chainStamp[parent] != _waveStamp; parent = _records[parent].Parent)
                     {
                         _chainStamp[parent] = _waveStamp;
                     }

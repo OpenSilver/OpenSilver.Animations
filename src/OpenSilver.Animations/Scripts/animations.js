@@ -45,25 +45,41 @@
     // Elements that just became visible, hidden until their layout pass is done.
     const holds = new WeakMap();
 
-    // Animations made since the last frame. They start at the next frame, not at the time of the
-    // frame their batch runs in: a batch can run late in a frame, after a long resize, or in the
-    // middle of a long task, and the browser would count that time as already played, so that
-    // they would end before showing.
+    // Animations made since the last frame, held at their start. They start at a frame that comes
+    // on time after another one, not at the time of the frame their batch runs in: a batch can
+    // run late in a frame, after a long resize, or in the middle of a long task, and the browser
+    // would count that time as already played, so that they would end before showing. And during
+    // a long task right after their first frame, as when an app opens its first page, the browser
+    // plays them on its own, then paints their start again in the late frame that follows.
     let starting = null;
+
+    // A frame this long after the one before it, or whose callbacks run this late, follows a long task.
+    const LATE_FRAME_MS = 100;
+    // On a page that is always slow, they still start after this many frames.
+    const MAX_FRAMES_WAITED = 4;
 
     function startAtNextFrame(animation) {
         if (!animation) return animation;
-        animation.startTime = performance.now();
+        animation.pause();
         if (!starting) {
             starting = [];
-            requestAnimationFrame(() => {
+            let previous = null;
+            let waited = 0;
+            const onFrame = (time) => {
+                const onTime = previous !== null && time - previous < LATE_FRAME_MS && performance.now() - time < LATE_FRAME_MS;
+                previous = time;
+                if (!onTime && ++waited < MAX_FRAMES_WAITED) {
+                    requestAnimationFrame(onFrame);
+                    return;
+                }
                 const animations = starting;
                 starting = null;
                 const now = performance.now();
                 for (const a of animations) {
-                    if (a.playState === 'running') a.startTime = now;
+                    if (a.playState === 'paused') a.startTime = now;
                 }
-            });
+            };
+            requestAnimationFrame(onFrame);
         }
         starting.push(animation);
         return animation;
@@ -955,7 +971,7 @@
             for (const e of document.querySelectorAll('[data-os-magic="' + v[0] + '"]')) e.style.visibility = 'hidden';
         }
 
-        // Hidden before its start too: it starts at the next frame, and the one painted before would show it.
+        // Hidden before its start too: it starts a frame or more later, and the frames painted before would show it.
         const hide = startAtNextFrame(to.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'both' }));
         const travel = { p, layer, container, from, fromText, fromContent, oldLook, oldOpacity, newOpacity, animations: [], hide, timer: 0, group: null };
         travels.set(to, travel);
@@ -1446,7 +1462,7 @@
         element.style.overflow = current.overflow;
     }
 
-    // Ends the text effect after duration, counted from the next frame, like its animations.
+    // Ends the text effect after duration, counted from when its animations start.
     // Returns the clock, whose currentTime tells how far the effect went.
     function endTextAfter(element, st, duration) {
         const clock = startAtNextFrame(st.overlay.animate([], { duration: Math.max(1, duration) }));
