@@ -3,10 +3,11 @@
   <PropertyGroup>
     <!--
       The library needs OpenSilver's InternalHooks, which are internal and visible to this library
-      through InternalsVisibleTo. Until an OpenSilver build that includes them
-      is published, build it locally with build\Build_Local_OpenSilver.bat (it fills build\local-packages).
+      through InternalsVisibleTo. This is the first OpenSilver preview on MyGet that has them. To use a
+      local OpenSilver build from build\Build_Local_OpenSilver.bat, build with
+      -p:OpenSilverVersion=3.4.0-preview-animations-local.
     -->
-    <OpenSilverVersion Condition=" '$(OpenSilverVersion)' == '' ">3.4.0-preview-animations-local</OpenSilverVersion>
+    <OpenSilverVersion Condition=" '$(OpenSilverVersion)' == '' ">3.4.0-preview-2026-10-29-113513-38ba1092</OpenSilverVersion>
     <LangVersion>12</LangVersion>
   </PropertyGroup>
 

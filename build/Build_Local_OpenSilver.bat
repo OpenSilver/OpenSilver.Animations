@@ -2,7 +2,8 @@
 
 REM Builds the OpenSilver, OpenSilver.WebAssembly and OpenSilver.Simulator packages from a local
 REM clone of the OpenSilver repository, and puts them in build\local-packages, which NuGet.Config
-REM lists as a package source. Use it to work on the library and on OpenSilver at the same time.
+REM lists as a package source. Use it to work on the library and on OpenSilver at the same time, and
+REM build with -p:OpenSilverVersion=3.4.0-preview-animations-local (or the version given) to use them.
 
 SETLOCAL
 
@@ -39,7 +40,7 @@ FOR %%p IN (opensilver opensilver.webassembly opensilver.simulator) DO (
 	IF EXIST "%USERPROFILE%\.nuget\packages\%%p\%PackageVersion%" RMDIR /S /Q "%USERPROFILE%\.nuget\packages\%%p\%PackageVersion%"
 )
 
-ECHO %ESC%[92mDone. Rebuild the solution to use OpenSilver %PackageVersion%.%ESC%[0m
+ECHO %ESC%[92mDone. Rebuild the solution with -p:OpenSilverVersion=%PackageVersion% to use OpenSilver %PackageVersion%.%ESC%[0m
 EXIT /b 0
 
 :help

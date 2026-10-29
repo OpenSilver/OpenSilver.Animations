@@ -19,10 +19,11 @@ Read these before working:
 
 ## Working agreement with the product owner
 
-- **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository (branch `feat/internalhooks`).
+- **Never commit, in any repository.** When the work is done, say so and list what changed; the product owner commits. This applies to this repository and to the OpenSilver repository.
 - **Beginners first.** Names read as "When it ...". Parameters use plain words (`StartAfter`, not Delay; `Bouncy`, not Spring; `Wave`, not Ripple). Messages and gallery text are plain, complete sentences.
 - **Keep OpenSilver changes minimal**: hooks only, with no behavior change. Everything else goes in this library.
 - **The hooks are internal.** `InternalHooks` is visible to this library only, through `InternalsVisibleTo("OpenSilver.Animations")`, as the OpenSilver owner asked while the API is not stable. Don't make it public, and keep the assembly name `OpenSilver.Animations`.
+- **No other OpenSilver internals.** `InternalsVisibleTo` opens every internal of OpenSilver, but the library should only need `InternalHooks`. The one exception, for now, is the `PopupRoot` check in `DepartInside`. It's temporary and will be replaced (see "Other internals, for now" in architecture.md). Ask before using any other internal.
 - **No compatibility layer** with the Showcase's old animation project, which will be removed.
 - **No XAML.io designer tab for now**, but keep `design.md`'s designer section in mind when shaping the API (`AnimationCatalog` and `AnimationDesign` come in phase 4).
 - **Ask** when a decision is the product owner's to make.
@@ -32,7 +33,7 @@ Read these before working:
 
 ```text
 OpenSilver.Animations.slnx       solution: the library and the three gallery projects
-Directory.Build.props            OpenSilverVersion (3.4.0-preview-animations-local by default), LangVersion 12
+Directory.Build.props            OpenSilverVersion (the MyGet 3.4.0-preview-2026-10-29-113513-38ba1092 by default), LangVersion 12
 NuGet.Config                     MyGet OpenSilver feed + build/local-packages
 .github/workflows/               build-package.yml: manual CI that packs and pushes to MyGet
 build/                           Build_NuGet.bat, Build_Local_OpenSilver.bat, icon.png, local-packages/
@@ -54,17 +55,18 @@ This repository is a separate git repository, nested in the OpenSilver folder (`
 Run them from the repository root:
 
 ```powershell
-# After any change in the OpenSilver repository (needs msbuild in the PATH)
-build\Build_Local_OpenSilver.bat C:\VSProjects\UserwareSource\OpenSilver
-
-# Build (expect 0 errors; NU1902/NU1903 advisories come from OpenSilver's packages)
+# Build (expect 0 errors and 0 warnings)
 dotnet build OpenSilver.Animations.slnx -c Release
+
+# Only to try changes of the OpenSilver repository (needs msbuild in the PATH), then build with them
+build\Build_Local_OpenSilver.bat C:\VSProjects\UserwareSource\OpenSilver
+dotnet build OpenSilver.Animations.slnx -c Release -p:OpenSilverVersion=3.4.0-preview-animations-local
 
 # Run the gallery in a browser (restart it after every build)
 dotnet run --project samples\OpenSilver.Animations.Gallery.Browser\OpenSilver.Animations.Gallery.Browser.csproj -c Release --no-build --urls http://localhost:55620
 
-# Pack
-build\Build_NuGet.bat 0.1.0-preview 3.4.0-preview-animations-local
+# Pack (a second argument gives another OpenSilver version)
+build\Build_NuGet.bat 0.1.0-preview
 ```
 
 ## Code conventions

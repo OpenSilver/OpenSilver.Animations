@@ -501,7 +501,7 @@ namespace OpenSilver.Animations.Engine
 
         #region Layout hooks
 
-        protected internal override void OnMeasured(UIElement element, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure)
+        protected override void OnMeasured(UIElement element, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure)
         {
             if (isFirstMeasure)
             {
@@ -534,7 +534,7 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
-        protected internal override void OnArranging(UIElement element, Rect finalRect, Rect previousFinalRect, bool isFirstArrange)
+        protected override void OnArranging(UIElement element, Rect finalRect, Rect previousFinalRect, bool isFirstArrange)
         {
             int parent = _stack.Count > 0 ? _stack[_stack.Count - 1] : -1;
 
@@ -624,7 +624,7 @@ namespace OpenSilver.Animations.Engine
             _sessionOrder.Add(index);
         }
 
-        protected internal override void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered)
+        protected override void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered)
         {
             // Where each item is, including those that appear with their container, which are not recorded.
             if ((AnyItems || AnyAreas) && VisualTreeHelper.GetParent(element) is Panel panel && GetList(panel) is ItemList list)
@@ -692,7 +692,7 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
-        protected internal override void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue)
+        protected override void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue)
         {
             if (_pageOpenHolds.IsHolding(element))
             {
@@ -769,7 +769,7 @@ namespace OpenSilver.Animations.Engine
             }
         }
 
-        protected internal override void OnDetaching(UIElement child, UIElement parent)
+        protected override void OnDetaching(UIElement child, UIElement parent)
         {
             bool moving = false;
             if (_runningUntil.Count > 0 && _runningUntil.TryGetValue(child, out (long Until, bool FromSwitch) running))
@@ -1098,7 +1098,7 @@ namespace OpenSilver.Animations.Engine
             return !string.IsNullOrEmpty(id);
         }
 
-        protected internal override void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property)
+        protected override void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property)
         {
             // The new value is applied between two rounds of the pass, and the next rounds arrange
             // what it changed. While the window or a panel is being resized, what was arranged so
@@ -1170,7 +1170,7 @@ namespace OpenSilver.Animations.Engine
             return name + " of " + ElementNames.Of(element);
         }
 
-        protected internal override void OnLayoutPassCompleted()
+        protected override void OnLayoutPassCompleted()
         {
             if (_appeared.Count > 0)
             {

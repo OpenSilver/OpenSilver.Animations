@@ -32,20 +32,21 @@ flowchart LR
 
 ## Core change 1: `InternalHooks` (C#, about 60 lines)
 
-It costs a single null check when no observer is registered, and doesn't change behavior. It was first called `LayoutObserver`; the reviewer of the OpenSilver PR asked for a more generic name, because it also reports visibility changes, detached elements and `{Responsive}` switches. It's internal, and visible to this library only, through `[assembly: InternalsVisibleTo("OpenSilver.Animations")]` in OpenSilver's `AssemblyInfo.cs`: the OpenSilver owner asked for that while the API is not stable, so that OpenSilver doesn't commit to a public API. The library overrides its methods with `protected internal override`, which is what C# requires across assemblies with `InternalsVisibleTo`.
+It costs a single null check when no observer is registered, and doesn't change behavior. It was first called `LayoutObserver`; the reviewer of the OpenSilver PR asked for a more generic name, because it also reports visibility changes, detached elements and `{Responsive}` switches. It's internal, and visible to this library only, through `[assembly: InternalsVisibleTo("OpenSilver.Animations")]` in OpenSilver's `AssemblyInfo.cs`: the OpenSilver owner asked for that while the API is not stable, so that OpenSilver doesn't commit to a public API. The library overrides its methods with `protected override`. It was merged into OpenSilver's `develop` in [#1112](https://github.com/OpenSilver/OpenSilver/pull/1112).
 
 ```csharp
 internal abstract class InternalHooks
 {
-    internal static void Register(InternalHooks observer); // for the lifetime of the app
+    public static void Register(InternalHooks observer); // the library registers once, for the lifetime of the app
+    public static void Unregister(InternalHooks observer);
 
-    protected internal virtual void OnMeasured(UIElement element, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure) { }
-    protected internal virtual void OnArranging(UIElement element, Rect finalRect, Rect previousFinalRect, bool isFirstArrange) { }
-    protected internal virtual void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered) { }
-    protected internal virtual void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue) { }
-    protected internal virtual void OnDetaching(UIElement child, UIElement parent) { }
-    protected internal virtual void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property) { }
-    protected internal virtual void OnLayoutPassCompleted() { }
+    protected virtual void OnMeasured(UIElement element, bool sameAvailableSize, Size previousDesiredSize, bool isFirstMeasure) { }
+    protected virtual void OnArranging(UIElement element, Rect finalRect, Rect previousFinalRect, bool isFirstArrange) { }
+    protected virtual void OnArranged(UIElement element, Rect previousVisualRect, Rect visualRect, bool rendered) { }
+    protected virtual void OnVisibilityChanged(UIElement element, Visibility oldValue, Visibility newValue) { }
+    protected virtual void OnDetaching(UIElement child, UIElement parent) { }
+    protected virtual void OnResponsiveValueChanged(FrameworkElement element, DependencyObject target, DependencyProperty property) { }
+    protected virtual void OnLayoutPassCompleted() { }
 }
 ```
 
@@ -585,7 +586,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
 8. **When the window or a panel is resized.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window". A profile panel resized with a GridSplitter, whose content switches layout with `{Responsive ElementName=...}` while it's dragged. Cards that switch from a row to a column with the window.
 9. **Text that moves.** Roll on a badge, Count up on a dashboard, a clock that rolls, Retype, Cross-fade and Scramble on a tagline, and Typewriter, Backspace and FadeLetters on a message. The title uses Typewriter, with its cursor blinking first. The message has Speed, Cursor and Blink first choices.
 10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
-11. **Magic move.** A segmented control with a selection pill, toppings that move between two lists, a list-to-detail photo, and a wizard with `MagicMoveByName`. The tab underline is in chapter 10: it's one element that moves, which `MoveAndResize` does.
+11. **Magic move.** A segmented control with a selection pill, toppings that move between two lists, a list-to-detail photo, a wizard with `MagicMoveByName`, and a text box that opens into a card in a Popup, like XAML.io's AI input. The tab underline is in chapter 10: it's one element that moves, which `MoveAndResize` does.
 12. **Hover and press.** `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, icons that the mouse nudges with Distance and Tilt sliders, and a button that doesn't react while it's disabled.
 13. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource), the functions of the browser console, and reduced motion.
 14. **What never animates, and why.** Live proof that the following stay instant:

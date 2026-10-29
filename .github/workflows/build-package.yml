@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       opensilver-version:
-        description: 'OpenSilver version (it must include the LayoutObserver API)'
-        required: true
+        description: 'OpenSilver version (empty for the one in Directory.Build.props; it must include InternalHooks)'
+        required: false
 
 jobs:
   Build:

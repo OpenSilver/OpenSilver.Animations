@@ -4,7 +4,7 @@
 
 | Path | What it is |
 | --- | --- |
-| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository, on branch `feat/internalhooks`. It holds the core changes (see [architecture.md](architecture.md)). |
+| `C:\VSProjects\UserwareSource\OpenSilver` | The OpenSilver repository. Its `develop` branch has the core changes, made on branch `feat/internalhooks` (see [architecture.md](architecture.md)). |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations` | This repository (remote `github.com/OpenSilver/OpenSilver.Animations`). It sits inside the OpenSilver folder but is a separate git repository. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Themes.Modern` | Another library repository, the model for this repository's layout and build scripts. |
 | `C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Samples.Showcase` | The Showcase, ported to this library on branch `feat/use-new-animations-library` (see "Run the Showcase on the local library"). Its own animation project is removed there. |
@@ -15,11 +15,14 @@ The three nested folders show up as untracked in the OpenSilver repository. They
 
 - **.NET SDK 10** (10.0.401 was used).
 - **Visual Studio's `msbuild` in the PATH** for the `.bat` scripts, for example from a Developer PowerShell. The OpenSilver build scripts need it.
-- The OpenSilver repository on branch `feat/internalhooks`.
 
 ## The OpenSilver packages with the hooks
 
-The library needs `OpenSilver.InternalHooks`, an internal class of OpenSilver that it sees through `InternalsVisibleTo("OpenSilver.Animations")`. It is not in a published OpenSilver package yet, so OpenSilver is built locally:
+The library needs `OpenSilver.InternalHooks`, an internal class of OpenSilver that it sees through `InternalsVisibleTo("OpenSilver.Animations")`. The first published package with it is OpenSilver `3.4.0-preview-2026-10-29-113513-38ba1092`, on the MyGet feed that `NuGet.Config` lists.
+
+`Directory.Build.props` sets `OpenSilverVersion` (default `3.4.0-preview-2026-10-29-113513-38ba1092`) and `LangVersion` 12. Every project uses `$(OpenSilverVersion)`. The samples pin it exactly (`[$(OpenSilverVersion)]`), and the library uses it as a minimum.
+
+To try changes of the OpenSilver repository with the library, build OpenSilver locally:
 
 ```bat
 build\Build_Local_OpenSilver.bat C:\VSProjects\UserwareSource\OpenSilver
@@ -28,9 +31,11 @@ build\Build_Local_OpenSilver.bat C:\VSProjects\UserwareSource\OpenSilver
 - It builds the `OpenSilver`, `OpenSilver.WebAssembly` and `OpenSilver.Simulator` packages with version `3.4.0-preview-animations-local`; a second argument gives another version.
 - It copies them to `build\local-packages`, which `NuGet.Config` lists as a source. The `.nupkg` files are git-ignored.
 - The version never changes between local builds, so the script also deletes the cached copies of that version under `%USERPROFILE%\.nuget\packages`.
-- It takes a few minutes. Run it again after every change in the OpenSilver repository, then rebuild this solution.
+- It takes a few minutes. Run it again after every change in the OpenSilver repository, then build this solution with `-p:OpenSilverVersion=3.4.0-preview-animations-local`. For Visual Studio, set an `OpenSilverVersion` environment variable instead, before starting it.
 
-`Directory.Build.props` sets `OpenSilverVersion` (default `3.4.0-preview-animations-local`) and `LangVersion` 12. Every project uses `$(OpenSilverVersion)`. The samples pin it exactly (`[$(OpenSilverVersion)]`), and the library uses it as a minimum.
+### Which OpenSilver internals the library uses
+
+`InternalsVisibleTo` opens every internal of OpenSilver, so the compiler doesn't tell when the library uses more than `InternalHooks`. Today, the only other internal is `PopupRoot` (see "Other internals, for now" in [architecture.md](architecture.md)). To check, copy `src\OpenSilver.Animations`, `Directory.Build.props` and `NuGet.Config` to a temporary folder, with an empty `build\local-packages`. In the copy, remove `: InternalHooks` from `LayoutAnimator`, turn its seven `protected override` hooks into `private`, and remove `Register(_instance)`. Then build it with `-p:AssemblyName=OpenSilver.Animations.InternalsAudit`: `InternalsVisibleTo` no longer applies, and each `CS0122` error is an internal that the library uses. With the base class left in, the compiler stops at that error and doesn't check the method bodies.
 
 ## Build and pack
 
@@ -39,16 +44,15 @@ cd C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations
 dotnet build OpenSilver.Animations.slnx -c Release
 ```
 
-- The expected result is 0 errors.
-- The only warnings are NU1902/NU1903 security advisories for `System.Security.Cryptography.Xml` and `System.Security.Cryptography.Pkcs`. They come with the OpenSilver Simulator and WebAssembly packages, not from this repository.
+- The expected result is 0 errors and 0 warnings. The local OpenSilver packages also gave NU1902/NU1903 security advisories for `System.Security.Cryptography.Xml` and `System.Security.Cryptography.Pkcs`; the MyGet package brings patched versions.
 
 To make the package:
 
 ```bat
-build\Build_NuGet.bat 0.1.0-preview 3.4.0-preview-animations-local
+build\Build_NuGet.bat 0.1.0-preview
 ```
 
-The arguments are the OpenSilver.Animations version and the OpenSilver version, which defaults to the first. The package goes to `build\output` (git-ignored). For a quick check without msbuild, run `dotnet pack src\OpenSilver.Animations\OpenSilver.Animations.csproj -c Release -o artifacts\test-pack`, then delete `artifacts`.
+The arguments are the OpenSilver.Animations version and the OpenSilver version, which defaults to the one in `Directory.Build.props`. The package goes to `build\output` (git-ignored). For a quick check without msbuild, run `dotnet pack src\OpenSilver.Animations\OpenSilver.Animations.csproj -c Release -o artifacts\test-pack`, then delete `artifacts`.
 
 The package contains `lib/netstandard2.0/OpenSilver.Animations.dll` and its XML documentation; the script is embedded in the dll. `icon.png` comes from `build/`, and the license is MIT.
 
@@ -58,7 +62,7 @@ The package contains `lib/netstandard2.0/OpenSilver.Animations.dll` and its XML 
 build\Build_Local_Package.bat
 ```
 
-- It packs `OpenSilver.Animations` `0.1.0-preview-local` for OpenSilver `3.4.0-preview-animations-local` into `build\local-packages`, next to the OpenSilver packages. The two arguments give other versions.
+- It packs `OpenSilver.Animations` `0.1.0-preview-local` for the OpenSilver version of `Directory.Build.props` into `build\local-packages`, next to the local OpenSilver packages, if any. The two arguments give other versions.
 - The version never changes, so it also deletes the cached copy under `%USERPROFILE%\.nuget\packages`. Rebuild the app after each run.
 
 ## Run the Showcase on the local library
@@ -83,7 +87,7 @@ dotnet run --project src\OpenSilver.Showcase.Browser\OpenSilver.Showcase.Browser
 
 **CI.** `.github/workflows/build-package.yml` is started by hand (`workflow_dispatch`).
 
-- It takes an `opensilver-version` input, which must be a published OpenSilver that includes `InternalHooks`.
+- It takes an optional `opensilver-version` input, a published OpenSilver that includes `InternalHooks`. Without it, the package uses the version of `Directory.Build.props`.
 - It builds the version `0.1.0-preview-<date>-<sha>` with `Build_NuGet.bat`, and pushes it to the OpenSilver MyGet feed with the `MYGET_TOKEN` secret.
 - It only runs in the `OpenSilver` organization.
 
