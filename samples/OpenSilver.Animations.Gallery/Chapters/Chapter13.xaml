@@ -50,9 +50,9 @@
         </controls:DemoCard>
 
         <!-- 3. AnimationSettings -->
-        <controls:DemoCard Title="Adjust everything at once: AnimationSettings"
+        <controls:DemoCard x:Name="SettingsDemo" Title="Adjust everything at once: AnimationSettings"
                            Description="AnimationSettings.Current applies to every animation of the application. Declare it in the resources of App.xaml, or change it from code at any time. Move the sliders, then try."
-                           Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" DefaultDuration="0.3s" /&gt;&#10;&#10;// From code&#10;AnimationSettings.Current.Speed = 0.5;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.4);&#10;AnimationSettings.Current.IsEnabled = false;'
+                           Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" /&gt;&#10;&#10;// Or from code, at any time&#10;AnimationSettings.Current.Speed = 1;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.25);&#10;AnimationSettings.Current.IsEnabled = true;'
                            Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• The settings changed here are reset when you leave this chapter.">
             <StackPanel x:Name="SettingsStage">
                 <Grid>

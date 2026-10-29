@@ -32,6 +32,7 @@
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
         <controls:NonEmptyToVisibilityConverter x:Key="NonEmptyToVisibility" />
+        <controls:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibility" />
 
         <!-- Text -->
         <Style x:Key="OverlineText" TargetType="TextBlock">

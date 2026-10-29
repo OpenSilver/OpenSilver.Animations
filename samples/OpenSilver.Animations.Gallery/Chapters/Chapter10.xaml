@@ -13,9 +13,9 @@
                    Text="Smooth is right most of the time. Two variations add character: Bouncy overshoots a little and settles, like a spring, and Wave makes the elements farther from the change start a bit later." />
 
         <!-- 1. Bouncy tab underline -->
-        <controls:DemoCard Title="A tab underline that bounces"
+        <controls:DemoCard x:Name="BouncyDemo" Title="A tab underline that bounces"
                            Description="Click the tabs. The underline is in the Grid column of the selected tab: changing its Grid.Column moves it and changes its width, and Bouncy makes it overshoot a little before it settles."
-                           Xaml='&lt;Border x:Name="Underline" Grid.Row="1" Height="3" anim:Animate.MoveAndResize="Bouncy" /&gt;&#10;&#10;&lt;!-- With parameters --&gt;&#10;anim:Animate.MoveAndResize="{anim:Bouncy Bounciness=0.5, Duration=0.5s}"'
+                           Xaml='&lt;Border x:Name="Underline" Grid.Row="1" Height="3" anim:Animate.MoveAndResize="Bouncy" /&gt;'
                            Expectations="• The underline slides to the tab you click, overshoots a little, and settles.&#10;• Its width changes smoothly, without bouncing, so it never wobbles.&#10;• With more bounciness, it overshoots more.">
             <StackPanel>
                 <Grid x:Name="Tabs" HorizontalAlignment="Left">
@@ -61,7 +61,7 @@
         </controls:DemoCard>
 
         <!-- 2. Wave -->
-        <controls:DemoCard Title="Cards that move like a wave"
+        <controls:DemoCard x:Name="WaveDemo" Title="Cards that move like a wave"
                            Description="The cards are in a StackPanel that has ApplyTo=EverythingInside and a Wave. When the first card grows, the cards below it start moving one after the other, the farthest last."
                            Xaml='&lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Wave=0.8, Duration=0.4s}"&gt;'
                            Expectations="• The first card grows, and the cards below follow it one after the other, like a wave.&#10;• With Wave at 0, they all move at the same time.&#10;• The content of the first card never lags behind the card.">

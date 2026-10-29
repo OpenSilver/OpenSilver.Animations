@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using OpenSilver.Animations.Gallery.Controls;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
@@ -38,7 +39,8 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void BouncySettings_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (Underline == null || BouncinessSlider == null || BouncyDurationSlider == null || BouncinessText == null || BouncyDurationText == null)
+            if (Underline == null || BouncinessSlider == null || BouncyDurationSlider == null || BouncinessText == null || BouncyDurationText == null
+                || BouncyDemo == null)
             {
                 return;
             }
@@ -53,6 +55,11 @@ namespace OpenSilver.Animations.Gallery.Chapters
                 Bounciness = bounciness,
                 Duration = AnimationTime.FromSeconds(duration),
             });
+
+            string bouncy = Snippet.Effect("Bouncy",
+                bounciness == 0.5 ? null : "Bounciness=" + Snippet.Number(bounciness),
+                duration == 0.5 ? null : "Duration=" + AnimationTime.FromSeconds(duration));
+            BouncyDemo.Xaml = "<Border x:Name=\"Underline\" Grid.Row=\"1\" Height=\"3\" anim:Animate.MoveAndResize=\"" + bouncy + "\" />";
         }
 
         private void Grow_Click(object sender, RoutedEventArgs e)
@@ -64,7 +71,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void WaveSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (WaveArea == null || WaveSlider == null || WaveText == null)
+            if (WaveArea == null || WaveSlider == null || WaveText == null || WaveDemo == null)
             {
                 return;
             }
@@ -78,6 +85,9 @@ namespace OpenSilver.Animations.Gallery.Chapters
                 Wave = wave,
                 Duration = AnimationTime.FromSeconds(0.4),
             });
+
+            string smooth = Snippet.Effect("Smooth", "ApplyTo=EverythingInside", wave == 0 ? null : "Wave=" + Snippet.Number(wave), "Duration=0.4s");
+            WaveDemo.Xaml = "<StackPanel anim:Animate.MoveAndResize=\"" + smooth + "\">";
         }
     }
 }

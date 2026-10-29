@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
+using OpenSilver.Animations.Gallery.Controls;
 using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
@@ -153,8 +154,23 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private void UpdateLabels()
         {
             AnimationSettings settings = AnimationSettings.Current;
-            SpeedText.Text = settings.Speed.ToString(CultureInfo.InvariantCulture);
-            DurationText.Text = settings.DefaultDuration.Seconds.ToString(CultureInfo.InvariantCulture) + " s";
+            string speed = Snippet.Number(settings.Speed);
+            string duration = Snippet.Number(settings.DefaultDuration.Seconds);
+            SpeedText.Text = speed;
+            DurationText.Text = duration + " s";
+
+            string attributes =
+                (settings.Speed == 1 ? "" : " Speed=\"" + speed + "\"") +
+                (settings.DefaultDuration == DefaultDuration ? "" : " DefaultDuration=\"" + settings.DefaultDuration + "\"") +
+                (settings.IsEnabled ? "" : " IsEnabled=\"False\"");
+            SettingsDemo.Xaml =
+                "<!-- App.xaml -->\n" +
+                "<anim:AnimationSettings x:Key=\"AnimationSettings\"" + attributes + " />\n" +
+                "\n" +
+                "// Or from code, at any time\n" +
+                "AnimationSettings.Current.Speed = " + speed + ";\n" +
+                "AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(" + duration + ");\n" +
+                "AnimationSettings.Current.IsEnabled = " + (settings.IsEnabled ? "true" : "false") + ";";
         }
     }
 }

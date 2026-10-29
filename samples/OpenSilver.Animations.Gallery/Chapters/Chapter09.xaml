@@ -45,7 +45,7 @@
                    Text="Three more effects of Appear and Disappear are for the letters of a TextBlock: Typewriter types them, Backspace erases them, and FadeLetters fades them one after the other. The title of this page is typed by Typewriter." />
 
         <!-- 1. Badge -->
-        <controls:DemoCard Title="A badge that counts"
+        <controls:DemoCard x:Name="BadgeDemo" Title="A badge that counts"
                            Description="Add and remove messages. The digits that change roll, like on a counter, and the badge grows around the number."
                            Xaml='&lt;Border CornerRadius="10" anim:Animate.MoveAndResize="Smooth"&gt;&#10;    &lt;TextBlock Text="{Binding UnreadCount}" anim:Animate.TextChange="Roll" /&gt;&#10;&lt;/Border&gt;'
                            Expectations="• Each digit that changes rolls in: from below when the count goes up, from above when it goes down. The digits that stay the same don't move.&#10;• From 9 to 10, the new 1 rolls in on the left, and the badge widens smoothly. The Archive and Spam tabs slide with it.&#10;• With From set to Bottom or Top, the digits always come from that side.&#10;• Click quickly several times: the count never jumps back, and ends on the right number.">
@@ -150,9 +150,9 @@
         </controls:DemoCard>
 
         <!-- 5. Letters -->
-        <controls:DemoCard Title="Text that appears and disappears"
+        <controls:DemoCard x:Name="LettersDemo" Title="Text that appears and disappears"
                            Description="Show and hide the message. Typewriter types it, Backspace erases it, and FadeLetters fades its letters one after the other."
-                           Xaml='&lt;TextBlock Text="Your order has shipped."&#10;           anim:Animate.Appear="{anim:Typewriter Speed=30, BlinkFirst=0.8s}"&#10;           anim:Animate.Disappear="Backspace" /&gt;'
+                           Xaml='&lt;TextBlock Text="Your order has shipped."&#10;           anim:Animate.Appear="Typewriter"&#10;           anim:Animate.Disappear="Backspace" /&gt;'
                            Expectations="• With Typewriter, a cursor blinks where the first letter goes, then the letters are typed one after the other, at the speed you choose. The cursor follows them, blinks twice at the end, then fades away.&#10;• With Blink first set to None, typing starts at once. With 1.5 s, the cursor blinks longer before typing, and with Backspace, it also blinks after the last letter before erasing.&#10;• The text below makes room smoothly as the message appears. The whole message never flashes before it is typed.&#10;• With Backspace, the cursor after the last letter erases the letters from the last one. The text below moves up once the last letter is gone.&#10;• With Cursor set to No, there is no cursor, and typing starts at once.&#10;• With FadeLetters, the letters fade in from the first to the last, and fade out the same way, while the text below moves.">
             <StackPanel>
                 <Grid>

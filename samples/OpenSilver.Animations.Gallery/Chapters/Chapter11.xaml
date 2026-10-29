@@ -246,6 +246,48 @@
             </Border>
         </controls:DemoCard>
 
+        <!-- 5. A text box that opens into a popup -->
+        <controls:DemoCard Title="A text box that opens into a popup"
+                           Description="Click the text box. A Popup opens over it with a larger card to write in, and a binding to IsOpen collapses the text box while the popup is open. The text box and the card have the same id: the text box grows into the card, and the card shrinks back into the text box when the popup closes."
+                           Xaml='&lt;Grid x:Name="AskAnchor" Height="40"&gt;&#10;    &lt;!-- Collapsed while the popup is open --&gt;&#10;    &lt;Border anim:Animate.MagicMove="AskBox"&#10;            Visibility="{Binding IsOpen, ElementName=AskPopup,&#10;                                 Converter={StaticResource InverseBooleanToVisibility}}"&gt;&#10;        &lt;TextBox GotFocus="AskBox_GotFocus" /&gt;&#10;    &lt;/Border&gt;&#10;&#10;    &lt;!-- Opens over the text box. StayOpen=False closes it on a click outside --&gt;&#10;    &lt;Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40"&#10;           PlacementTarget="{Binding ElementName=AskAnchor}"&gt;&#10;        &lt;Border anim:Animate.MagicMove="AskBox" Width="{Binding ActualWidth, ElementName=AskAnchor}"&gt;&#10;            &lt;!-- A larger text box and a Send button --&gt;&#10;        &lt;/Border&gt;&#10;    &lt;/Popup&gt;&#10;&lt;/Grid&gt;&#10;&#10;// AskBox_GotFocus&#10;AskPopup.IsOpen = true;'
+                           Expectations="• Click the text box: it grows into the card, which opens over it, and you can type in the card at once. Nothing flashes before it grows.&#10;• Click outside the card, press Escape, or click Send: the card shrinks back into the text box.&#10;• What you type in one is in the other, and Send empties it.">
+            <Grid x:Name="AskAnchor" Height="40" Width="{Responsive Mobile=NaN, Tablet=520}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
+                <Border Background="White" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="20"
+                        anim:Animate.MagicMove="AskBox"
+                        Visibility="{Binding IsOpen, ElementName=AskPopup, Converter={StaticResource InverseBooleanToVisibility}}">
+                    <Grid>
+                        <TextBox x:Name="AskBox" Background="Transparent" BorderThickness="0" Padding="16,0" VerticalContentAlignment="Center"
+                                 FontSize="14" Foreground="{StaticResource TextBrush}" GotFocus="AskBox_GotFocus" TextChanged="AskText_Changed" />
+                        <TextBlock x:Name="AskPlaceholder" Text="Ask anything about animations" FontSize="14" Foreground="{StaticResource MutedTextBrush}"
+                                   Margin="18,0" VerticalAlignment="Center" IsHitTestVisible="False" />
+                    </Grid>
+                </Border>
+
+                <Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40" PlacementTarget="{Binding ElementName=AskAnchor}"
+                       Opened="AskPopup_Opened">
+                    <Border Width="{Binding ActualWidth, ElementName=AskAnchor}" Background="White" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"
+                            CornerRadius="14" Padding="12,10" anim:Animate.MagicMove="AskBox" KeyDown="AskCard_KeyDown">
+                        <Border.Effect>
+                            <DropShadowEffect ShadowDepth="2" Color="Black" BlurRadius="14" Opacity="0.15" />
+                        </Border.Effect>
+                        <StackPanel>
+                            <Grid>
+                                <TextBox x:Name="AskCardBox" Height="72" AcceptsReturn="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0"
+                                         Padding="4,2" FontSize="14" Foreground="{StaticResource TextBrush}"
+                                         Text="{Binding Text, ElementName=AskBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock x:Name="AskCardPlaceholder" Text="Ask anything about animations" FontSize="14" Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="6,2,0,0" IsHitTestVisible="False" />
+                            </Grid>
+                            <Grid Margin="0,8,0,0">
+                                <TextBlock Text="Click outside to close" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                                <Button Content="Send" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Click="AskSend_Click" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
+        </controls:DemoCard>
+
         <Border Style="{StaticResource TipBox}">
             <StackPanel>
                 <TextBlock Text="Good to know" FontWeight="SemiBold" />

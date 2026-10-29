@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using OpenSilver.Animations.Gallery.Controls;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
@@ -52,6 +53,12 @@ namespace OpenSilver.Animations.Gallery.Chapters
             Animate.SetTextChange(BadgeCount, string.IsNullOrEmpty(from)
                 ? new Roll()
                 : new Roll { From = (Side)Enum.Parse(typeof(Side), from) });
+
+            string roll = Snippet.Effect("Roll", string.IsNullOrEmpty(from) ? null : "From=" + from);
+            BadgeDemo.Xaml =
+                "<Border CornerRadius=\"10\" anim:Animate.MoveAndResize=\"Smooth\">\n" +
+                "    <TextBlock Text=\"{Binding UnreadCount}\" anim:Animate.TextChange=\"" + roll + "\" />\n" +
+                "</Border>";
         }
 
         private void Refresh_Click(object sender, RoutedEventArgs e)
@@ -108,6 +115,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
             {
                 Animate.SetAppear(LetterMessage, new FadeLetters());
                 Animate.SetDisappear(LetterMessage, new FadeLetters());
+                ShowLettersXaml("FadeLetters", "FadeLetters");
                 return;
             }
 
@@ -115,18 +123,36 @@ namespace OpenSilver.Animations.Gallery.Chapters
             bool cursor = CursorChoice.IsChecked == true;
             var typewriter = new Typewriter { Speed = speed, Cursor = cursor };
             var backspace = new Backspace { Speed = speed, Cursor = cursor };
+            string typewriterBlink = null;
+            string backspaceBlink = null;
             if (cursor && NoBlinkChoice.IsChecked == true)
             {
                 typewriter.BlinkFirst = AnimationTime.Zero;
+                typewriterBlink = "BlinkFirst=0s";
             }
             else if (cursor && LongBlinkChoice.IsChecked == true)
             {
                 typewriter.BlinkFirst = AnimationTime.FromSeconds(1.5);
                 backspace.BlinkFirst = AnimationTime.FromSeconds(1.5);
+                typewriterBlink = backspaceBlink = "BlinkFirst=1.5s";
             }
 
             Animate.SetAppear(LetterMessage, typewriter);
             Animate.SetDisappear(LetterMessage, backspace);
+
+            string speedParameter = speed == 30 ? null : "Speed=" + Snippet.Number(speed);
+            string cursorParameter = cursor ? null : "Cursor=False";
+            ShowLettersXaml(
+                Snippet.Effect("Typewriter", speedParameter, cursorParameter, typewriterBlink),
+                Snippet.Effect("Backspace", speedParameter, cursorParameter, backspaceBlink));
+        }
+
+        private void ShowLettersXaml(string appear, string disappear)
+        {
+            LettersDemo.Xaml =
+                "<TextBlock Text=\"Your order has shipped.\"\n" +
+                "           anim:Animate.Appear=\"" + appear + "\"\n" +
+                "           anim:Animate.Disappear=\"" + disappear + "\" />";
         }
 
         private void LetterButton_Click(object sender, RoutedEventArgs e)

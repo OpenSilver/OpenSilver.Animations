@@ -82,12 +82,13 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void CarveOut_Changed(object sender, RoutedEventArgs e)
         {
-            if (Chart == null)
+            if (Chart == null || CarveOutDemo == null)
             {
                 return;
             }
 
-            if (CarveOutSwitch.IsChecked == true)
+            bool carveOut = CarveOutSwitch.IsChecked == true;
+            if (carveOut)
             {
                 Animate.SetMoveAndResize(Chart, Movement.None);
             }
@@ -95,6 +96,15 @@ namespace OpenSilver.Animations.Gallery.Chapters
             {
                 Chart.ClearValue(Animate.MoveAndResizeProperty);
             }
+
+            CarveOutDemo.Xaml =
+                "<Border anim:Animate.MoveAndResize=\"{anim:Smooth ApplyTo=EverythingInside}\">\n" +
+                "    <!-- The numbers animate -->\n" +
+                (carveOut
+                    ? "    <Grid x:Name=\"Chart\" anim:Animate.MoveAndResize=\"None\">\n        <!-- The bars snap -->\n"
+                    : "    <Grid x:Name=\"Chart\">\n        <!-- The bars glide too -->\n") +
+                "    </Grid>\n" +
+                "</Border>";
         }
 
         private double NextBarHeight() => 16 + _random.Next(0, 120);

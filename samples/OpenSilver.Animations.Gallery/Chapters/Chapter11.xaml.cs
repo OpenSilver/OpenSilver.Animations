@@ -1,6 +1,8 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -80,6 +82,53 @@ namespace OpenSilver.Animations.Gallery.Chapters
             WizardProgress.Text = "Step " + (step + 1) + " of 3";
             WizardBack.IsEnabled = step > 0;
             WizardNext.Content = step == 2 ? "Start over" : "Next";
+        }
+
+        private void AskBox_GotFocus(object sender, RoutedEventArgs e) => AskPopup.IsOpen = true;
+
+        private async void AskPopup_Opened(object sender, EventArgs e)
+        {
+            // The popup's content is only on the page a moment after it opens.
+            await Task.Delay(100);
+            if (!AskPopup.IsOpen)
+            {
+                return;
+            }
+
+            // The small text box captured the mouse when it was pressed, and was collapsed before the button was released.
+            if (Mouse.Captured is UIElement captured)
+            {
+                captured.ReleaseMouseCapture();
+            }
+
+            AskCardBox.Focus();
+            AskCardBox.Select(AskCardBox.Text.Length, 0);
+        }
+
+        private void AskText_Changed(object sender, TextChangedEventArgs e)
+        {
+            if (AskPlaceholder == null || AskCardPlaceholder == null)
+            {
+                return;
+            }
+
+            Visibility placeholder = string.IsNullOrEmpty(AskBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+            AskPlaceholder.Visibility = placeholder;
+            AskCardPlaceholder.Visibility = placeholder;
+        }
+
+        private void AskCard_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                AskPopup.IsOpen = false;
+            }
+        }
+
+        private void AskSend_Click(object sender, RoutedEventArgs e)
+        {
+            AskBox.Text = "";
+            AskPopup.IsOpen = false;
         }
     }
 

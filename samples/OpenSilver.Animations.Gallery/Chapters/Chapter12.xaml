@@ -60,9 +60,9 @@
         </controls:DemoCard>
 
         <!-- 3. Nudge -->
-        <controls:DemoCard Title="Icons that the mouse nudges"
+        <controls:DemoCard x:Name="NudgeDemo" Title="Icons that the mouse nudges"
                            Description="Sweep the mouse quickly across these icons. Each one is pushed a little in the direction the mouse goes, turns a little if the mouse comes near a corner, and springs back. The faster the mouse, the more it moves."
-                           Xaml='&lt;Border anim:Animate.Hover="Nudge" /&gt;&#10;&#10;&lt;!-- With parameters --&gt;&#10;&lt;Border anim:Animate.Hover="{anim:Nudge Distance=6, Tilt=5}" /&gt;'
+                           Xaml='&lt;Border anim:Animate.Hover="Nudge" /&gt;'
                            Expectations="• A fast sweep pushes each icon in the direction of the mouse; a slow one barely moves them.&#10;• Each icon springs back past its place, and settles.&#10;• Move the sliders for a stronger push and more turn.">
             <StackPanel>
                 <WrapPanel x:Name="NudgeIcons">
@@ -106,9 +106,9 @@
         </controls:DemoCard>
 
         <!-- 4. Disabled -->
-        <controls:DemoCard Title="Disabled elements don't react"
+        <controls:DemoCard x:Name="SendDemo" Title="Disabled elements don't react"
                            Description="This button grows and shrinks like Buy now. Turn it off with the switch: while it is disabled, it doesn't react, because it can't be clicked. Then turn it on again."
-                           Xaml='&lt;Button Content="Send" IsEnabled="False" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;'
+                           Xaml='&lt;Button Content="Send" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;'
                            Expectations="• While the button is on, it grows and shrinks.&#10;• While it is off, it stays as it is, even with the mouse over it.">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="SendButton" Content="Send" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center"
