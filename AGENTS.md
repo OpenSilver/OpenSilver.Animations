@@ -33,6 +33,7 @@ Read these before working:
 
 ```text
 OpenSilver.Animations.slnx       solution: the library and the three gallery projects
+LICENSE.txt                      MIT
 Directory.Build.props            OpenSilverVersion (the MyGet 3.4.0-preview-2026-10-29-113513-38ba1092 by default), LangVersion 12
 NuGet.Config                     MyGet OpenSilver feed + build/local-packages
 .github/workflows/               build-package.yml: manual CI that packs and pushes to MyGet
@@ -74,6 +75,7 @@ build\Build_NuGet.bat 0.1.0-preview
 - **C#.** `netstandard2.0`, C# 12, nullable reference types off.
   - Every public member has an XML doc comment written for beginners; the package ships the XML file.
   - Engine types are `internal` and live under `OpenSilver.Animations.Engine`.
+  - Every C# file of the library starts with the MIT license header of the other files, followed by a blank line. The gallery's files don't have it.
 - **Comments.** Only write a comment for a rule or constraint the code can't show, in plain sentences. Match the density and tone of the surrounding code.
 - **The hot path.** The measure and arrange hooks of `InternalHooks` run for every element of every layout pass, inside `Dispatcher.DisableProcessing()`.
   - Only record data there, with no allocations and no tree walks.
