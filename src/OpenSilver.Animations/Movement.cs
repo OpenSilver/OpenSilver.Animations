@@ -50,13 +50,13 @@ namespace OpenSilver.Animations
         }
 
         /// <summary>
-        /// From 0 (off, the default) to 1: elements farther from where the change started begin a bit
-        /// later, like a wave.
+        /// From 0 (off, the default) to 2: elements farther from where the change started begin a bit
+        /// later, like a wave. At 1, the farthest ones start 0.2 s later; at 2, 0.4 s later.
         /// </summary>
         public double Wave
         {
             get => _wave;
-            set => _wave = Math.Max(0, Math.Min(1, value));
+            set => _wave = Math.Max(0, Math.Min(2, value));
         }
 
         /// <summary>
