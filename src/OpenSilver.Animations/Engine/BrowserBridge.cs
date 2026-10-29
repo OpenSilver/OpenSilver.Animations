@@ -40,6 +40,7 @@ namespace OpenSilver.Animations.Engine
             Action dragEnded = () => IsDragging = false;
             Action reducedMotionOn = () => PrefersReducedMotion = true;
             Action reducedMotionOff = () => PrefersReducedMotion = false;
+            Action<string, string> consoleCommand = ConsoleCommands.Run;
 
             _callbacks = new[]
             {
@@ -47,11 +48,12 @@ namespace OpenSilver.Animations.Engine
                 Interop.CreateJavascriptCallback(dragEnded),
                 Interop.CreateJavascriptCallback(reducedMotionOn),
                 Interop.CreateJavascriptCallback(reducedMotionOff),
+                Interop.CreateJavascriptCallback(consoleCommand),
             };
 
             Interop.ExecuteJavaScriptVoid(
-                "globalThis.osAnimations.init($0, $1, $2, $3)",
-                _callbacks[0], _callbacks[1], _callbacks[2], _callbacks[3]);
+                "globalThis.osAnimations.init($0, $1, $2, $3, $4)",
+                _callbacks[0], _callbacks[1], _callbacks[2], _callbacks[3], _callbacks[4]);
         }
 
         /// <summary>
@@ -168,6 +170,14 @@ namespace OpenSilver.Animations.Engine
         public static void WriteToConsole(string message)
         {
             Interop.ExecuteJavaScriptVoidAsync("console.log($0)", "[OpenSilver.Animations] " + message);
+        }
+
+        /// <summary>
+        /// Answers a function called in the browser console, right below the call.
+        /// </summary>
+        public static void AnswerInConsole(string message)
+        {
+            Interop.ExecuteJavaScriptVoid("console.log($0)", "[OpenSilver.Animations] " + message);
         }
 
         public static void AppendNumber(StringBuilder sb, double value)

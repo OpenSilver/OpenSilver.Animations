@@ -53,7 +53,7 @@
         <controls:DemoCard Title="Adjust everything at once: AnimationSettings"
                            Description="AnimationSettings.Current applies to every animation of the application. Declare it in the resources of App.xaml, or change it from code at any time. Move the sliders, then try."
                            Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" DefaultDuration="0.3s" /&gt;&#10;&#10;// From code&#10;AnimationSettings.Current.Speed = 0.5;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.4);&#10;AnimationSettings.Current.IsEnabled = false;'
-                           Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• These settings are reset when you leave this chapter.">
+                           Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• The settings changed here are reset when you leave this chapter.">
             <StackPanel x:Name="SettingsStage">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -90,9 +90,18 @@
         <!-- 4. Logging and reduced motion -->
         <controls:DemoCard Title="Why did it animate, or not?"
                            Description="The What just happened log lists the messages of the AnimationSettings.Logged event. Use it in your own app, or turn on LogForDebugging to write them to the browser console."
-                           Xaml='AnimationSettings.Logged += (sender, e) =&gt; Debug.WriteLine(e.Message);&#10;&#10;// Or, in the browser console&#10;AnimationSettings.Current.LogForDebugging = true;'>
+                           Xaml='AnimationSettings.Logged += (sender, e) =&gt; Debug.WriteLine(e.Message);&#10;&#10;// Or, to write them to the browser console&#10;AnimationSettings.Current.LogForDebugging = true;&#10;&#10;// The same without changing the app, typed in the browser console&#10;osAnimations.logForDebugging(true)'>
             <TextBlock Style="{StaticResource BodyText}"
                        Text="Only the changes that involve a setting, or Animate.Changes, are explained, so the messages stay few and useful. When the window is resized, there is at most one message per second." />
+        </controls:DemoCard>
+
+        <!-- 5. The browser console -->
+        <controls:DemoCard Title="From the browser console, in any app"
+                           Description="To look closely at how things move, without changing the app: press F12, open the Console, and type one of these. Each one changes a setting of AnimationSettings.Current until the page is reloaded, and says what it did."
+                           Xaml='osAnimations.slowMotion(4)                // 4 times slower; 1 for the normal speed&#10;osAnimations.showWhatAnimates(true)&#10;osAnimations.logForDebugging(true)&#10;osAnimations.simulateReducedMotion(true)&#10;osAnimations.isEnabled(false)&#10;&#10;// Without a value, each one says what the setting is&#10;osAnimations.slowMotion()'
+                           Expectations="• osAnimations.slowMotion(4) answers that animations play 4 times slower until the page is reloaded. The Speed above shows 0.25, and the box of Try it takes four times longer.&#10;• slowMotion(100) plays them 20 times slower, and says it is the most they can.&#10;• showWhatAnimates(true) and simulateReducedMotion(true) turn on the switches of the toolbar, and false turns them off.&#10;• logForDebugging(true) writes the messages of the What just happened log to the console too.&#10;• isEnabled(false) makes every change happen at once, and turns off the switch above.&#10;• A wrong value, like slowMotion('fast'), says what to type instead.&#10;• Unlike the sliders, these stay when you leave this chapter. Reloading the page brings back every setting.">
+            <TextBlock Style="{StaticResource BodyText}"
+                       Text="osAnimations exists once the app has used the library, like when the first element with an animation is created. The app can still change the same settings, and the last change wins: moving the sliders above changes them too." />
         </controls:DemoCard>
 
         <Border Style="{StaticResource TipBox}">

@@ -478,7 +478,10 @@
         }
         clone.removeAttribute('data-os-magic-src');
         clone.removeAttribute('id');
-        for (const e of clone.querySelectorAll('[id]')) e.removeAttribute('id');
+        renameSvgIds(clone);
+        for (const e of clone.querySelectorAll('[id]')) {
+            if (!e.ownerSVGElement) e.removeAttribute('id');
+        }
         removeTextOverlays(clone);
         clone.classList.remove('uielement-collapsed', 'uielement-hidden');
         clone.setAttribute('data-os-foreign', '');
@@ -510,6 +513,32 @@
             const copy = node.cloneNode(true);
             shadow.appendChild(copy);
             if (node.nodeType === 1) copyShadowRoots(node, copy);
+        }
+    }
+
+    // A shape paints with a gradient it refers to by id, and the browser paints nothing with the
+    // original's once that one is hidden or gone: the copy keeps its own, under new ids.
+    let copiedIds = 0;
+    const URL_REFERENCE = /url\(\s*(['"]?)#([^'")]+)\1\s*\)/g;
+
+    function renameSvgIds(copy) {
+        const inside = copy.querySelectorAll('svg [id]');
+        if (inside.length === 0) return;
+        const suffix = '-os-copy-' + (++copiedIds);
+        const names = new Set();
+        for (const e of inside) {
+            names.add(e.id);
+            e.id += suffix;
+        }
+        const rename = (match, quote, id) => (names.has(id) ? 'url(#' + id + suffix + ')' : match);
+        for (const e of copy.querySelectorAll('svg *, [style*="url("]')) {
+            for (const a of e.attributes) {
+                if (a.value.includes('url(')) {
+                    a.value = a.value.replace(URL_REFERENCE, rename);
+                } else if ((a.name === 'href' || a.name === 'xlink:href') && a.value[0] === '#' && names.has(a.value.slice(1))) {
+                    a.value += suffix;
+                }
+            }
         }
     }
 
@@ -906,7 +935,8 @@
             for (const e of document.querySelectorAll('[data-os-magic="' + v[0] + '"]')) e.style.visibility = 'hidden';
         }
 
-        const hide = startAtNextFrame(to.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'forwards' }));
+        // Hidden before its start too: it starts at the next frame, and the one painted before would show it.
+        const hide = startAtNextFrame(to.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'both' }));
         const travel = { p, layer, container, from, fromText, fromContent, oldLook, oldOpacity, newOpacity, animations: [], hide, timer: 0, group: null };
         travels.set(to, travel);
         return travel;
@@ -957,7 +987,7 @@
     const MAX_MEASURED = 50;
 
     // What shows inside a box: its letters, pictures and shapes, rather than the panels that hold
-    // them, which often fill the box. Its elements otherwise.
+    // them, which often fill the box, and the shapes of its frame. Its elements otherwise.
     function contentOf(element) {
         let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
         const add = (r) => {
@@ -969,8 +999,12 @@
         };
         const texts = element.querySelectorAll('.opensilver-textblock');
         for (let i = 0; i < texts.length && i < MAX_MEASURED; i++) add(textRectOf(texts[i]));
+        const box = element.getBoundingClientRect();
         const media = element.querySelectorAll('img, video, canvas, svg');
-        for (let i = 0; i < media.length && i < MAX_MEASURED; i++) add(media[i].getBoundingClientRect());
+        for (let i = 0; i < media.length && i < MAX_MEASURED; i++) {
+            const r = media[i].getBoundingClientRect();
+            if (!isPlainShape(media[i]) || !fills(r, box, FRAME_GAP)) add(r);
+        }
         if (left === Infinity) {
             for (const child of element.children) {
                 if (child.classList.contains('opensilver-uielement')) add(child.getBoundingClientRect());
@@ -1021,24 +1055,154 @@
         return Math.abs(inner + innerSize / 2 - (outer + outerSize / 2)) < 1;
     }
 
-    // What is inside the copy of a box goes, in a wrapper of its own, from where the old content
+    // Where what is inside a box is held along one axis, from 0 at the start of the box to 1 at
+    // its end: when it is centered in both boxes, on the part of the box that moves the least,
+    // like the middle of a badge that grows or the top of a card that opens below a field. At
+    // the start of the box otherwise.
+    function anchorOf(c0, cw0, b0, bw0, c1, cw1, b1, bw1) {
+        if (!centered(c0, cw0, b0, bw0) || !centered(c1, cw1, b1, bw1)) return 0;
+        const start = Math.abs(b1 - b0), end = Math.abs(b1 + bw1 - b0 - bw0);
+        if (Math.abs(b1 + bw1 / 2 - b0 - bw0 / 2) <= Math.min(start, end) + 0.5) return 0.5;
+        return start <= end ? 0 : 1;
+    }
+
+    // The frame of a box: the panels and the plain shapes that fill it, within FRAME_GAP of its
+    // sides, like the Border in the template of a control. In a copy, they change their size with
+    // the box, while what is inside them travels as one picture. A panel that holds anything else
+    // than elements, like a text or an image, is part of the picture.
+    const FRAME_GAP = 4;
+    const WRAPPER_STYLE = 'position:absolute;left:0;top:0;margin:0;padding:0;border:0;pointer-events:none;';
+    const CLIP_STYLE = 'position:absolute;left:0;top:0;right:0;bottom:0;margin:0;padding:0;border:0;' +
+                       'overflow:hidden;border-radius:inherit;pointer-events:none;';
+
+    function fills(r, box, gap) {
+        const insets = [r.left - box.left, r.top - box.top, box.right - r.right, box.bottom - r.bottom];
+        return insets.every((d) => d > -1 && d <= gap);
+    }
+
+    function isPlainShape(e) {
+        if (e.tagName !== 'svg') return false;
+        let shapes = 0;
+        for (const child of e.children) {
+            if (child.tagName === 'rect' || child.tagName === 'ellipse') shapes++;
+            else if (child.tagName !== 'defs') return false;
+        }
+        return shapes > 0;
+    }
+
+    function isPanel(e) {
+        if (e.tagName !== 'DIV' || e.classList.contains('opensilver-textblock')) return false;
+        for (const node of e.childNodes) {
+            if (node.nodeType === 3 && node.data.trim() !== '') return false;
+            if (node.nodeType === 1 && !node.classList.contains('opensilver-uielement')) return false;
+        }
+        return true;
+    }
+
+    function isFrame(e, box, gap) {
+        if (!isPanel(e) && !(supportsGeometry && isPlainShape(e))) return false;
+        const style = getComputedStyle(e);
+        if (style.position !== 'absolute' || style.transform !== 'none' || style.translate !== 'none' ||
+            style.scale !== 'none' || style.rotate !== 'none') return false;
+        return fills(e.getBoundingClientRect(), box, gap);
+    }
+
+    // The frame of the copy of a box, measured while the copy is at its own size, and the boxes
+    // that hold the rest: { frame, holders }. Each holder is { element, x, y, w, h, runs }: where
+    // its padding box is in the copy's, its size, and its elements that aren't frame, in runs of
+    // siblings. A copy that is scaled on screen has no frame. A stopped layer has neither.
+    function frameOf(copy, look, k) {
+        if (copy.hasAttribute('data-os-layer')) return null;
+        const box = copy.getBoundingClientRect();
+        const s = copy.offsetWidth > 0 ? box.width / copy.offsetWidth : 1;
+        const framed = Math.abs(k - 1) < 0.01;
+        const parts = { frame: [], holders: [] };
+        const visit = (holder) => {
+            let run = null;
+            for (const child of holder.element.children) {
+                if (!child.classList.contains('opensilver-uielement')) {
+                    run = null;
+                } else if (framed && isFrame(child, box, FRAME_GAP * s)) {
+                    run = null;
+                    parts.frame.push(stretchOf(child));
+                    if (child.tagName === 'DIV') {
+                        const r = child.getBoundingClientRect();
+                        visit({
+                            element: child,
+                            x: (r.left - box.left) / s + child.clientLeft - copy.clientLeft,
+                            y: (r.top - box.top) / s + child.clientTop - copy.clientTop,
+                            w: child.clientWidth, h: child.clientHeight, runs: [],
+                        });
+                    }
+                } else {
+                    if (!run) holder.runs.push(run = []);
+                    run.push(child);
+                }
+            }
+            if (holder.runs.length > 0) parts.holders.push(holder);
+        };
+        visit({
+            element: copy, x: 0, y: 0, runs: [],
+            w: look.w - look.borders[1] - look.borders[3], h: look.h - look.borders[0] - look.borders[2],
+        });
+        return parts;
+    }
+
+    // How a part of the frame follows the size of its parent: what its width and height lack to
+    // fill it, and the same for its shape in the SVG.
+    function stretchOf(e) {
+        const style = getComputedStyle(e);
+        const w = parseFloat(style.width) || 0, h = parseFloat(style.height) || 0;
+        const entry = { e, dw: e.parentElement.clientWidth - w, dh: e.parentElement.clientHeight - h, shapes: [] };
+        if (e.tagName === 'svg') {
+            for (const shape of e.children) {
+                const attr = (name) => parseFloat(shape.getAttribute(name)) || 0;
+                if (shape.tagName === 'rect') {
+                    entry.shapes.push({ shape, width: w - attr('width'), height: h - attr('height') });
+                } else if (shape.tagName === 'ellipse') {
+                    entry.shapes.push({ shape, cx: attr('cx') - w / 2, cy: attr('cy') - h / 2, rx: w / 2 - attr('rx'), ry: h / 2 - attr('ry') });
+                }
+            }
+        }
+        return entry;
+    }
+
+    function stretch(entry) {
+        const less = (part, d) => 'calc(' + part + ' - ' + px(d) + ')';
+        entry.e.style.width = less('100%', entry.dw);
+        entry.e.style.height = less('100%', entry.dh);
+        for (const s of entry.shapes) {
+            if (s.shape.tagName === 'rect') {
+                s.shape.style.width = less('100%', s.width);
+                s.shape.style.height = less('100%', s.height);
+            } else {
+                s.shape.style.cx = less('50%', -s.cx);
+                s.shape.style.cy = less('50%', -s.cy);
+                s.shape.style.rx = less('50%', s.rx);
+                s.shape.style.ry = less('50%', s.ry);
+            }
+        }
+    }
+
+    // What is inside the copy of a box goes, in wrappers of its own, from where the old content
     // is in the old box (way.fromContent in way.from) to where the new content is in the new box,
-    // its scale going from z0 to z1 times its own size: it stays centered where it is centered
-    // at both ends, and keeps its top left corner otherwise. own and ownContent are where the
-    // copy and its content are at their end. The content of a stopped layer stays as it is.
-    function zoomContent(copy, look, own, ownContent, k, z0, z1, way, play) {
-        if (copy.hasAttribute('data-os-layer')) return;
-        const children = [...copy.children].filter((c) => c.classList.contains('opensilver-uielement'));
-        if (children.length === 0) return;
+    // its scale going from z0 to z1 times its own size, held where anchorOf says. own and
+    // ownContent are where the copy and its content are at their end, and parts its frame and
+    // holders (frameOf). The frame follows the layer's size instead. With clip, what doesn't fit
+    // in its holder on the way is cut off, like the content of a card that grows out of a field.
+    function zoomContent(copy, parts, look, own, ownContent, k, z0, z1, way, play, clip) {
+        if (!parts) return;
+        for (const entry of parts.frame) stretch(entry);
+        if (parts.holders.length === 0) return;
         const { from, fromContent: c0, end, endContent: c1, b0, b1 } = way;
-        const ax = centered(c0.x, c0.w, from.x, from.w) && centered(c1.x, c1.w, end.x, end.w) ? 0.5 : 0;
-        const ay = centered(c0.y, c0.h, from.y, from.h) && centered(c1.y, c1.h, end.y, end.h) ? 0.5 : 0;
+        const ax = anchorOf(c0.x, c0.w, from.x, from.w, c1.x, c1.w, end.x, end.w);
+        const ay = anchorOf(c0.y, c0.h, from.y, from.h, c1.y, c1.h, end.y, end.h);
         const lx = (ownContent.x - own.x + ax * ownContent.w) / k - look.borders[3];
         const ly = (ownContent.y - own.y + ay * ownContent.h) / k - look.borders[0];
         const x0 = c0.x - from.x + ax * c0.w, x1 = c1.x - end.x + ax * c1.w;
         const y0 = c0.y - from.y + ay * c0.h, y1 = c1.y - end.y + ay * c1.h;
         const s0 = k * z0, s1 = k * z1;
-        // The wrapper is in the padding box, which moves with the borders.
+        // Around the copy's padding box, which moves with the borders.
         const frame = (q) => {
             const s = s0 + (s1 - s0) * q;
             const x = x0 + (x1 - x0) * q - (b0[3] + (b1[3] - b0[3]) * q) - s * lx;
@@ -1046,15 +1210,28 @@
             return { translate: px(x) + ' ' + px(y), scale: String(s) };
         };
         const first = frame(0), last = frame(1);
-        if (first.translate === '0px 0px' && last.translate === '0px 0px' && Math.abs(s0 - 1) < 1e-3 && Math.abs(s1 - 1) < 1e-3) return;
-        const wrapper = document.createElement('div');
-        wrapper.setAttribute('data-os-foreign', '');
-        wrapper.style.cssText = 'position:absolute;left:0;top:0;margin:0;padding:0;border:0;transform-origin:0 0;pointer-events:none;';
-        wrapper.style.width = px(look.w - look.borders[1] - look.borders[3]);
-        wrapper.style.height = px(look.h - look.borders[0] - look.borders[2]);
-        for (const child of children) wrapper.appendChild(child);
-        copy.appendChild(wrapper);
-        play(wrapper, frame);
+        const moves = first.translate !== '0px 0px' || last.translate !== '0px 0px' || Math.abs(s0 - 1) >= 1e-3 || Math.abs(s1 - 1) >= 1e-3;
+        if (!moves && !clip) return;
+        for (const holder of parts.holders) {
+            for (const run of holder.runs) {
+                const wrapper = document.createElement('div');
+                wrapper.setAttribute('data-os-foreign', '');
+                wrapper.style.cssText = WRAPPER_STYLE;
+                wrapper.style.width = px(holder.w);
+                wrapper.style.height = px(holder.h);
+                wrapper.style.transformOrigin = px(-holder.x) + ' ' + px(-holder.y);
+                let outer = wrapper;
+                if (clip) {
+                    outer = document.createElement('div');
+                    outer.setAttribute('data-os-foreign', '');
+                    outer.style.cssText = CLIP_STYLE;
+                    outer.appendChild(wrapper);
+                }
+                holder.element.insertBefore(outer, run[0]);
+                for (const child of run) wrapper.appendChild(child);
+                if (moves) play(wrapper, frame);
+            }
+        }
     }
 
     // The way of a copy of a text, so that its letters go from where the old text's letters are
@@ -1089,15 +1266,19 @@
         const { v, timing, to } = travel.p;
         const { layer, container, from, oldLook, oldOpacity, newOpacity } = travel;
         const oldCopy = layer.firstChild;
+        const oldText = (v[5] & TRAVEL_OLD_TEXT) !== 0, newText = (v[5] & TRAVEL_NEW_TEXT) !== 0;
+        const k0 = from.w / oldLook.w;
+        const oldParts = oldText ? null : frameOf(oldCopy, oldLook, k0);
         const newCopy = copyOf(to);
         keepInherited(to, newCopy);
         replaceMedia(to, newCopy);
 
         const end = boxIn(container, endRect, ancestorRect);
         placeLayer(layer, end);
-        const oldText = (v[5] & TRAVEL_OLD_TEXT) !== 0, newText = (v[5] & TRAVEL_NEW_TEXT) !== 0;
         fitCopy(newCopy, newText ? endLook : null);
         layer.appendChild(newCopy);
+        const k1 = end.w / endLook.w;
+        const newParts = newText ? null : frameOf(newCopy, endLook, k1);
 
         const d = Math.max(1, timing.d);
         const moveCurve = curveOf(timing, false), sizeCurve = curveOf(timing, true);
@@ -1121,11 +1302,10 @@
         if (oldText) play(oldCopy, textFrames(oldLook, from, fromText, from, fromText, end, endText, same));
         if (newText) play(newCopy, textFrames(endLook, end, endText, from, fromText, end, endText, same));
 
-        // A box changes its width and height with the layer, and its corners and borders go from
-        // the old ones to the new ones in both copies, so that they keep the same shape. What is
-        // inside it goes from where it is in the old box to where it is in the new one, and zooms
-        // as much as its largest letters change size.
-        const k0 = from.w / oldLook.w, k1 = end.w / endLook.w;
+        // A box changes its width and height with the layer, with its frame, and its corners and
+        // borders go from the old ones to the new ones in both copies, so that they keep the same
+        // shape. What is inside it goes from where it is in the old box to where it is in the new
+        // one, and zooms as much as its largest letters change size.
         const r0 = cornersOf(oldLook).map((r) => r * k0), r1 = cornersOf(endLook).map((r) => r * k1);
         const b0 = oldLook.borders.map((b) => b * k0), b1 = endLook.borders.map((b) => b * k1);
         const shape = differ(r0, r1) || differ(b0, b1)
@@ -1140,11 +1320,13 @@
         const way = { from, fromContent, end, endContent, b0, b1 };
         if (!oldText) {
             if (shape) play(oldCopy, shape);
-            zoomContent(oldCopy, oldLook, from, fromContent, k0, 1, z, way, play);
+            const clip = fromContent.w * z > end.w + 1 || fromContent.h * z > end.h + 1;
+            zoomContent(oldCopy, oldParts, oldLook, from, fromContent, k0, 1, z, way, play, clip);
         }
         if (!newText) {
             if (shape) play(newCopy, shape);
-            zoomContent(newCopy, endLook, end, endContent, k1, 1 / z, 1, way, play);
+            const clip = endContent.w / z > from.w + 1 || endContent.h / z > from.h + 1;
+            zoomContent(newCopy, newParts, endLook, end, endContent, k1, 1 / z, 1, way, play, clip);
         }
 
         // Two different texts take turns, so that their letters don't mix on the way. Otherwise
@@ -2124,9 +2306,18 @@
         }
     }
 
-    function init(onDragStarted, onDragEnded, onReducedMotionOn, onReducedMotionOff) {
+    let consoleCommand = null;
+
+    // The functions for people, in the browser console: each one changes the setting of
+    // AnimationSettings with the same name, and says what it did, or without a value, what it is.
+    function command(name) {
+        return (value) => { consoleCommand(name, value === undefined ? '' : String(value)); };
+    }
+
+    function init(onDragStarted, onDragEnded, onReducedMotionOn, onReducedMotionOff, onConsoleCommand) {
         dragStarted = onDragStarted;
         dragEnded = onDragEnded;
+        consoleCommand = onConsoleCommand;
         window.addEventListener('pointerdown', onPointerDown, true);
         window.addEventListener('pointermove', trackPointer, true);
         window.addEventListener('pointermove', onPointerMove, true);
@@ -2150,5 +2341,12 @@
         }
     }
 
-    globalThis.osAnimations = Object.freeze({ init, run, hold, ghost, ghostInView, capture, react, reactSettings, textHold, textStop });
+    globalThis.osAnimations = Object.freeze({
+        init, run, hold, ghost, ghostInView, capture, react, reactSettings, textHold, textStop,
+        slowMotion: command('slowMotion'),
+        showWhatAnimates: command('showWhatAnimates'),
+        logForDebugging: command('logForDebugging'),
+        simulateReducedMotion: command('simulateReducedMotion'),
+        isEnabled: command('isEnabled'),
+    });
 })();

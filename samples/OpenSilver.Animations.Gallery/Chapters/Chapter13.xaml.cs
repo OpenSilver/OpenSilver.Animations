@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,6 +13,8 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private static readonly AnimationTime DefaultDuration = AnimationTime.FromMilliseconds(250);
 
         private bool _loading = true;
+        private bool _saving;
+        private bool _changed;
 
         public Chapter13()
         {
@@ -22,12 +25,28 @@ namespace OpenSilver.Animations.Gallery.Chapters
         {
             base.OnNavigatedTo(e);
             LoadSettings();
+            AnimationSettings.Current.PropertyChanged += Settings_PropertyChanged;
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
-            ResetSettings();
+            AnimationSettings.Current.PropertyChanged -= Settings_PropertyChanged;
+
+            // A change made in the browser console lasts until the page is reloaded.
+            if (_changed)
+            {
+                ResetSettings();
+                _changed = false;
+            }
+        }
+
+        private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (!_saving)
+            {
+                LoadSettings();
+            }
         }
 
         private void ChangeDirectly_Click(object sender, RoutedEventArgs e)
@@ -91,6 +110,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private void ResetSettings_Click(object sender, RoutedEventArgs e)
         {
             ResetSettings();
+            _changed = false;
             LoadSettings();
         }
 
@@ -113,9 +133,12 @@ namespace OpenSilver.Animations.Gallery.Chapters
             }
 
             AnimationSettings settings = AnimationSettings.Current;
+            _saving = true;
             settings.Speed = Math.Round(SpeedSlider.Value * 4) / 4;
             settings.DefaultDuration = AnimationTime.FromSeconds(Math.Round(DurationSlider.Value * 20) / 20);
             settings.IsEnabled = EnabledSwitch.IsChecked == true;
+            _saving = false;
+            _changed = true;
             UpdateLabels();
         }
 

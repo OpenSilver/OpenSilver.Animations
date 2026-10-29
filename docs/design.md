@@ -275,6 +275,12 @@ Animate.Skip(() => LoadInitialData());
     - `SimulateReducedMotion` (false). Behaves as if the device asked for reduced motion; the gallery's "Reduce motion" switch sets it.
     - `ShowWhatAnimates` (false). A debugging overlay that outlines the elements of each animated group while they animate, with the origin highlighted.
   - Set them in code (`AnimationSettings.Current`), or declare `<anim:AnimationSettings x:Key="AnimationSettings" .../>` in the App.xaml resources, which is read at startup.
+  - **From the browser console**, to look closely at how things move without changing the app. This works in every app, published ones too.
+    - `osAnimations.slowMotion(4)` plays every animation 4 times slower: it sets `Speed` to 1/4. `slowMotion(1)` brings back the normal speed, and a value below 1 makes them faster.
+    - `osAnimations.showWhatAnimates(true)`, `logForDebugging(true)`, `simulateReducedMotion(true)` and `isEnabled(false)` set the setting with the same name.
+    - Each one answers in the console in a plain sentence, like "Animations play 4 times slower, until the page is reloaded. osAnimations.slowMotion(1) brings back their normal speed." Without a value, it says what the setting is. A wrong value says what to type instead.
+    - A change lasts until the page is reloaded. The app can still change the same settings, and the last change wins.
+    - `osAnimations` exists once the app has used the library, like when the first element with an animation is created.
   - `Animate.Changes(Action, duration?)` animates every change made in the action, even without any property set. `Animate.Skip(Action)` makes those changes instant.
     - Both apply to the layout pass that contains the changes made in the action.
     - The library calls `UpdateLayout()` right after the action when it isn't already inside a layout pass.
@@ -581,7 +587,7 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
 10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
 11. **Magic move.** A segmented control with a selection pill, toppings that move between two lists, a list-to-detail photo, and a wizard with `MagicMoveByName`. The tab underline is in chapter 10: it's one element that moves, which `MoveAndResize` does.
 12. **Hover and press.** `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, icons that the mouse nudges with Distance and Tilt sliders, and a button that doesn't react while it's disabled.
-13. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource) and reduced motion.
+13. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource), the functions of the browser console, and reduced motion.
 14. **What never animates, and why.** Live proof that the following stay instant:
     - scrolling;
     - dragging a GridSplitter or a Slider;
@@ -742,6 +748,7 @@ Each line is what the developer sets, and what must happen.
 - **Ghosts.**
   - **Capture.** At `OnDetaching`, or in the `OnVisibilityChanged` hook, the library deep-clones the element's DOM.
     - It strips ids, sets `pointer-events: none` and `data-os-foreign`, and copies canvas bitmaps.
+    - Inside an SVG, it renames the ids instead, with the references to them, so that a shape painted with a gradient, like the outline of a gradient border, is still painted once the element is hidden.
     - It copies open shadow roots, which a plain clone leaves out, like the content of an `HtmlPresenter` with `UseShadowDom`.
     - It removes the `uielement-collapsed` class (`display: none !important`, which no animation can override) and the `uielement-hidden` class.
     - The clone stays in the parent at the element's old DOM position, so its stacking among siblings doesn't change, and at its last arranged rectangle.
@@ -773,7 +780,9 @@ Each line is what the developer sets, and what must happen.
   - `Automatic`: Behind when both elements are backgrounds, the first of several children and at least 90% of their parent's width and height, like a selection pill; otherwise Above.
 - **Look.**
   - **A box** fills the layer, which changes width and height, so it changes size like the element would. Its corners and its borders go from the old element's to the new one's, in both copies, so that the two copies keep the same shape on the way: a round avatar stays round at every size, and a card with small corners can become a pill.
-  - **What is inside a box** goes from where it is in the old box to where it is in the new one, and zooms as much as its largest letters change size, or, without letters, as much as its content does. It stays centered when it is centered in both boxes, and keeps its top-left corner otherwise. It travels as one picture: its parts don't go to their own new places, unless they have a Magic move of their own.
+  - **Its frame** changes size with it too: the panels and the plain shapes (rectangles and ellipses) that fill it, like the Border in the template of a control, or the rectangle that draws a gradient outline. A panel that holds a text or an image itself is part of what is inside instead.
+  - **What is inside a box** goes from where it is in the old box to where it is in the new one, and zooms as much as its largest letters change size, or, without letters, as much as its content does. When it is centered in both boxes, it is held on the part of the box that moves the least: its middle, like the label of a badge that grows, or its top, like what is inside a field that becomes a card below it. It keeps its top-left corner otherwise. It travels as one picture: its parts don't go to their own new places, unless they have a Magic move of their own.
+  - **What doesn't fit.** When what is inside one box is too large for the other, like the content of a card that shrinks into a field, it is cut off at the edges of the box on the way, inside its corners.
   - **A TextBlock's copy** keeps its own size and is scaled instead, so that its letters don't wrap differently on the way (chosen by the product owner). It travels by its letters, not by its box: they go from where the old letters are to where the new ones are, so a short title in a wide box isn't scaled by the box. The same text at both ends also stretches a little (at most 15%), so that its two copies cover each other exactly.
   - **The cross-fade.** The two copies add up, where the browser can (`mix-blend-mode: plus-lighter`): the old one fades out while the new one fades in, so wherever they are the same, the picture stays as it is. A color, a gradient, an image or a shadow that changes between the two elements changes like a color animation, and a text that fades into itself doesn't look bolder halfway. Where the browser can't add them, the old copy stays until halfway and the new one is complete by halfway, so two identical elements still look like one that moves.
   - Two different texts take turns instead, so that their letters don't mix: the old one is gone by 60% of the way and the new one starts at 40%.
@@ -825,6 +834,7 @@ Each line is what the developer sets, and what must happen.
 - An Appear effect with an offset, a zoom or a rotation hides the element's hover or press until it ends, and a ghost starts from the element at rest.
 - In a Magic move, what is inside a box travels as one picture: when the old and the new contents differ, like a card's two lines and a pill's label, they cross-fade on the way rather than each part going to its new place.
 - A Magic move that stops halfway and goes on from there keeps the corners and the zoom of its content where they stopped.
+- In a Magic move, the frame of a box that is scaled on screen, like an element in a Viewbox, zooms with what is inside it rather than changing its size. So does a frame drawn by a `Path`, or by a shape in a browser without CSS geometry properties.
 - An element with a Magic move that disappears without a partner plays its Disappear 0.3 s later, and the elements around it don't wait for it: they move with their own settings, or snap.
 - When the travels wait for a size, their ends are measured after the wait, including what the other animations of the pass have moved by then.
 - In the Simulator, JS batches can arrive a frame apart.
