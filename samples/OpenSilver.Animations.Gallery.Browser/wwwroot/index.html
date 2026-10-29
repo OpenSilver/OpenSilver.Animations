@@ -6,37 +6,44 @@
     <title>OpenSilver.Animations library: a guided tour</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <base href="/" />
+    <style>
+        :root {
+            --opensilver-loading-background-color: #F4F5FA;
+            --opensilver-loading-progress-bg: #E4E6EF;
+            --opensilver-loading-progress-bar-color: #5B5BD6;
+            --opensilver-loading-counter-color: #545970;
+            --opensilver-loading-progress-border-color: #D9DCE7;
+        }
+    </style>
     <script>
         (function () {
             const style = document.createElement('link');
             style.setAttribute('rel', 'stylesheet');
             style.setAttribute('type', 'text/css');
-            style.setAttribute('href', 'loading-indicator.css?date=' + new Date().toISOString());
+            style.setAttribute('href', 'modern/loading-indicator.css?date=' + new Date().toISOString());
             document.head.appendChild(style);
+
+            const script = document.createElement('script');
+            script.setAttribute('type', 'application/javascript');
+            script.setAttribute('src', 'modern/loading-animation.js?date=' + new Date().toISOString());
+            document.head.appendChild(script);
         })();
     </script>
 </head>
 <body>
     <div id="app">
-        <div class="loading-indicator-wrapper">
-            <div class="loading-indicator">
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-ball"></div>
-                <div class="loading-indicator-text"></div>
+        <div class="opensilver-loading-indicator">
+            <div class="opensilver-loader-container">
+                <div class="opensilver-loader">
+                    <div class="opensilver-loader-progress">
+                        <div class="opensilver-loader-progress-bar"></div>
+                    </div>
+                </div>
+                <div class="opensilver-counter-container">
+                    <span class="opensilver-odometer"></span>
+                    <span class="opensilver-odometer"></span>
+                    <span class="opensilver-odometer"></span>
+                </div>
             </div>
         </div>
     </div>

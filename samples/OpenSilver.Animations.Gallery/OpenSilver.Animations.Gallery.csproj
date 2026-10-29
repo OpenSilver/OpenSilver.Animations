@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="OpenSilver" Version="[$(OpenSilverVersion)]" />
+    <PackageReference Include="OpenSilver.Themes.Modern" Version="3.4.0-preview-2026-07-20-092918-c8997484" />
   </ItemGroup>
 
   <ItemGroup>
