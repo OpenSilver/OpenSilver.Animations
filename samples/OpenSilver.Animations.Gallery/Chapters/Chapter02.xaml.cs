@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
@@ -14,13 +15,21 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private const double DefaultZoomSize = 0.9;
         private const string DefaultDistance = "Medium";
 
+        // Between the end of the card's Disappear and its Appear, when an option plays it again.
+        private const double ReplayPause = 0.3;
+
         private readonly bool _ready;
+        private readonly DispatcherTimer _replayTimer = new DispatcherTimer();
+        private Transition _disappear;
 
         public Chapter02()
         {
             InitializeComponent();
             _ready = true;
             ApplyEffect();
+
+            _replayTimer.Tick += ReplayTimer_Tick;
+            Unloaded += (sender, e) => _replayTimer.Stop();
         }
 
         private void Option_Checked(object sender, RoutedEventArgs e)
@@ -29,6 +38,50 @@ namespace OpenSilver.Animations.Gallery.Chapters
             {
                 ApplyEffect();
             }
+        }
+
+        // After Checked, and also for the option that is already chosen, to see it again.
+        private void Option_Click(object sender, RoutedEventArgs e) => Replay();
+
+        // The card disappears with the new choice, then appears with it. While it is hidden, a newer
+        // choice only changes how it will appear.
+        private void Replay()
+        {
+            if (_replayTimer.IsEnabled)
+            {
+                return;
+            }
+            if (SampleCard.Visibility != Visibility.Visible)
+            {
+                ShowCard(true);
+                return;
+            }
+
+            ShowCard(false);
+            _replayTimer.Interval = GetReplayWait(_disappear);
+            _replayTimer.Start();
+        }
+
+        private void ReplayTimer_Tick(object sender, EventArgs e)
+        {
+            _replayTimer.Stop();
+            ShowCard(true);
+        }
+
+        // Until the card and the text below have both finished.
+        private static TimeSpan GetReplayWait(Transition disappear)
+        {
+            AnimationSettings settings = AnimationSettings.Current;
+            double duration = disappear.Duration?.Seconds
+                ?? settings.DefaultDuration.Seconds * (disappear.Easing == Easings.Bouncy ? 2 : 1);
+            double othersDuration = disappear.OthersDuration?.Seconds ?? duration;
+            return TimeSpan.FromSeconds((Math.Max(duration, othersDuration) + ReplayPause) / settings.Speed);
+        }
+
+        private void ShowCard(bool show)
+        {
+            SampleCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            SampleButton.Content = show ? "Hide the card" : "Show the card";
         }
 
         private void ApplyEffect()
@@ -79,8 +132,9 @@ namespace OpenSilver.Animations.Gallery.Chapters
             {
                 choices.Easing = "Smooth";
             }
+            _disappear = Create(disappearName, choices, appear: false);
             Animate.SetAppear(SampleCard, Create(name, choices, appear: true));
-            Animate.SetDisappear(SampleCard, Create(disappearName, choices, appear: false));
+            Animate.SetDisappear(SampleCard, _disappear);
 
             EffectDemo.Xaml =
                 "<Border anim:Animate.Appear=\"" + ToXaml(name, choices, true) + "\"\n" +
@@ -197,9 +251,8 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void SampleButton_Click(object sender, RoutedEventArgs e)
         {
-            bool show = SampleCard.Visibility != Visibility.Visible;
-            SampleCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            SampleButton.Content = show ? "Hide the card" : "Show the card";
+            _replayTimer.Stop();
+            ShowCard(SampleCard.Visibility != Visibility.Visible);
         }
 
         private void SignUp_Click(object sender, RoutedEventArgs e)

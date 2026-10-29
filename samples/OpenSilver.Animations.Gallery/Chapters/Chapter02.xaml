@@ -13,8 +13,16 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
-        <!-- An easing choice: a square tile with the curve of the easing named by its Content -->
-        <Style x:Key="CurveChoice" TargetType="RadioButton">
+        <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource SliderLabel}">
+            <Setter Property="Width" Value="88" />
+        </Style>
+
+        <Style x:Key="OptionHeading" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+
+        <!-- A choice drawn on a square tile: its ContentTemplate draws it, with its name below -->
+        <Style x:Key="TileChoice" TargetType="RadioButton">
             <Setter Property="Margin" Value="0,4,8,4" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -52,12 +60,38 @@
                             <Border x:Name="HoverTile" BorderBrush="#C9CCD8" BorderThickness="1" CornerRadius="10" Opacity="0" />
                             <Border x:Name="SelectedTile" Background="{StaticResource AccentLightBrush}" BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
                                     CornerRadius="10" Opacity="0" />
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <controls:EasingCurve EasingName="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
-                                <ContentPresenter HorizontalAlignment="Center" Margin="0,5,0,0" />
-                            </StackPanel>
+                            <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                     </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- An easing choice: the curve of the easing named by its Content -->
+        <Style x:Key="CurveChoice" TargetType="RadioButton" BasedOn="{StaticResource TileChoice}">
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <StackPanel>
+                            <controls:EasingCurve EasingName="{Binding}" />
+                            <TextBlock Text="{Binding}" FontSize="12" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- An effect choice: a little card that plays the effect named by its Content, again and again -->
+        <Style x:Key="EffectChoice" TargetType="RadioButton" BasedOn="{StaticResource TileChoice}">
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <StackPanel>
+                            <controls:EffectPreview EffectName="{Binding}" />
+                            <TextBlock Text="{Binding}" FontSize="12" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                        </StackPanel>
+                    </DataTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
@@ -73,110 +107,44 @@
 
         <!-- 1. Every effect -->
         <controls:DemoCard x:Name="EffectDemo" Title="Every effect"
-                           Description="Choose an effect and its parameters, then hide and show the card. The text below the card makes room for it and fills its space with the duration of the effect."
-                           Expectations="• Each effect plays when the card is shown, and again, the other way around, when it is hidden.&#10;• Slide and Wipe follow the side you choose: the card comes from it, and goes back to it.&#10;• Slide follows the distance you choose: at 100%, the card starts a whole card height away (a whole width from the left or the right).&#10;• Zoom follows the size you choose: the card starts from that size, and goes back to it. At 120%, it shrinks into place.&#10;• With Fade set to No, Slide and Zoom don't fade: the card is fully visible while it moves or grows.&#10;• With Bouncy, or with Pop, the card bounces, but it fades in without bouncing, and the text below moves smoothly.&#10;• With Overshoot, the card goes a little past its place or its size, and comes back, once. The text below moves with EaseOut, without overshooting.&#10;• With EaseIn, the card starts slowly and leaves fast. With EaseOut, it starts fast and ends slowly.&#10;• Each easing shows its curve, on the same scale: Linear is a straight line, EaseIn starts flat, EaseOut ends flat, and Bouncy and Overshoot go above the top dotted line before they come back to it.&#10;• With Text below set to 1 s, the text takes 1 second to make room or to fill the space, whatever the duration of the card.&#10;• Hide and show the card quickly: it never jumps.">
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                           Description="Choose an effect and its parameters: each change plays them again, as the card disappears, then appears. The text below the card makes room for it and fills its space with the duration of the effect."
+                           Expectations="• Each effect tile shows a still drawing of its effect. Keep the mouse on a tile: half a second later, its little card plays the effect again and again, slower and bigger than the real one. Move the mouse away: the drawing is still again.&#10;• The duration starts at 0.5 s, so that the effects are easy to tell apart. Default is 0.25 s, what an app gets without a Duration.&#10;• Each change of an option plays the card again: it disappears with the new choice, then appears with it. Change options quickly: the card never jumps, and appears with the last choice.&#10;• Click the option that is already chosen: the card plays again.&#10;• Hide the card, then change an option: the card appears with it.&#10;• On a wide screen, the options are on the left and the card on the right, so that the card stays in sight. On a narrow one, the card is below the effects, and the other options below it.&#10;• Each effect plays when the card is shown, and again, the other way around, when it is hidden.&#10;• Slide and Wipe follow the side you choose: the card comes from it, and goes back to it.&#10;• Slide follows the distance you choose: at 100%, the card starts a whole card height away (a whole width from the left or the right).&#10;• Zoom follows the size you choose: the card starts from that size, and goes back to it. At 120%, it shrinks into place.&#10;• With Fade set to No, Slide and Zoom don't fade: the card is fully visible while it moves or grows.&#10;• With Bouncy, or with Pop, the card bounces, but it fades in without bouncing, and the text below moves smoothly.&#10;• With Overshoot, the card goes a little past its place or its size, and comes back, once. The text below moves with EaseOut, without overshooting.&#10;• With EaseIn, the card starts slowly and leaves fast. With EaseOut, it starts fast and ends slowly.&#10;• Each easing shows its curve, on the same scale: Linear is a straight line, EaseIn starts flat, EaseOut ends flat, and Bouncy and Overshoot go above the top dotted line before they come back to it.&#10;• With Text below set to 1 s, the text takes 1 second to make room or to fill the space, whatever the duration of the card.&#10;• Hide and show the card quickly: it never jumps.">
+            <!-- On a wide stage, the options on the left and the card on the right, always in sight.
+                 On a narrow one, the card below the effects, and the other options below it. -->
+            <Grid x:Name="EffectLayout">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                    <TextBlock Text="Effect" Style="{StaticResource SliderLabel}" />
-                    <WrapPanel x:Name="EffectChoices" Grid.Column="1">
-                        <RadioButton Content="Fade" GroupName="Effect" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="Slide" GroupName="Effect" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Zoom" GroupName="Effect" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Pop" GroupName="Effect" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Wipe" GroupName="Effect" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Blur" GroupName="Effect" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Custom" GroupName="Effect" Style="{StaticResource Choice}" Checked="Option_Checked" />
+                <StackPanel>
+                    <TextBlock Text="Effect" Style="{StaticResource OptionHeading}" />
+                    <WrapPanel x:Name="EffectChoices">
+                        <RadioButton Content="Fade" GroupName="Effect" Style="{StaticResource EffectChoice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Slide" GroupName="Effect" Style="{StaticResource EffectChoice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Zoom" GroupName="Effect" Style="{StaticResource EffectChoice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Pop" GroupName="Effect" Style="{StaticResource EffectChoice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Wipe" GroupName="Effect" Style="{StaticResource EffectChoice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Blur" GroupName="Effect" Style="{StaticResource EffectChoice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Custom" GroupName="Effect" Style="{StaticResource EffectChoice}" Checked="Option_Checked" Click="Option_Click" />
                     </WrapPanel>
+                </StackPanel>
 
-                    <!-- Only for Slide and Wipe: the rows below make room when they appear -->
-                    <TextBlock x:Name="SideLabel" Grid.Row="1" Text="Side" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
-                    <WrapPanel x:Name="SideChoices" Grid.Row="1" Grid.Column="1" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
-                        <RadioButton Content="Bottom" GroupName="Side" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="Top" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Left" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="Right" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
+                <Border Grid.Column="1" Grid.RowSpan="2" Width="1" Margin="16,0" Background="{StaticResource LineBrush}"
+                        Visibility="{Responsive ElementName=EffectLayout, Threshold=600, Mobile=Collapsed, Desktop=Visible}" />
 
-                    <!-- Only for Slide -->
-                    <TextBlock x:Name="DistanceLabel" Grid.Row="2" Text="Distance" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
-                    <WrapPanel x:Name="DistanceChoices" Grid.Row="2" Grid.Column="1" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
-                        <RadioButton Content="Medium" Tag="Medium" GroupName="Distance" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="Long" Tag="Long" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="50%" Tag="50%" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="100%" Tag="100%" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
-
-                    <!-- Only for Zoom -->
-                    <TextBlock x:Name="SizeLabel" Grid.Row="3" Text="Size" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
-                    <WrapPanel x:Name="SizeChoices" Grid.Row="3" Grid.Column="1" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
-                        <RadioButton Content="90%" Tag="0.9" GroupName="Size" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="50%" Tag="0.5" GroupName="Size" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="120%" Tag="1.2" GroupName="Size" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
-
-                    <!-- Only for Slide and Zoom -->
-                    <TextBlock x:Name="FadeLabel" Grid.Row="4" Text="Fade" Style="{StaticResource SliderLabel}" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
-                    <WrapPanel x:Name="FadeChoices" Grid.Row="4" Grid.Column="1" Visibility="Collapsed"
-                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
-                        <RadioButton Content="Yes" Tag="True" GroupName="Fade" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="No" Tag="False" GroupName="Fade" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
-
-                    <TextBlock Grid.Row="5" Text="Duration" Style="{StaticResource SliderLabel}" />
-                    <WrapPanel x:Name="DurationChoices" Grid.Row="5" Grid.Column="1">
-                        <RadioButton Content="Default" Tag="" GroupName="Duration" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="0.5 s" Tag="0.5s" GroupName="Duration" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="1 s" Tag="1s" GroupName="Duration" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
-
-                    <TextBlock Grid.Row="6" Text="Text below" Style="{StaticResource SliderLabel}" />
-                    <WrapPanel x:Name="OthersDurationChoices" Grid.Row="6" Grid.Column="1">
-                        <RadioButton Content="With the card" Tag="" GroupName="OthersDuration" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" />
-                        <RadioButton Content="0.5 s" Tag="0.5s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                        <RadioButton Content="1 s" Tag="1s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" />
-                    </WrapPanel>
-
-                    <!-- Pop always bounces. The label is beside the first row of tiles. -->
-                    <TextBlock x:Name="EasingLabel" Grid.Row="7" Text="Easing" Style="{StaticResource SliderLabel}" VerticalAlignment="Top" Margin="0,30,0,0" />
-                    <StackPanel Grid.Row="7" Grid.Column="1">
-                        <WrapPanel x:Name="EasingChoices">
-                            <RadioButton Content="Smooth" GroupName="Easing" Style="{StaticResource CurveChoice}" IsChecked="True" Checked="Option_Checked" />
-                            <RadioButton Content="Gentle" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                            <RadioButton Content="Linear" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                            <RadioButton Content="Bouncy" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                            <RadioButton Content="EaseOut" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                            <RadioButton Content="EaseIn" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                            <RadioButton Content="EaseInOut" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                            <RadioButton Content="Overshoot" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" />
-                        </WrapPanel>
-                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0"
-                                   Text="Each drawing shows how the card moves: the time goes from left to right, and the card goes from where it starts, the bottom dotted line, to where it ends, the top one." />
-                    </StackPanel>
-                </Grid>
-
-                <StackPanel MaxWidth="360" HorizontalAlignment="Left" Margin="0,20,0,0">
+                <StackPanel Grid.Row="{Responsive ElementName=EffectLayout, Threshold=600, Mobile=1, Desktop=0}"
+                            Grid.Column="{Responsive ElementName=EffectLayout, Threshold=600, Mobile=0, Desktop=2}"
+                            Grid.RowSpan="{Responsive ElementName=EffectLayout, Threshold=600, Mobile=1, Desktop=2}"
+                            Width="{Responsive ElementName=EffectLayout, Threshold=600, Mobile=NaN, Desktop=220}"
+                            Margin="{Responsive ElementName=EffectLayout, Threshold=600, Mobile='0,12,0,20', Desktop=0}"
+                            MaxWidth="360" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <Border x:Name="SampleCard" Height="{Responsive Mobile=100, Tablet=120}" CornerRadius="12" Padding="18"
                             anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
                         <Border.Background>
@@ -191,9 +159,100 @@
                         </StackPanel>
                     </Border>
                     <TextBlock Text="This text has no setting. It makes room for the card, and fills its space when it is hidden." Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                    <Button x:Name="SampleButton" Content="Hide the card" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="SampleButton_Click" />
                 </StackPanel>
-                <Button x:Name="SampleButton" Content="Hide the card" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0" Click="SampleButton_Click" />
-            </StackPanel>
+
+                <!-- On a wide stage, in the row beside the card: the Grid measures the card first, and
+                     would give an empty row a share of its height -->
+                <Grid Grid.Row="{Responsive ElementName=EffectLayout, Threshold=600, Mobile=2, Desktop=1}" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Only for Slide and Wipe: the rows below make room when they appear -->
+                    <TextBlock x:Name="SideLabel" Grid.Row="0" Text="Side" Style="{StaticResource OptionLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="SideChoices" Grid.Row="0" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="Bottom" GroupName="Side" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Top" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Left" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Right" GroupName="Side" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                    </WrapPanel>
+
+                    <!-- Only for Slide -->
+                    <TextBlock x:Name="DistanceLabel" Grid.Row="1" Text="Distance" Style="{StaticResource OptionLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="DistanceChoices" Grid.Row="1" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="Medium" Tag="Medium" GroupName="Distance" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="Long" Tag="Long" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="50%" Tag="50%" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="100%" Tag="100%" GroupName="Distance" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                    </WrapPanel>
+
+                    <!-- Only for Zoom -->
+                    <TextBlock x:Name="SizeLabel" Grid.Row="2" Text="Size" Style="{StaticResource OptionLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="SizeChoices" Grid.Row="2" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="90%" Tag="0.9" GroupName="Size" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="50%" Tag="0.5" GroupName="Size" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="120%" Tag="1.2" GroupName="Size" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                    </WrapPanel>
+
+                    <!-- Only for Slide and Zoom -->
+                    <TextBlock x:Name="FadeLabel" Grid.Row="3" Text="Fade" Style="{StaticResource OptionLabel}" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
+                    <WrapPanel x:Name="FadeChoices" Grid.Row="3" Grid.Column="1" Visibility="Collapsed"
+                               anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
+                        <RadioButton Content="Yes" Tag="True" GroupName="Fade" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="No" Tag="False" GroupName="Fade" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                    </WrapPanel>
+
+                    <TextBlock Grid.Row="4" Text="Duration" Style="{StaticResource OptionLabel}" />
+                    <WrapPanel x:Name="DurationChoices" Grid.Row="4" Grid.Column="1">
+                        <!-- 1 s to start with: the default is so quick that the effects are hard to tell apart -->
+                        <RadioButton Content="Default (0.25 s)" Tag="" GroupName="Duration" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="0.5 s" Tag="0.5s" GroupName="Duration" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="1 s" Tag="1s" GroupName="Duration" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                    </WrapPanel>
+
+                    <TextBlock Grid.Row="5" Text="Text below" Style="{StaticResource OptionLabel}" />
+                    <WrapPanel x:Name="OthersDurationChoices" Grid.Row="5" Grid.Column="1">
+                        <RadioButton Content="With the card" Tag="" GroupName="OthersDuration" Style="{StaticResource Choice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="0.5 s" Tag="0.5s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                        <RadioButton Content="1 s" Tag="1s" GroupName="OthersDuration" Style="{StaticResource Choice}" Checked="Option_Checked" Click="Option_Click" />
+                    </WrapPanel>
+
+                    <!-- Pop always bounces -->
+                    <StackPanel Grid.Row="6" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                        <TextBlock x:Name="EasingLabel" Text="Easing" Style="{StaticResource OptionHeading}" />
+                        <WrapPanel x:Name="EasingChoices">
+                            <RadioButton Content="Smooth" GroupName="Easing" Style="{StaticResource CurveChoice}" IsChecked="True" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="Gentle" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="Linear" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="Bouncy" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="EaseOut" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="EaseIn" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="EaseInOut" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                            <RadioButton Content="Overshoot" GroupName="Easing" Style="{StaticResource CurveChoice}" Checked="Option_Checked" Click="Option_Click" />
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0"
+                                   Text="Each drawing shows how the card moves: the time goes from left to right, and the card goes from where it starts, the bottom dotted line, to where it ends, the top one." />
+                    </StackPanel>
+                </Grid>
+            </Grid>
         </controls:DemoCard>
 
         <!-- 2. Validation message -->

@@ -279,7 +279,7 @@
                                            Margin="6,2,0,0" IsHitTestVisible="False" />
                             </Grid>
                             <Grid Margin="0,8,0,0">
-                                <TextBlock Text="Click outside to close" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                                <TextBlock Text="Click outside to close" Style="{StaticResource CaptionText}" VerticalAlignment="Top" />
                                 <Button Content="Send" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Click="AskSend_Click" />
                             </Grid>
                         </StackPanel>

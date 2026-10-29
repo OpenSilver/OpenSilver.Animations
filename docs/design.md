@@ -199,7 +199,7 @@ Animate.Skip(() => LoadInitialData());
     - `Duration`.
     - `Bounciness` (Bouncy, and Smooth with `Easing=Overshoot`).
     - `Easing` (Smooth only): `Smooth`, `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `Overshoot` or an `IEasingFunction`.
-    - `Wave`: 0 to 1, default 0.
+    - `Wave`: 0 to 2, default 0.
     - `ApplyTo`: `ThisElement` (default) or `EverythingInside`.
     - `AlsoOnWindowResize`: default false.
   - **ApplyTo=ThisElement.** Whenever this element moves or changes size, it animates. The exceptions are resizing the browser window, scrolling, dragging and typing (see "Never animates"). Everything that moves in the same change animates with it, even if the change started elsewhere.
@@ -411,7 +411,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
   - "Also when the browser window is resized". Example: "For example, tiles that glide to their new rows while the window edge is dragged."
 - **Advanced:**
   - **"Apply to"**: "This element only" (default) or "This element and everything inside it". Example: "Everything inside: any change in it animates, including items and elements that appear."
-  - **Wave**: a slider from Off to Strong (0 to 1). Example: "Farther elements start a bit later, like a wave."
+  - **Wave**: a slider from Off to Strong (0 to 2). Example: "Farther elements start a bit later, like a wave."
   - **Easing** (Smooth only): Smooth, Gentle, Linear, or a classic curve (EaseOut, EaseIn, EaseInOut, Overshoot).
 - **Example line:** "For example when its text, content or size changes, or when an element next to it appears, disappears or grows."
 - **Inside an area**, when the element has no value of its own:
@@ -560,10 +560,24 @@ The tour works from a phone to a desktop, with the breakpoints of `ResponsiveThr
 - **Tablet:** the log becomes a drawer, opened by a Log button with a dot for new messages.
 - **Phone:** the chapters and the options become a drawer too, opened by a menu button. Margins, fonts and the demos' sizes are smaller, so that every demo fits and still animates.
 
+### The shell's own animations
+
+The tour uses the Modern theme and its loading indicator, and its shell animates with the library:
+
+- **Drawers:** the chapters and the log slide in from beyond their edge, and the scrim fades. On a desktop, the two columns slide in when the app opens; on a phone, the shell is laid out before the first pass, so the drawers start hidden.
+- **The log:** a new message pops in, and pushes the older ones down in a wave (`Wave=1.2`).
+- **The chapters:** the hover background and the selected chapter's background glide to the new chapter (Magic move, behind the chapters).
+- **Pages:** each new page slides in a little, set in code on the Frame's new content.
+- **Not in the log:** the shell's own messages stay out of "What just happened". A message about the log list would add an entry, which would animate and log again.
+
 ### Chapters
 
 1. **Your first animation.** `Appear` and `Disappear` set to Fade on a details panel toggled by a button. The key idea: nothing jumps, and the elements below slide by themselves.
 2. **Pick an effect.** Every Appear and Disappear preset, with From, Distance, Duration, Start after and Easing in the playground. Demo: a validation message under a field.
+   - **Every effect.** Each effect is a tile with a still drawing that tells what it does, like arrows from the corners for Zoom or a blurry card for Blur. Half a second after the mouse enters a tile, its little card plays the effect again and again, slower and bigger than the real one on purpose, until the mouse leaves. Storyboards play these loops, not the library, so that each one shows its own effect clearly. The same previews are meant for a XAML.io panel where users pick the animations of their apps.
+   - **Each change plays the card again:** it disappears with the new choice, then appears with it, once the text below has filled its space. A click on the option that is already chosen plays it again too.
+   - **Slow enough to see:** the duration starts at 0.5 s, as the default, 0.25 s, is too quick to tell the effects apart.
+   - **The layout:** on a wide stage, the options are on the left and the card on the right, beside a vertical line, so that the card stays in sight. On a narrow one, the card is below the effects, and the other options below it.
 3. **When the others move.** `OthersMove` While, Before and After, side by side. Demo: an accordion.
 4. **Page intros.** `StartAfter` and `OnPageOpen` (InPlace, PushOthers, Skip), with Replay page. The title uses Typewriter.
 5. **Smooth moves and resizes.** `MoveAndResize` on:
@@ -686,6 +700,7 @@ Each line is what the developer sets, and what must happen.
     - Groups that follow the window never join their containers, even when an element is arranged again later in the same pass.
     - **`{Responsive}` switches** are the exception, in a window resize and during a drag. A switch is a change, like a click: what was arranged before it follows the resize, and the rest of the pass only has the switches as origins. Each setting found going up from a switch animates what is inside it, with its own timing and its own message; the rest snaps with the resize. While the resize goes on, their animations go on too, and follow the new sizes.
   - **Settling after appearing.** For 0.5 s after an element is first arranged (a page, a dialog, new items), changes that start inside it snap silently: scroll bars showing up, fonts and images loading. An element released by `OnPageOpen=PushOthers` is the exception: it pushes the others even with a short `StartAfter`. So a new item whose content grows at once, like a chat answer that starts streaming as soon as it's added, snaps for that time; the gallery's chat waits 0.7 s with "…" before the words come.
+  - **Hidden right after appearing.** For the same 0.5 s, an element inside one that appeared disappears at once, silently, without its `Disappear` or its Magic move. It was meant to be hidden from the start, like a drawer that the layout for phones hides when the page opens.
   - **Scroll chrome.** Changes that start in a scroll bar or in a part of a scroll viewer's template snap silently; they're consequences of a content change.
   - **Scrolling.** An arrange-only change of an `IScrollInfo` whose offset changed (OpenSilver scrolls by arranging, through `ScrollContentPresenter`). Items that virtualization realizes or removes in that pass get no effects either. A virtualizing panel removes its containers while it measures, before it reports its new offset, so the decision for a removed container waits for the end of the pass.
   - **Dragging.** A dragging state is on while a pointer button is held and the pointer has moved more than 4 px. A small JS pointer tracker notifies C# only when a drag starts and ends. During a drag, everything snaps except list items that move because the list order changed (drag-to-reorder: a change with containers paired by item), and `{Responsive}` switches. The element holding the mouse capture, its containers and everything inside it always snap, so the dragged item follows the pointer.
@@ -705,7 +720,7 @@ Each line is what the developer sets, and what must happen.
   - Size animates `width` and `height`.
   - The core's inline `left/top/width/height` are already the final values and show when the animation ends.
   - Start delays use `fill: 'backwards'`.
-- **One JS call per pass**, addressing elements by `Interop.GetDiv(e).Uid`, with a shared start time: the next frame, not the time of the frame the call runs in, which can be long gone after a big layout pass. It goes into the same flush as the core's arrange writes. The core removes `uielement-unarranged` in `osjs.arrange`, earlier in the same batch.
+- **One JS call per pass**, addressing elements by `Interop.GetDiv(e).Uid`, with a shared start time: a later frame that comes on time, not the time of the frame the call runs in, which can be long gone after a big layout pass. Until then, the animations wait at their start, so that a long task right after the call doesn't let the browser play them unseen. It goes into the same flush as the core's arrange writes. The core removes `uielement-unarranged` in `osjs.arrange`, earlier in the same batch.
 - **Curves.** They're passed as CSS `linear()`. On browsers without it, the curve is baked into keyframe offsets.
 - **Containment guarantee.** All elements of a group share start time, duration and curve, and every edge is interpolated with the same progress value. Being inside the parent is a set of linear inequalities, so a child that is inside its parent before and after stays inside at every frame.
   - For layouts that are linear in the parent size (stretch, alignment, margins, star columns without Min/Max), the in-between frames equal the real layout at that size.
@@ -765,6 +780,7 @@ Each line is what the developer sets, and what must happen.
   - The distance is Euclidean between absolute rectangles: `delay = Wave x 200 ms x min(1, distance / 600 px)`.
   - The bounce also decreases with distance.
   - Descendants share their nearest delayed ancestor's delay, and the origin's descendants get none.
+  - When an element appears with an effect, the wave starts from it, and the others move with the timing of its effect and the `Wave` of their own setting. So a list with `ItemsAppear="Pop"` and `ItemsMoveAndResize="{anim:Smooth Wave=1.2}"` pops its new item and pushes the ones below in a wave.
 
 ## Magic move
 
