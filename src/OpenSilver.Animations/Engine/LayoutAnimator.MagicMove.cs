@@ -227,7 +227,8 @@ namespace OpenSilver.Animations.Engine
                     early.Claimed = true;
                     if (_held.Add(early.Element))
                     {
-                        BrowserBridge.Hold(id);
+                        // Its arrangement may already be on the page, and queued JavaScript can wait for a paint.
+                        BrowserBridge.HoldNow(id);
                     }
                     return;
                 }

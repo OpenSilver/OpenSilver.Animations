@@ -72,6 +72,17 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
+        /// Like <see cref="Hold"/>, but at once, with the JavaScript queued before it, for an element
+        /// that is already on the page: the queue may only run after the browser paints.
+        /// </summary>
+        public static void HoldNow(string id)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.hold(");
+            AppendString(sb, id);
+            Interop.ExecuteJavaScriptVoid(sb.Append(')').ToString());
+        }
+
+        /// <summary>
         /// Copies an element that disappears, before the browser hides or removes it, and leaves the
         /// copy in its place until a batch plays its effect or removes it.
         /// </summary>
