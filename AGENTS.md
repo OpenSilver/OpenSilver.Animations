@@ -27,12 +27,13 @@ Read these before working:
 - **No compatibility layer** with the Showcase's old animation project, which will be removed.
 - **No XAML.io designer tab for now**, but keep `design.md`'s designer section in mind when shaping the API (`AnimationCatalog` and `AnimationDesign` come in phase 4).
 - **Ask** when a decision is the product owner's to make.
-- **Keep the docs current.** When you change behavior, update `docs/architecture.md` and `docs/roadmap.md`, and `docs/design.md` when the specification itself changes. `docs/design.md` replaces the original Cursor plan (`smooth_layout_transitions_88836246.plan.md` in the user's `.cursor/plans` folder).
+- **Keep the docs current.** When you change behavior, update `docs/architecture.md` and `docs/roadmap.md`, `docs/design.md` when the specification itself changes, and `README.md` when something it shows changes (a name, a default, a limitation). `docs/design.md` replaces the original Cursor plan (`smooth_layout_transitions_88836246.plan.md` in the user's `.cursor/plans` folder).
 
 ## Repository layout
 
 ```text
 OpenSilver.Animations.slnx       solution: the library and the three gallery projects
+README.md                        the public guide, from a first fade to the engine, with the GIFs of docs/images/
 LICENSE.txt                      MIT
 Directory.Build.props            OpenSilverVersion (the MyGet 3.4.0-preview-2026-10-29-113513-38ba1092 by default), LangVersion 12
 NuGet.Config                     MyGet OpenSilver feed + build/local-packages
@@ -47,6 +48,7 @@ samples/
   OpenSilver.Animations.Gallery.Browser/    WebAssembly host (net10.0), http://localhost:55620
   OpenSilver.Animations.Gallery.Simulator/  desktop Simulator (net10.0-windows)
 docs/                            the documentation listed above
+  images/                        the README's GIFs, recorded from the gallery, and its live-gallery banner
 ```
 
 This repository is a separate git repository, nested in the OpenSilver folder (`C:\VSProjects\UserwareSource\OpenSilver\OpenSilver.Animations`). `OpenSilver.Themes.Modern`, next to it, was the model for its layout.

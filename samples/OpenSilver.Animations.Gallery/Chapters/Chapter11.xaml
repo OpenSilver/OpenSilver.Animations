@@ -189,11 +189,11 @@
 
         <!-- 3. Photos -->
         <controls:DemoCard Title="A photo that opens where it is"
-                           Description="Click a photo. The list is collapsed, and the details of the photo are shown in its place. The photo and its title have ids made from the photo's Id, in the list and in the details: they grow from their place in the list into the large photo and the heading."
-                           Xaml="&lt;!-- In the list, and in the details: the same ids --&gt;&#10;&lt;Image Source=&quot;{Binding Image}&quot; anim:Animate.MagicMove=&quot;{Binding Id, StringFormat='photo-{0}'}&quot; /&gt;&#10;&lt;TextBlock Text=&quot;{Binding Title}&quot; anim:Animate.MagicMove=&quot;{Binding Id, StringFormat='title-{0}'}&quot; /&gt;"
-                           Expectations="• The photo you click grows from its place into the large photo, and its title grows into the heading.&#10;• Back to the photos makes them shrink back into their place in the list.&#10;• The other photos disappear and come back at once.">
-            <Grid>
-                <ItemsControl x:Name="PhotoList">
+                           Description="Click a photo. The list is collapsed, and the details of the photo are shown in its place. The photo and its title have ids made from the photo's Id, in the list and in the details: they grow from their place in the list into the large photo and the heading. The rest of the list fades out, and the Grid that holds both resizes smoothly."
+                           Xaml="&lt;Grid anim:Animate.MoveAndResize=&quot;Smooth&quot;&gt;&#10;    &lt;ItemsControl x:Name=&quot;PhotoList&quot; anim:Animate.Appear=&quot;Fade&quot; anim:Animate.Disappear=&quot;Fade&quot; /&gt;&#10;    &lt;StackPanel x:Name=&quot;PhotoDetails&quot; anim:Animate.Disappear=&quot;Fade&quot; /&gt;&#10;&lt;/Grid&gt;&#10;&#10;&lt;!-- In the list, and in the details: the same ids --&gt;&#10;&lt;Image Source=&quot;{Binding Image}&quot; anim:Animate.MagicMove=&quot;{Binding Id, StringFormat='photo-{0}'}&quot; /&gt;&#10;&lt;TextBlock Text=&quot;{Binding Title}&quot; anim:Animate.MagicMove=&quot;{Binding Id, StringFormat='title-{0}'}&quot; /&gt;"
+                           Expectations="• The photo you click grows from its place into the large photo, and its title grows into the heading.&#10;• The other photos fade out, the description and the button fade in, and the demo grows to its new height smoothly.&#10;• Back to the photos makes them shrink back into their place in the list, while the other photos fade back in.">
+            <Grid anim:Animate.MoveAndResize="Smooth">
+                <ItemsControl x:Name="PhotoList" anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
@@ -213,7 +213,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <StackPanel x:Name="PhotoDetails" MaxWidth="480" HorizontalAlignment="Left" Visibility="Collapsed">
+                <StackPanel x:Name="PhotoDetails" MaxWidth="480" HorizontalAlignment="Left" Visibility="Collapsed" anim:Animate.Disappear="Fade">
                     <Image Source="{Binding Image}" Height="{Responsive Mobile=200, Tablet=320}" Stretch="UniformToFill"
                            anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
                     <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,12,0,0"
@@ -273,7 +273,7 @@
                         <StackPanel>
                             <Grid>
                                 <TextBox x:Name="AskCardBox" Height="72" AcceptsReturn="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0"
-                                         Padding="4,2" FontSize="14" Foreground="{StaticResource TextBrush}"
+                                         Padding="4,2" FontSize="14" Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Top"
                                          Text="{Binding Text, ElementName=AskBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock x:Name="AskCardPlaceholder" Text="Ask anything about animations" FontSize="14" Foreground="{StaticResource MutedTextBrush}"
                                            Margin="6,2,0,0" IsHitTestVisible="False" />
