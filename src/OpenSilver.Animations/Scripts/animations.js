@@ -690,19 +690,21 @@
 
     // Copies the elements with an id inside a container that disappears, with where they are on
     // screen, before the browser hides or removes it. A collapsed container is shown while they
-    // are measured, which the browser never paints.
-    function capture(containerId, ids) {
+    // are measured, which the browser never paints. With shown, for a popup that closes, the
+    // copies show above the page where the elements were until they travel: the popup leaves the
+    // page at once, and the elements they go to are hidden until then.
+    function capture(containerId, ids, shown) {
         const container = document.getElementById(containerId);
         const collapsed = container && container.classList.contains('uielement-collapsed');
         if (collapsed) container.classList.remove('uielement-collapsed');
         try {
-            for (const id of ids) captureOne(id);
+            for (const id of ids) captureOne(id, shown);
         } finally {
             if (collapsed) container.classList.add('uielement-collapsed');
         }
     }
 
-    function captureOne(id) {
+    function captureOne(id, shown) {
         const element = document.getElementById(id);
         if (!element) return;
         removeCapture(id);
@@ -725,9 +727,26 @@
         }
 
         element.setAttribute('data-os-magic-src', '');
-        const entry = { clone, rect, opacity, look, element, timer: 0 };
+        const entry = { clone, rect, opacity, look, element, timer: 0, layer: shown ? showCapture(clone, rect) : null };
         entry.timer = setTimeout(() => removeCapture(id, entry), 1500);
         captures.set(id, entry);
+    }
+
+    function showCapture(clone, rect) {
+        const container = travelOverlayOf();
+        const layer = document.createElement('div');
+        layer.setAttribute('data-os-foreign', '');
+        layer.style.cssText = LAYER_STYLE;
+        placeLayer(layer, boxIn(container, rect));
+        clone.style.left = '0px';
+        clone.style.top = '0px';
+        clone.style.translate = '';
+        clone.style.margin = '0px';
+        clone.style.width = '100%';
+        clone.style.height = '100%';
+        layer.appendChild(clone);
+        container.appendChild(layer);
+        return layer;
     }
 
     function removeCapture(id, entry) {
@@ -736,6 +755,7 @@
         captures.delete(id);
         clearTimeout(c.timer);
         c.element.removeAttribute('data-os-magic-src');
+        if (c.layer) c.layer.remove();
     }
 
     function keepInherited(element, copy) {

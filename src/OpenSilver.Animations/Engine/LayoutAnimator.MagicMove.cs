@@ -156,7 +156,8 @@ namespace OpenSilver.Animations.Engine
 
             if (ids.Count > 0)
             {
-                BrowserBridge.Capture(containerId, ids);
+                // A popup that closes is removed from the page at once, and its content has no ghost.
+                BrowserBridge.Capture(containerId, ids, shown: parent is PopupRoot);
             }
         }
 
