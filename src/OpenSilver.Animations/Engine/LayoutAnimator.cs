@@ -714,7 +714,14 @@ namespace OpenSilver.Animations.Engine
 
                 if (oldValue == Visibility.Visible && (AnyEffects || AnyAreas || AnyMagic))
                 {
+                    // Hidden right after its container appeared, like a drawer that the layout for
+                    // phones hides when the page opens: it was never meant to be seen, so it goes at once.
                     UIElement parent = VisualTreeHelper.GetParent(element) as UIElement;
+                    if (parent != null && IsSettling(parent))
+                    {
+                        return;
+                    }
+
                     if (AnyMagic && newValue == Visibility.Collapsed)
                     {
                         DepartInside(element, parent, swap: null);
