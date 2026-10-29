@@ -256,7 +256,7 @@
                         anim:Animate.MagicMove="AskBox"
                         Visibility="{Binding IsOpen, ElementName=AskPopup, Converter={StaticResource InverseBooleanToVisibility}}">
                     <Grid>
-                        <TextBox x:Name="AskBox" Background="Transparent" BorderThickness="0" Padding="16,0" VerticalContentAlignment="Center"
+                        <TextBox x:Name="AskBox" Background="Transparent" BorderThickness="0" Padding="16,0" VerticalContentAlignment="Top"
                                  FontSize="14" Foreground="{StaticResource TextBrush}" GotFocus="AskBox_GotFocus" TextChanged="AskText_Changed" />
                         <TextBlock x:Name="AskPlaceholder" Text="Ask anything about animations" FontSize="14" Foreground="{StaticResource MutedTextBrush}"
                                    Margin="18,0" VerticalAlignment="Center" IsHitTestVisible="False" />

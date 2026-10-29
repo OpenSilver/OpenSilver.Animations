@@ -25,8 +25,17 @@ namespace OpenSilver.Animations.Gallery
         private const double MenuWidth = 300;
         private const double MenuGap = 48;
 
+        // Each new page slides in a little. Not the first one, which comes after the shell when the app opens.
+        private static readonly Transition PageAppear = new Slide { From = Side.Bottom, Distance = Distance.Short };
+
+        // The shell's animations stay out of the log. A message about LogList would add an entry,
+        // which animates and logs again, forever.
+        private static readonly string[] ShellNames = { "ChaptersPanel", "LogPanel", "LogList", "Scrim", "ChapterSelection", "ChapterHover", "UnreadDot" };
+
         private readonly ObservableCollection<LogEntry> _log = new ObservableCollection<LogEntry>();
 
+        private string _pageAppeared;
+        private bool _hasOpenedAPage;
         private bool _isPhone;
         private bool _isLogBeside = true;
         private bool _isMenuOpen;
@@ -42,6 +51,9 @@ namespace OpenSilver.Animations.Gallery
             Toolbar.DataContext = AnimationSettings.Current;
 
             AnimationSettings.Logged += OnLogged;
+
+            // Before the first layout pass, so that on a phone the drawers start hidden.
+            UpdateLayoutForWidth(WindowSize.Width);
         }
 
         public static MainPage Current { get; private set; }
@@ -61,6 +73,11 @@ namespace OpenSilver.Animations.Gallery
 
         private void OnLogged(object sender, AnimationLoggedEventArgs e)
         {
+            if (IsAboutTheShell(e.Message))
+            {
+                return;
+            }
+
             _log.Insert(0, new LogEntry(e.Message, e.Time));
             while (_log.Count > MaxLogEntries)
             {
@@ -72,6 +89,24 @@ namespace OpenSilver.Animations.Gallery
             {
                 UnreadDot.Visibility = Visibility.Visible;
             }
+        }
+
+        private bool IsAboutTheShell(string message)
+        {
+            if (_pageAppeared != null && message.StartsWith(_pageAppeared, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            foreach (string name in ShellNames)
+            {
+                if (message.Contains(name))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void ClearLog_Click(object sender, RoutedEventArgs e)
@@ -92,6 +127,13 @@ namespace OpenSilver.Animations.Gallery
             {
                 chapter.IsCurrent = string.Equals(chapter.Path, path, StringComparison.OrdinalIgnoreCase);
             }
+
+            if (e.Content is UIElement page && _hasOpenedAPage)
+            {
+                Animate.SetAppear(page, PageAppear);
+                _pageAppeared = page.GetType().Name + " appeared";
+            }
+            _hasOpenedAPage = true;
 
             PageScroller.ScrollToVerticalOffset(0);
             _isMenuOpen = false;

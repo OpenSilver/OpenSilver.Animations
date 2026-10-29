@@ -106,7 +106,7 @@
                         <ColumnDefinition Width="60" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Wave" Style="{StaticResource SliderLabel}" />
-                    <Slider x:Name="WaveSlider" Grid.Column="1" Minimum="0" Maximum="1" Value="0.8" SmallChange="0.1" LargeChange="0.1"
+                    <Slider x:Name="WaveSlider" Grid.Column="1" Minimum="0" Maximum="2" Value="0.8" SmallChange="0.1" LargeChange="0.1"
                             ValueChanged="WaveSlider_ValueChanged" />
                     <TextBlock x:Name="WaveText" Grid.Column="2" Text="0.8" VerticalAlignment="Center" Margin="12,0,0,0" />
                 </Grid>
@@ -119,7 +119,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Bouncy lasts twice as long as Smooth by default (0.5 s), so that the bounce has time to settle." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• With Wave, an element starts at most 0.2 s after the change, when it is 600 pixels away or more. What is inside an element always moves with it." />
+                           Text="• Wave goes from 0 to 2. At 1, an element starts at most 0.2 s after the change, when it is 600 pixels away or more; at 2, 0.4 s. What is inside an element always moves with it." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Both can make elements overlap for a moment: a bounce goes past the end, and a wave lets the first elements reach the place of the next ones. Use them for small, playful moves." />
             </StackPanel>

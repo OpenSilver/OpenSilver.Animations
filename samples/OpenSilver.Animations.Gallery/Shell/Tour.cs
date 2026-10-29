@@ -12,11 +12,9 @@ namespace OpenSilver.Animations.Gallery.Shell
     public sealed class ChapterInfo : INotifyPropertyChanged
     {
         private static readonly Brush AccentBrush = new SolidColorBrush(Color.FromArgb(255, 0x5B, 0x5B, 0xD6));
-        private static readonly Brush AccentLightBrush = new SolidColorBrush(Color.FromArgb(255, 0xEC, 0xEC, 0xFD));
         private static readonly Brush NumberBrush = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEF, 0xF5));
         private static readonly Brush TextBrush = new SolidColorBrush(Color.FromArgb(255, 0x1C, 0x1E, 0x2B));
         private static readonly Brush MutedBrush = new SolidColorBrush(Color.FromArgb(255, 0x9A, 0x9E, 0xB0));
-        private static readonly Brush TransparentBrush = new SolidColorBrush(Colors.Transparent);
         private static readonly Brush WhiteBrush = new SolidColorBrush(Colors.White);
 
         private bool _isCurrent;
@@ -51,8 +49,6 @@ namespace OpenSilver.Animations.Gallery.Shell
                 }
             }
         }
-
-        public Brush Background => IsCurrent ? AccentLightBrush : TransparentBrush;
 
         public Brush NumberBackground => IsCurrent ? AccentBrush : NumberBrush;
 
