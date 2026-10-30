@@ -70,6 +70,21 @@
             </Setter>
         </Style>
 
+        <!-- Without the focus glow of the theme, which would jump from the small box to the card:
+             the box around it shows where to type -->
+        <Style x:Key="PlainTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="ContentElement" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="Field" TargetType="Border">
             <Setter Property="Background" Value="White" />
             <Setter Property="BorderBrush" Value="#D9DCE7" />
@@ -78,28 +93,44 @@
             <Setter Property="Padding" Value="10,8" />
         </Style>
 
-        <!-- The steps of the wizard: each one has an Avatar and a Heading, and the last two a ProPlan -->
+        <!-- The steps of the wizard: each one has an Avatar, a Heading, a Subtitle, a Progress, a BackButton
+             and a NextButton, and the last two a ProPlan -->
         <DataTemplate x:Key="WizardStep1">
-            <StackPanel>
-                <Border x:Name="Avatar" Width="56" Height="56" CornerRadius="999" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left">
-                    <TextBlock Text="AM" Foreground="White" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <TextBlock x:Name="Heading" Text="Create your account" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,14,0,0" />
-                <TextBlock Text="We only need your name and your email." Style="{StaticResource BodyText}" Margin="0,4,0,12" />
-                <Border Style="{StaticResource Field}">
-                    <TextBlock Text="Ada Martin" FontSize="14" Foreground="{StaticResource TextBrush}" />
-                </Border>
-                <Border Style="{StaticResource Field}" Margin="0,8,0,0">
-                    <TextBlock Text="ada@example.com" FontSize="14" Foreground="{StaticResource TextBrush}" />
-                </Border>
-            </StackPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="36" />
+                </Grid.RowDefinitions>
+                <StackPanel>
+                    <Border x:Name="Avatar" Width="56" Height="56" CornerRadius="999" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left">
+                        <TextBlock Text="AM" Foreground="White" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock x:Name="Heading" Text="Create your account" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,14,0,0" />
+                    <TextBlock x:Name="Subtitle" Text="We only need your name and your email." Style="{StaticResource BodyText}" Margin="0,4,0,12" />
+                    <Border Style="{StaticResource Field}">
+                        <TextBlock Text="Ada Martin" FontSize="14" Foreground="{StaticResource TextBrush}" />
+                    </Border>
+                    <Border Style="{StaticResource Field}" Margin="0,8,0,0">
+                        <TextBlock Text="ada@example.com" FontSize="14" Foreground="{StaticResource TextBrush}" />
+                    </Border>
+                </StackPanel>
+                <TextBlock x:Name="Progress" Grid.Row="1" Text="Step 1 of 3" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BackButton" Content="Back" Style="{StaticResource SecondaryButton}" IsEnabled="False" />
+                    <Button x:Name="NextButton" Content="Next" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="WizardNext_Click" />
+                </StackPanel>
+            </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="WizardStep2">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="36" />
+                </Grid.RowDefinitions>
                 <StackPanel>
                     <TextBlock x:Name="Heading" Text="Choose a plan" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,0,48,0" />
-                    <TextBlock Text="You can change it at any time." Style="{StaticResource BodyText}" Margin="0,4,48,16" />
+                    <TextBlock x:Name="Subtitle" Text="You can change it at any time." Style="{StaticResource BodyText}" Margin="0,4,48,16" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -124,19 +155,36 @@
                 <Border x:Name="Avatar" Width="36" Height="36" CornerRadius="999" Background="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Top">
                     <TextBlock Text="AM" Foreground="White" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
+                <TextBlock x:Name="Progress" Grid.Row="1" Text="Step 2 of 3" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BackButton" Content="Back" Style="{StaticResource SecondaryButton}" Click="WizardBack_Click" />
+                    <Button x:Name="NextButton" Content="Next" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="WizardNext_Click" />
+                </StackPanel>
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="WizardStep3">
-            <StackPanel HorizontalAlignment="Center">
-                <Border x:Name="Avatar" Width="88" Height="88" CornerRadius="999" Background="{StaticResource AccentBrush}" HorizontalAlignment="Center">
-                    <TextBlock Text="AM" Foreground="White" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <TextBlock x:Name="Heading" Text="You're all set, Ada" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" Margin="0,14,0,0" />
-                <Border x:Name="ProPlan" Background="{StaticResource AccentLightBrush}" CornerRadius="12" Padding="12,4" HorizontalAlignment="Center" Margin="0,10,0,0">
-                    <TextBlock Text="Pro plan" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentDarkBrush}" />
-                </Border>
-            </StackPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="36" />
+                </Grid.RowDefinitions>
+                <StackPanel HorizontalAlignment="Center">
+                    <Border x:Name="Avatar" Width="88" Height="88" CornerRadius="999" Background="{StaticResource AccentBrush}" HorizontalAlignment="Center">
+                        <TextBlock Text="AM" Foreground="White" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock x:Name="Heading" Text="You're all set, Ada" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" Margin="0,14,0,0" />
+                    <TextBlock x:Name="Subtitle" Text="Your account is ready." Style="{StaticResource BodyText}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                    <Border x:Name="ProPlan" Background="{StaticResource AccentLightBrush}" CornerRadius="12" Padding="12,4" HorizontalAlignment="Center" Margin="0,10,0,0">
+                        <TextBlock Text="Pro plan" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentDarkBrush}" />
+                    </Border>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                        <Button x:Name="BackButton" Content="Back" Style="{StaticResource SecondaryButton}" Click="WizardBack_Click" />
+                        <Button x:Name="NextButton" Content="Start over" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="WizardNext_Click" />
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock x:Name="Progress" Grid.Row="1" Text="Step 3 of 3" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+            </Grid>
         </DataTemplate>
     </sdk:Page.Resources>
 
@@ -150,22 +198,13 @@
 
         <!-- 1. Wizard -->
         <controls:DemoCard Title="Steps that flow into each other"
-                           Description="The steps of this wizard are replaced in a ContentControl with MagicMoveByName. The elements with the same x:Name in two steps travel from one to the other, like the avatar and the heading, while the rest of the steps cross-fade."
-                           Xaml='&lt;ContentControl x:Name="WizardHost" anim:Animate.MagicMoveByName="True" /&gt;&#10;&#10;&lt;!-- In each step --&gt;&#10;&lt;Border x:Name="Avatar" … /&gt;&#10;&lt;TextBlock x:Name="Heading" … /&gt;'
-                           Expectations="• Next: the avatar and the heading travel to their places in the next step, while the rest of the step cross-fades.&#10;• The heading changes its text on the way: the old one fades out as the new one fades in.&#10;• In the last step, the Pro plan card shrinks into a small badge. Back goes the other way.">
+                           Description="The steps of this wizard are replaced in a ContentControl with MagicMoveByName. The elements with the same x:Name in two steps travel from one to the other, like the avatar, the heading, the line below it and the buttons, while the rest of the steps cross-fade."
+                           Xaml='&lt;ContentControl x:Name="WizardHost" anim:Animate.MagicMoveByName="True" /&gt;&#10;&#10;&lt;!-- In each step --&gt;&#10;&lt;Border x:Name="Avatar" … /&gt;&#10;&lt;TextBlock x:Name="Heading" … /&gt;&#10;&lt;TextBlock x:Name="Subtitle" … /&gt;&#10;&lt;Button x:Name="BackButton" … /&gt;&#10;&lt;Button x:Name="NextButton" … /&gt;'
+                           Expectations="• Next: the avatar, the heading, the line below it, the step number and the buttons travel to their places in the next step, while the rest of the step cross-fades.&#10;• The texts change on the way: the old one fades out as the new one fades in. In the last step, Next becomes Start over, and the buttons move to the middle.&#10;• In the last step, the Pro plan card shrinks into a small badge. Back goes the other way, and Start over takes everything back to the first step.">
             <Border Style="{StaticResource Card}" Width="{Responsive Mobile=NaN, Tablet=440}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
-                <StackPanel>
-                    <ContentControl x:Name="WizardHost" Height="{Responsive Mobile=250, Tablet=230}"
-                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Top"
-                                    anim:Animate.MagicMoveByName="True" />
-                    <Grid Margin="0,16,0,0">
-                        <TextBlock x:Name="WizardProgress" Text="Step 1 of 3" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="WizardBack" Content="Back" Style="{StaticResource SecondaryButton}" IsEnabled="False" Click="WizardBack_Click" />
-                            <Button x:Name="WizardNext" Content="Next" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="WizardNext_Click" />
-                        </StackPanel>
-                    </Grid>
-                </StackPanel>
+                <ContentControl x:Name="WizardHost" Height="{Responsive Mobile=320, Tablet=300}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                anim:Animate.MagicMoveByName="True" />
             </Border>
         </controls:DemoCard>
 
@@ -173,14 +212,14 @@
         <controls:DemoCard Title="A text box that opens into a popup"
                            Description="Click the text box. A Popup opens over it with a larger card to write in, and a binding to IsOpen collapses the text box while the popup is open. The text box and the card have the same id: the text box grows into the card, and the card shrinks back into the text box when the popup closes."
                            Xaml='&lt;Grid x:Name="AskAnchor" Height="40"&gt;&#10;    &lt;!-- Collapsed while the popup is open --&gt;&#10;    &lt;Border anim:Animate.MagicMove="AskBox"&#10;            Visibility="{Binding IsOpen, ElementName=AskPopup,&#10;                                 Converter={StaticResource InverseBooleanToVisibility}}"&gt;&#10;        &lt;TextBox GotFocus="AskBox_GotFocus" /&gt;&#10;    &lt;/Border&gt;&#10;&#10;    &lt;!-- Opens over the text box. StayOpen=False closes it on a click outside --&gt;&#10;    &lt;Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40"&#10;           PlacementTarget="{Binding ElementName=AskAnchor}"&gt;&#10;        &lt;Border anim:Animate.MagicMove="AskBox" Width="{Binding ActualWidth, ElementName=AskAnchor}"&gt;&#10;            &lt;!-- A larger text box and a Send button --&gt;&#10;        &lt;/Border&gt;&#10;    &lt;/Popup&gt;&#10;&lt;/Grid&gt;&#10;&#10;// AskBox_GotFocus&#10;AskPopup.IsOpen = true;'
-                           Expectations="• Click the text box: it grows into the card, which opens over it, and you can type in the card at once. Nothing flashes before it grows.&#10;• Click outside the card, press Escape, or click Send: the card shrinks back into the text box.&#10;• What you type in one is in the other, and Send empties it.">
+                           Expectations="• Click the text box: it grows into the card, which opens over it, and you can type in the card at once. Nothing flashes before it grows, and no focus frame jumps from the text box to the card: the border of the card shows where you type.&#10;• Click outside the card, press Escape, or click Send: the card shrinks back into the text box.&#10;• What you type in one is in the other, and Send empties it.">
             <Grid x:Name="AskAnchor" Height="40" Width="{Responsive Mobile=NaN, Tablet=520}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
                 <Border Background="White" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="20"
                         anim:Animate.MagicMove="AskBox"
                         Visibility="{Binding IsOpen, ElementName=AskPopup, Converter={StaticResource InverseBooleanToVisibility}}">
                     <Grid>
-                        <TextBox x:Name="AskBox" Background="Transparent" BorderThickness="0" Padding="16,0" VerticalContentAlignment="Top"
-                                 FontSize="14" Foreground="{StaticResource TextBrush}" GotFocus="AskBox_GotFocus" TextChanged="AskText_Changed" />
+                        <TextBox x:Name="AskBox" Style="{StaticResource PlainTextBox}" Padding="18,0" VerticalAlignment="Center"
+                                 GotFocus="AskBox_GotFocus" TextChanged="AskText_Changed" />
                         <TextBlock x:Name="AskPlaceholder" Text="Ask anything about animations" FontSize="14" Foreground="{StaticResource MutedTextBrush}"
                                    Margin="18,0" VerticalAlignment="Center" IsHitTestVisible="False" />
                     </Grid>
@@ -195,8 +234,8 @@
                         </Border.Effect>
                         <StackPanel>
                             <Grid>
-                                <TextBox x:Name="AskCardBox" Height="72" AcceptsReturn="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0"
-                                         Padding="4,2" FontSize="14" Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Top"
+                                <TextBox x:Name="AskCardBox" Style="{StaticResource PlainTextBox}" Height="72" AcceptsReturn="True" TextWrapping="Wrap"
+                                         Padding="6,2"
                                          Text="{Binding Text, ElementName=AskBox, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock x:Name="AskCardPlaceholder" Text="Ask anything about animations" FontSize="14" Foreground="{StaticResource MutedTextBrush}"
                                            Margin="6,2,0,0" IsHitTestVisible="False" />
@@ -296,7 +335,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Elements travel above the page, so that nothing cuts them off. A background, like a selection pill, travels behind the elements around it instead, so that it never covers the labels. Set Travel=Above or Travel=Behind to choose." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• The farther an element goes, the longer it takes: the default duration (0.25 s) for a short trip, up to 0.45 s across the page. Set Duration for a fixed one." />
+                           Text="• The farther an element goes, the longer it takes: 0.5 s for a short trip, twice the default duration of the other animations, up to 0.9 s across the page. It starts very slowly, goes very fast in the middle, and ends very slowly, so that the eye can follow it. Set Duration and Easing to change that." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• A text grows or shrinks as a whole, like a picture, so that its words never wrap differently on the way. Boxes, like the pill and the cards, change their width and height." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"

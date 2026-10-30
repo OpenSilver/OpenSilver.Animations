@@ -216,7 +216,7 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <Border x:Name="ChapterHover" Background="#0F000000" CornerRadius="8" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=ChapterHover, Travel=Behind}"
+                                    anim:Animate.MagicMove="{anim:MagicMove Id=ChapterHover, Travel=Behind, Duration=0.25s, Easing=Smooth}"
                                     anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
                             <Border x:Name="PressedOverlay" Background="#14000000" CornerRadius="8" Opacity="0" />
                             <ContentPresenter Margin="{TemplateBinding Padding}"

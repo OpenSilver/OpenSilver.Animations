@@ -79,9 +79,6 @@ namespace OpenSilver.Animations.Gallery.Chapters
         {
             _step = step;
             WizardHost.Content = ((DataTemplate)Resources["WizardStep" + (step + 1)]).LoadContent();
-            WizardProgress.Text = "Step " + (step + 1) + " of 3";
-            WizardBack.IsEnabled = step > 0;
-            WizardNext.Content = step == 2 ? "Start over" : "Next";
         }
 
         private void AskBox_GotFocus(object sender, RoutedEventArgs e) => AskPopup.IsOpen = true;
