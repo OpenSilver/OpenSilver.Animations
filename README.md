@@ -87,7 +87,7 @@ The main properties, one line each:
 
 The rest of this page is about their parameters and how they behave.
 
-The [live gallery](http://opensilver-animations-library.azurewebsites.net) is a guided tour in 15 chapters, from a first fade to a small app. Every demo shows its XAML and lists what should happen. The gallery is itself an OpenSilver app running in your browser, and its source is in `[samples/](samples)`. Every GIF on this page is a recording of the gallery in Chrome, with the animations slowed down to half speed so that each move is easy to follow.
+The [live gallery](http://opensilver-animations-library.azurewebsites.net) is a guided tour in 14 chapters, from a first fade to a small app, and its first three chapters show the main ideas in a few minutes. Every demo shows its XAML and lists what should happen. The gallery is itself an OpenSilver app running in your browser, and its source is in `[samples/](samples)`. Every GIF on this page is a recording of the gallery in Chrome, with the animations slowed down to half speed so that each move is easy to follow.
 
 **Why OpenSilver only.** OpenSilver runs WPF-style XAML and C# in the browser, and renders the XAML as real HTML elements, in a DOM that it keeps apart from the visual tree. The library depends on that separation: it animates what the browser shows, and never touches your elements or their properties. [How it works](#how-it-works-and-why-it-is-built-on-opensilver) explains what that makes possible, and [About OpenSilver](#about-opensilver-and-xamlio) describes OpenSilver if you come from WPF or WinUI.
 
@@ -287,7 +287,7 @@ The ids can be bound, so that each item of a list has its own. The list and the 
 - When several elements could pair, like in the templates of two lists, the two that are the closest in the page travel.
 - An element that disappears waits up to 0.3 s for its partner. If none comes, it plays its own `Disappear`.
 
-See [chapter 11](http://opensilver-animations-library.azurewebsites.net/#/chapter/11) of the gallery.
+See [chapter 2](http://opensilver-animations-library.azurewebsites.net/#/chapter/2) of the gallery.
 
 ## Moves and resizes
 
@@ -390,7 +390,7 @@ Resizing the browser window doesn't animate by default, because following the ed
 | `AlsoOnWindowResize` | `True` to also animate when the change comes from resizing the browser window. Default: `False`                                                           |
 
 
-See chapters [5](http://opensilver-animations-library.azurewebsites.net/#/chapter/5), [7](http://opensilver-animations-library.azurewebsites.net/#/chapter/7), [8](http://opensilver-animations-library.azurewebsites.net/#/chapter/8) and [10](http://opensilver-animations-library.azurewebsites.net/#/chapter/10) of the gallery.
+See chapters [3](http://opensilver-animations-library.azurewebsites.net/#/chapter/3), [7](http://opensilver-animations-library.azurewebsites.net/#/chapter/7) and [12](http://opensilver-animations-library.azurewebsites.net/#/chapter/12) of the gallery.
 
 ## Appear and disappear
 
@@ -495,7 +495,7 @@ Times are written `0.3s`, `300ms`, `300` (milliseconds) or `00:00:00.3`.
 <Border anim:Animate.Disappear="{anim:Fade OthersMove=After}" />
 ```
 
-A slightly longer `OthersDuration` makes the others follow the element softly. See chapters [1](http://opensilver-animations-library.azurewebsites.net/#/chapter/1) to [3](http://opensilver-animations-library.azurewebsites.net/#/chapter/3) of the gallery.
+A slightly longer `OthersDuration` makes the others follow the element softly. See chapters [1](http://opensilver-animations-library.azurewebsites.net/#/chapter/1), [9](http://opensilver-animations-library.azurewebsites.net/#/chapter/9) and [11](http://opensilver-animations-library.azurewebsites.net/#/chapter/11) of the gallery.
 
 ## Lists
 
@@ -580,7 +580,7 @@ See [chapter 6](http://opensilver-animations-library.azurewebsites.net/#/chapter
 | `Nudge`  | For Hover: when the mouse comes over it, it is pushed a little in the direction the mouse moves, turns a little, and springs back. The faster the mouse, the more it moves. | `Distance`, 0 to 20 px (3 by default), and `Tilt`, 0 to 15 degrees (2 by default) |
 
 
-The icons above were recorded with a larger `Distance` and `Tilt` than the defaults, set with the gallery's sliders. Every reaction also takes `Duration` (the default duration, twice that with `Easing=Bouncy`, and 0.4 s for Nudge), `Easing` (ignored by Nudge, which always springs back) and `Bounciness`. Hover does nothing on a touch screen, which has no mouse, and Press works with a mouse, a finger or a pen. Disabled elements don't react. See [chapter 12](http://opensilver-animations-library.azurewebsites.net/#/chapter/12) of the gallery.
+The icons above were recorded with a larger `Distance` and `Tilt` than the defaults, set with the gallery's sliders. Every reaction also takes `Duration` (the default duration, twice that with `Easing=Bouncy`, and 0.4 s for Nudge), `Easing` (ignored by Nudge, which always springs back) and `Bounciness`. Hover does nothing on a touch screen, which has no mouse, and Press works with a mouse, a finger or a pen. Disabled elements don't react. See [chapter 5](http://opensilver-animations-library.azurewebsites.net/#/chapter/5) of the gallery.
 
 ## Text
 
@@ -636,7 +636,7 @@ Three Appear and Disappear effects play on the letters of a TextBlock:
   <img src="docs/images/typewriter.gif" width="644" alt="A message that is typed letter by letter behind a blinking cursor, while the caption below it moves down to make room, and then erased from its last letter.">
 </p>
 
-See [chapter 9](http://opensilver-animations-library.azurewebsites.net/#/chapter/9) of the gallery.
+See [chapter 8](http://opensilver-animations-library.azurewebsites.net/#/chapter/8) of the gallery.
 
 ## Installation
 

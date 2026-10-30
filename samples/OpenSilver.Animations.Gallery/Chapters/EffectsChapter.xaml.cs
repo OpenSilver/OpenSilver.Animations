@@ -9,7 +9,7 @@ using System.Windows.Threading;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter02 : Page
+    public partial class EffectsChapter : Page
     {
         private const string CustomParameters = "Opacity=0, OffsetY=20, Zoom=0.8, Rotate=-6";
         private const double DefaultZoomSize = 0.9;
@@ -22,7 +22,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private readonly DispatcherTimer _replayTimer = new DispatcherTimer();
         private Transition _disappear;
 
-        public Chapter02()
+        public EffectsChapter()
         {
             InitializeComponent();
             _ready = true;

@@ -9,7 +9,7 @@ using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter13 : Page
+    public partial class FromCodeChapter : Page
     {
         private static readonly AnimationTime DefaultDuration = AnimationTime.FromMilliseconds(250);
 
@@ -17,7 +17,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private bool _saving;
         private bool _changed;
 
-        public Chapter13()
+        public FromCodeChapter()
         {
             InitializeComponent();
         }

@@ -1,4 +1,3 @@
-using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,17 +6,9 @@ using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter08 : Page
+    public partial class WindowResizeChapter : Page
     {
         private const int TileCount = 14;
-
-        // The Threshold of the {Responsive} values of the profile panel, and two widths on either side.
-        private const double ProfileBreakpoint = 220;
-        private const double NarrowProfile = 170;
-        private const double WideProfile = 300;
-
-        // The splitter and the smallest width of the pane next to the profile.
-        private const double ProfileGap = 40;
 
         private static double TileWidth => WindowSize.IsPhone ? 120 : 150;
 
@@ -36,7 +27,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
             Color.FromArgb(255, 0xC9, 0x9A, 0x16),
         };
 
-        public Chapter08()
+        public WindowResizeChapter()
         {
             InitializeComponent();
             AddTiles(FollowingTiles, clickable: false);
@@ -84,12 +75,6 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private void Page_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             WindowWidthText.Text = $"Your window is {WindowSize.Width:0} pixels wide.";
-        }
-
-        private void SwitchProfile_Click(object sender, RoutedEventArgs e)
-        {
-            double wide = Math.Min(WideProfile, ProfileGrid.ActualWidth - ProfileGap);
-            ProfileColumn.Width = new GridLength(ProfilePanel.ActualWidth < ProfileBreakpoint ? wide : NarrowProfile);
         }
     }
 }

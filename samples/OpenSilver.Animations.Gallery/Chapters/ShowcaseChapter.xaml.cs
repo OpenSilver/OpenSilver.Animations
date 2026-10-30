@@ -4,11 +4,11 @@ using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter15 : Page
+    public partial class ShowcaseChapter : Page
     {
         private const double PhoneWidth = 340;
 
-        public Chapter15()
+        public ShowcaseChapter()
         {
             InitializeComponent();
             OpenShowcase();

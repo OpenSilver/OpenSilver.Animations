@@ -13,7 +13,7 @@ using System.Windows.Threading;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter06 : Page
+    public partial class ListsChapter : Page
     {
         private const int MaxToasts = 3;
         private const double StepSlot = 50;
@@ -61,7 +61,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private string[] _words;
         private int _word;
 
-        public Chapter06()
+        public ListsChapter()
         {
             InitializeComponent();
 

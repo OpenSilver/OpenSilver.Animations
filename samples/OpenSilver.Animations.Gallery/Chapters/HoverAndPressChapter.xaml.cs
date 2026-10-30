@@ -6,9 +6,9 @@ using OpenSilver.Animations.Gallery.Controls;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter12 : Page
+    public partial class HoverAndPressChapter : Page
     {
-        public Chapter12()
+        public HoverAndPressChapter()
         {
             InitializeComponent();
         }

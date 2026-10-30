@@ -3,9 +3,9 @@ using System.Windows.Controls;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter04 : Page
+    public partial class PageIntrosChapter : Page
     {
-        public Chapter04()
+        public PageIntrosChapter()
         {
             InitializeComponent();
             OpenProfile();

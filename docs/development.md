@@ -106,7 +106,7 @@ dotnet build OpenSilver.Animations.slnx -c Debug
 dotnet run --project samples\OpenSilver.Animations.Gallery.Browser\OpenSilver.Animations.Gallery.Browser.csproj -c Debug --no-build --urls http://localhost:55620
 ```
 
-- Wait for "Now listening", then open `http://localhost:55620/`. Each chapter has its own URL, for example `http://localhost:55620/#/chapter/5`.
+- Wait for "Now listening", then open `http://localhost:55620/`. Each chapter has its own URL, for example `http://localhost:55620/#/chapter/3`.
 - **Restart the server after every build**, then reload the page.
 - To judge smoothness, use `-c Release`: the Debug build is slower, and the first frames of an animation can stutter there.
 - **Stop the server** by killing its `dotnet` processes; they exit with code -1, which is expected:
@@ -129,7 +129,7 @@ The log, "What just happened", shows the `Logged` messages. Each demo has a "Wha
 The shell is responsive (see "The gallery chapters" in [roadmap.md](roadmap.md)). From 1280 px, the options are in the top bar and the log is on the right. From 960 px, the log is a drawer opened by the Log button. Below that, the options and the chapters are in a drawer opened by the menu button.
 
 - **The breakpoints** are `ResponsiveThreshold.Default`, set in `App`. The XAML uses `{Responsive Mobile=..., Tablet=...}` values (the Desktop value falls back to Tablet).
-- **Code** uses `Shell.WindowSize`: `WindowSize.IsPhone` for sizes that differ on a phone, as in chapters 8, 12 and 13.
+- **Code** uses `Shell.WindowSize`: `WindowSize.IsPhone` for sizes that differ on a phone, as in chapters 5, 12 and 13.
 - **Measure the window, not the page.** `{Responsive}` compares the width of the `Window`, which draws a 1 px border around the page, so the page is 2 px narrower. Code that compared the page's width chose the phone layout at 960 and 961 px while the XAML chose the tablet one.
 
 ## Testing in the browser as an agent
@@ -287,7 +287,7 @@ The `panel` cut-off (`innerWidth - 330`) and the drags following the captured el
 })()
 ```
 
-On chapter 5 this gives 10 animations, or 20 with Show what animates on (10 moves plus 10 outlines). The newest message is "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
+On chapter 3 this gives 10 animations, or 20 with Show what animates on (10 moves plus 10 outlines). The newest message is "TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton)."
 
 ### Testing a phone
 
@@ -308,7 +308,7 @@ The menu button is at about (22, 28): `__t.tapAt(22, 28)` opens the drawer.
 
 ### Dragging a GridSplitter
 
-This drove the profile panel of chapter 8 across its `{Responsive}` breakpoint. The capture patch keeps the real capture when it works, and raises `lostpointercapture` on release, which OpenSilver needs to end the drag:
+This drove the profile panel of chapter 3 across its `{Responsive}` breakpoint. The capture patch keeps the real capture when it works, and raises `lostpointercapture` on release, which OpenSilver needs to end the drag:
 
 ```js
 const P = Element.prototype;
@@ -329,7 +329,7 @@ Then dispatch every event on the splitter's div (`[class*="GridSplitter"]`, Debu
 
 ### Hovering and pressing
 
-`browser_mouse_click_xy` dispatches synthetic events on the element under the point only: `pointerenter` never reaches its ancestors, so the element that reacts, usually an outer div, never gets it. Simulate the mouse instead, as chapter 12 was tested:
+`browser_mouse_click_xy` dispatches synthetic events on the element under the point only: `pointerenter` never reaches its ancestors, so the element that reacts, usually an outer div, never gets it. Simulate the mouse instead, as chapter 5 was tested:
 
 1. Keep the chain of the element under the pointer (`document.elementFromPoint`, then its ancestors).
 2. On each move, dispatch `pointerout` on the old target, `pointerleave` on each element left (non-bubbling), `pointerover` on the new target, `pointerenter` on each element entered, from the outside in (non-bubbling), then a bubbling `pointermove` on the target. Wait 16 to 30 ms between moves, so that Nudge can measure a speed.
@@ -350,7 +350,7 @@ Scroll with the page's ScrollViewer (wheel events), never with `scrollIntoView`:
 - **The log column in the DOM.** New entries are inserted at the top on screen, but their DOM nodes are appended (see "DOM order" in [architecture.md](architecture.md)). Read it with `panel()`, which sorts by position, not with `innerText`.
 - **Finding elements.** `find` matches the whole text of an element, and the first match can be an outer element. `findDeep`, which `tap` uses, takes the innermost one. If text is ambiguous, find elements by position or by DOM structure.
 - **Type-name classes** such as `[class*="Controls.Slider"]` exist only in Debug builds of the gallery.
-- **Interrupting an animation** in a Debug build can look like a jump. Measure it with `sample` before concluding: in chapter 5, the dialog's second animation started from 556.7 px, exactly where the first one was.
+- **Interrupting an animation** in a Debug build can look like a jump. Measure it with `sample` before concluding: in chapter 7, the dialog's second animation started from 556.7 px, exactly where the first one was.
 - **The emulated window size** sometimes survives a reload. Clear it at the end.
 - **Stuck at 97% or 99% after a rebuild.** The browser can keep a broken cache entry for one of the `_framework` files and load it with `force-cache`. A file can also keep its fingerprinted name while its content changes, as `.pdb` files do in Debug builds: the console then says "Failed to fetch", because the cached copy doesn't match its integrity hash. Turn the cache off with `Network.enable`, then `Network.setCacheDisabled` (`{ "cacheDisabled": true }`), and navigate to the page with a new query string, like `?r=2`. Turn the cache back on at the end. By hand, a hard reload with the cache disabled in the developer tools does the same.
 - **Clicks with `browser_mouse_click_xy`** need a screenshot just before, and its coordinates are scaled by the image size, not the page drawn in it: x is `viewportX × imageWidth / innerWidth`, y the same with the heights. The tool reports the viewport position it clicked: check it.

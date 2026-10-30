@@ -68,20 +68,19 @@ namespace OpenSilver.Animations.Gallery.Shell
         public static IReadOnlyList<ChapterInfo> All { get; } = new[]
         {
             new ChapterInfo(1, "Your first animation", "Appear and Disappear set to Fade on a details panel: nothing jumps, and the elements below slide by themselves.", true),
-            new ChapterInfo(2, "Pick an effect", "Every Appear and Disappear effect, with From, Distance, Duration and Easing.", true),
-            new ChapterInfo(3, "When the others move", "Other elements move while, before or after an element appears or disappears.", true),
-            new ChapterInfo(4, "Page intros", "StartAfter and OnPageOpen on a profile, an inbox and an order.", true),
-            new ChapterInfo(5, "Smooth moves and resizes", "MoveAndResize on a button, a badge, a sidebar, a dialog, an image card and a search box.", true),
+            new ChapterInfo(2, "Magic move", "Steps that flow into each other, a text box that opens into a popup, toppings that change lists, a selection pill and a photo that opens where it is.", true),
+            new ChapterInfo(3, "Smooth moves and resizes", "MoveAndResize on a button and a badge, then on everything inside a form, cards that move like a wave, and a panel that you resize.", true),
+            new ChapterInfo(4, "Page intros", "StartAfter and OnPageOpen on a profile, an order and an inbox.", true),
+            new ChapterInfo(5, "Hover and press", "Hover and Press on icons, buttons and cards: Nudge, Grow, Lift and Shrink.", true),
             new ChapterInfo(6, "Lists", "ItemsAppear, ItemsDisappear, ItemsMoveAndResize and ItemsCascade on a to-do list, toasts, a chat and a long list.", true),
-            new ChapterInfo(7, "Everything inside", "ApplyTo=EverythingInside on a form and on a responsive layout.", true),
-            new ChapterInfo(8, "When the window or a panel is resized", "Elements that glide while you resize the window, and layouts that switch.", true),
-            new ChapterInfo(9, "Text that moves", "TextChange on a badge, a dashboard, a clock and a tagline, and Typewriter, Backspace and FadeLetters on a message.", true),
-            new ChapterInfo(10, "Bouncy and Wave", "A bouncy tab underline, and cards that move like a wave.", true),
-            new ChapterInfo(11, "Magic move", "A selection pill that slides, a photo that opens where it is, and steps that flow into each other.", true),
-            new ChapterInfo(12, "Hover and press", "Hover and Press on buttons, cards and icons: Grow, Lift, Shrink and Nudge.", true),
+            new ChapterInfo(7, "More moves and resizes", "Two columns that become one, a bouncy tab underline, a sidebar, a dialog, an image card, a search box and a live chart.", true),
+            new ChapterInfo(8, "Text that moves", "TextChange on a badge, a tagline, a dashboard and a clock, and Typewriter, Backspace and FadeLetters on a message.", true),
+            new ChapterInfo(9, "Pick an effect", "Every Appear and Disappear effect, with From, Distance, Duration and Easing.", true),
+            new ChapterInfo(10, "Putting it together", "The OpenSilver Showcase: a small copy of its window, and how each of its animations is made.", true),
+            new ChapterInfo(11, "When the others move", "Other elements move while, before or after an element appears or disappears.", true),
+            new ChapterInfo(12, "When the window is resized", "Elements that glide while you resize the window, and layouts that switch.", true),
             new ChapterInfo(13, "From code", "Animate.Changes, Animate.Skip and AnimationSettings.", true),
             new ChapterInfo(14, "What never animates, and why", "Scrolling, dragging, typing, resizing the window, and the limits.", true),
-            new ChapterInfo(15, "Putting it together", "The OpenSilver Showcase: a small copy of its window, and how each of its animations is made.", true),
         };
 
         public static ChapterInfo Get(int number) => All.FirstOrDefault(c => c.Number == number);

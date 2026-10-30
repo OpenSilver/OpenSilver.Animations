@@ -8,14 +8,14 @@ using System.Windows.Media.Imaging;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter11 : Page
+    public partial class MagicMoveChapter : Page
     {
         private static readonly string[] Available = { "Mushrooms", "Olives", "Peppers", "Onions", "Pineapple" };
         private static readonly string[] Chosen = { "Mozzarella", "Basil" };
 
         private int _step;
 
-        public Chapter11()
+        public MagicMoveChapter()
         {
             InitializeComponent();
 

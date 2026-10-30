@@ -4,7 +4,7 @@ using System.Windows.Media;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter01 : Page
+    public partial class FirstAnimationChapter : Page
     {
         private static readonly string[] NoteTexts =
         {
@@ -18,7 +18,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private int _added;
 
-        public Chapter01()
+        public FirstAnimationChapter()
         {
             InitializeComponent();
         }

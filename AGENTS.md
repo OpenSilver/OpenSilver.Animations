@@ -6,7 +6,7 @@ OpenSilver.Animations is a beginner-friendly animation library for [OpenSilver](
 <Button Content="Save" anim:Animate.MoveAndResize="Smooth" />
 ```
 
-The repository also holds the gallery, "OpenSilver.Animations library: a guided tour", which teaches the library in 15 chapters and is the manual test suite.
+The repository also holds the gallery, "OpenSilver.Animations library: a guided tour", which teaches the library in 14 chapters and is the manual test suite.
 
 Read these before working:
 

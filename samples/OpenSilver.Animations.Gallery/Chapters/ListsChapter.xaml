@@ -1,4 +1,4 @@
-<sdk:Page x:Class="OpenSilver.Animations.Gallery.Chapters.Chapter06"
+<sdk:Page x:Class="OpenSilver.Animations.Gallery.Chapters.ListsChapter"
           xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
@@ -92,23 +92,7 @@
             </StackPanel>
         </controls:DemoCard>
 
-        <!-- 2. Toasts -->
-        <controls:DemoCard Title="Toasts"
-                           Description="A StackPanel is a list too: its children are its items. Each toast closes by itself after 3 seconds, or when you click it."
-                           Xaml='&lt;StackPanel x:Name="Toasts"&#10;            anim:Animate.ItemsAppear="{anim:Slide From=Right}"&#10;            anim:Animate.ItemsDisappear="Fade"&#10;            anim:Animate.ItemsMoveAndResize="Smooth" /&gt;'
-                           Expectations="• Show a toast: it slides in from the right, below the others.&#10;• After 3 s, the oldest toast fades out, and the others slide up.&#10;• Click a toast: it fades out at once.&#10;• With three toasts shown, a new one makes the oldest fade out at once.">
-            <StackPanel>
-                <Border Style="{StaticResource Stage}" Height="270" ClipToBounds="True">
-                    <StackPanel x:Name="Toasts" Width="{Responsive Mobile=230, Tablet=270}" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                anim:Animate.ItemsAppear="{anim:Slide From=Right}"
-                                anim:Animate.ItemsDisappear="Fade"
-                                anim:Animate.ItemsMoveAndResize="Smooth" />
-                </Border>
-                <Button Content="Show a toast" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ShowToast_Click" />
-            </StackPanel>
-        </controls:DemoCard>
-
-        <!-- 3. Sort and filter -->
+        <!-- 2. Sort and filter -->
         <controls:DemoCard Title="Sort and filter"
                            Description="Each button gives the list a new list of the same products, sorted or filtered. The list makes new tiles for all of them, and each product glides from where it was."
                            Xaml='&lt;ItemsControl ItemsSource="{Binding VisibleProducts}"&#10;              anim:Animate.ItemsAppear="Fade"&#10;              anim:Animate.ItemsDisappear="Fade"&#10;              anim:Animate.ItemsMoveAndResize="Smooth"&gt;&#10;    &lt;ItemsControl.ItemsPanel&gt;&#10;        &lt;ItemsPanelTemplate&gt;&#10;            &lt;WrapPanel /&gt;'
@@ -144,7 +128,7 @@
             </StackPanel>
         </controls:DemoCard>
 
-        <!-- 4. Drag to reorder -->
+        <!-- 3. Drag to reorder -->
         <controls:DemoCard Title="Drag to reorder"
                            Description="Drag a step up or down. The list changes order while you drag, and the steps you pass glide out of the way."
                            Xaml='&lt;ItemsControl ItemsSource="{Binding Steps}"&#10;              anim:Animate.ItemsMoveAndResize="Smooth" /&gt;'
@@ -171,6 +155,22 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+        </controls:DemoCard>
+
+        <!-- 4. Toasts -->
+        <controls:DemoCard Title="Toasts"
+                           Description="A StackPanel is a list too: its children are its items. Each toast closes by itself after 3 seconds, or when you click it."
+                           Xaml='&lt;StackPanel x:Name="Toasts"&#10;            anim:Animate.ItemsAppear="{anim:Slide From=Right}"&#10;            anim:Animate.ItemsDisappear="Fade"&#10;            anim:Animate.ItemsMoveAndResize="Smooth" /&gt;'
+                           Expectations="• Show a toast: it slides in from the right, below the others.&#10;• After 3 s, the oldest toast fades out, and the others slide up.&#10;• Click a toast: it fades out at once.&#10;• With three toasts shown, a new one makes the oldest fade out at once.">
+            <StackPanel>
+                <Border Style="{StaticResource Stage}" Height="270" ClipToBounds="True">
+                    <StackPanel x:Name="Toasts" Width="{Responsive Mobile=230, Tablet=270}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                anim:Animate.ItemsAppear="{anim:Slide From=Right}"
+                                anim:Animate.ItemsDisappear="Fade"
+                                anim:Animate.ItemsMoveAndResize="Smooth" />
+                </Border>
+                <Button Content="Show a toast" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ShowToast_Click" />
+            </StackPanel>
         </controls:DemoCard>
 
         <!-- 5. Streaming chat -->

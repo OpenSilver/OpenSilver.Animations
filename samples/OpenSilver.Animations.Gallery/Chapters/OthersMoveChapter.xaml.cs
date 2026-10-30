@@ -3,11 +3,11 @@ using System.Windows.Controls;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter03 : Page
+    public partial class OthersMoveChapter : Page
     {
         private int _openSection = -1;
 
-        public Chapter03()
+        public OthersMoveChapter()
         {
             InitializeComponent();
         }

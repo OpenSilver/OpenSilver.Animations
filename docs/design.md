@@ -572,36 +572,40 @@ The tour uses the Modern theme and its loading indicator, and its shell animates
 
 ### Chapters
 
+The chapters start with what shows the library best, so that a visitor who reads only the first three sees the main ideas: elements that appear and disappear, Magic move, and moves and resizes. The next chapters show the other features, and the last ones go into the details.
+
 1. **Your first animation.** `Appear` and `Disappear` set to Fade on a details panel toggled by a button. The key idea: nothing jumps, and the elements below slide by themselves.
-2. **Pick an effect.** Every Appear and Disappear preset, with From, Distance, Duration, Start after and Easing in the playground. Demo: a validation message under a field.
+2. **Magic move.** A wizard with `MagicMoveByName`, a text box that opens into a card in a Popup, like XAML.io's AI input, toppings that move between two lists, a segmented control with a selection pill, and a list-to-detail photo. The tab underline is in chapter 7: it's one element that moves, which `MoveAndResize` does.
+3. **Smooth moves and resizes.** `MoveAndResize` on:
+   - a "Save" to "Saving..." button;
+   - a badge;
+   - a settings form, with `ApplyTo=EverythingInside`;
+   - a column of cards pushed by a growing card, with a Wave slider;
+   - a profile panel resized with a GridSplitter, whose content switches layout with `{Responsive ElementName=...}` while it's dragged.
+
+   The intro suggests turning on Show what animates, to see that everything involved moves together.
+4. **Page intros.** `StartAfter` and `OnPageOpen` (InPlace, PushOthers, Skip), with Replay page. The title uses Typewriter.
+5. **Hover and press.** Icons that the mouse nudges, with Distance and Tilt sliders, `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, and a button that doesn't react while it's disabled.
+6. **Lists.** `ItemsAppear`, `ItemsDisappear`, `ItemsMoveAndResize` and `ItemsCascade`. Demos:
+   - a to-do list (add and remove);
+   - sort and filter;
+   - drag to reorder;
+   - toasts;
+   - a streaming chat;
+   - a virtualized list where scrolling plays no effects.
+7. **More moves and resizes.** A responsive layout that switches from 2 columns to 1 with a button, a tab underline with Bouncy, a collapsible sidebar, a ChildWindow going from 300 to 600, a card whose image loads, a search box that widens on focus, and a nested `None` that carves out a chart. Its tips are about the nearest setting and the popup boundary.
+8. **Text that moves.** Roll on a badge, Retype, Cross-fade and Scramble on a tagline, Typewriter, Backspace and FadeLetters on a message, Count up on a dashboard, and a clock that rolls. The title uses Typewriter, with its cursor blinking first. The message has Speed, Cursor and Blink first choices.
+9. **Pick an effect.** Every Appear and Disappear preset, with From, Distance, Duration, Start after and Easing in the playground. Demo: a validation message under a field.
    - **Every effect.** Each effect is a tile with a still drawing that tells what it does, like arrows from the corners for Zoom or a blurry card for Blur. Half a second after the mouse enters a tile, its little card plays the effect again and again, slower and bigger than the real one on purpose, until the mouse leaves. Storyboards play these loops, not the library, so that each one shows its own effect clearly. The same previews are meant for a XAML.io panel where users pick the animations of their apps.
    - **Each change plays the card again:** it disappears with the new choice, then appears with it, once the text below has filled its space. A click on the option that is already chosen plays it again too.
    - **Slow enough to see:** the duration starts at 0.5 s, as the default, 0.25 s, is too quick to tell the effects apart.
    - **The layout:** on a wide stage, the options are on the left and the card on the right, beside a vertical line, so that the card stays in sight. On a narrow one, the card is below the effects, and the other options below it.
-3. **When the others move.** `OthersMove` While, Before and After, side by side. Demo: an accordion.
-4. **Page intros.** `StartAfter` and `OnPageOpen` (InPlace, PushOthers, Skip), with Replay page. The title uses Typewriter.
-5. **Smooth moves and resizes.** `MoveAndResize` on:
-   - a "Save" to "Saving..." button;
-   - a badge;
-   - a collapsible sidebar;
-   - a ChildWindow going from 300 to 600;
-   - a card whose image loads;
-   - a search box that widens on focus.
-
-   The intro suggests turning on Show what animates, to see that everything involved moves together.
-6. **Lists.** `ItemsAppear`, `ItemsDisappear`, `ItemsMoveAndResize` and `ItemsCascade`. Demos:
-   - a to-do list (add and remove);
-   - toasts;
-   - sort and filter;
-   - drag to reorder;
-   - a streaming chat;
-   - a virtualized list where scrolling plays no effects.
-7. **Everything inside.** `ApplyTo=EverythingInside` on a settings form; a nested `None` that carves out a chart; the area outline; the popup boundary. Demo: a responsive layout that switches from 2 columns to 1 with a button.
-8. **When the window or a panel is resized.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window". A profile panel resized with a GridSplitter, whose content switches layout with `{Responsive ElementName=...}` while it's dragged. Cards that switch from a row to a column with the window.
-9. **Text that moves.** Roll on a badge, Count up on a dashboard, a clock that rolls, Retype, Cross-fade and Scramble on a tagline, and Typewriter, Backspace and FadeLetters on a message. The title uses Typewriter, with its cursor blinking first. The message has Speed, Cursor and Blink first choices.
-10. **Bouncy and Wave.** A tab underline with Bouncy; a column of cards pushed by a growing card, with a Wave slider.
-11. **Magic move.** A segmented control with a selection pill, toppings that move between two lists, a list-to-detail photo, a wizard with `MagicMoveByName`, and a text box that opens into a card in a Popup, like XAML.io's AI input. The tab underline is in chapter 10: it's one element that moves, which `MoveAndResize` does.
-12. **Hover and press.** `Hover` and `Press` on buttons (Grow and Shrink, Lift, Shrink alone, a bouncy Grow), cards that lift, icons that the mouse nudges with Distance and Tilt sliders, and a button that doesn't react while it's disabled.
+10. **Putting it together.** The Showcase as the real-world example:
+    - a small copy of its window, with the names and values of its XAML: the welcome intro, the tabs that drop in, the menu that pushes the page, Nudge, two samples (one loads quickly, the other shows the loading popup), the source code pane, and a Phone size switch for the menu that becomes a drawer;
+    - then each of its animations, with its code and links to the chapters that explain it;
+    - links to the live Showcase and its source code.
+11. **When the others move.** `OthersMove` While, Before and After. Demos: an accordion, then the three side by side.
+12. **When the window is resized.** A WrapPanel of tiles with and without `AlsoOnWindowResize`, with the instruction "resize your browser window", and cards that switch from a row to a column with the window. The panel resized with a GridSplitter is in chapter 3.
 13. **From code.** `Animate.Changes`, `Animate.Skip`, `AnimationSettings` (Speed, DefaultDuration, the App.xaml resource), the functions of the browser console, and reduced motion.
 14. **What never animates, and why.** Live proof that the following stay instant:
     - scrolling;
@@ -610,23 +614,10 @@ The tour uses the Modern theme and its loading indicator, and its shell animates
     - window resizing, except the values that switch with `{Responsive}` (the shapes switch size at 960 px).
 
     Also the performance budget, and the known limitations shown live (text re-wrapping, `Path` shapes).
-15. **Putting it together.** The Showcase as the real-world example:
-    - a small copy of its window, with the names and values of its XAML: the welcome intro, the tabs that drop in, the menu that pushes the page, Nudge, two samples (one loads quickly, the other shows the loading popup), the source code pane, and a Phone size switch for the menu that becomes a drawer;
-    - then each of its animations, with its code and links to the chapters that explain it;
-    - links to the live Showcase and its source code.
 
 ### When chapters are built
 
-Each chapter is added in the phase that implements its feature, so the gallery grows with the library and each phase ends with a working, testable story:
-- Phase 2: chapter 5, and the parts of chapter 14 about scrolling, dragging, typing and window resize.
-- Phase 3: chapters 1 to 4, 6, 7, 8, 12 and 15.
-- Phase 4: the playgrounds, the live XAML and the summaries.
-- Phase 5: chapter 9.
-- Phase 6: chapter 10.
-- Phase 7: chapter 11.
-- Chapter 13 and the rest of chapter 14 are completed along the way.
-
-Every chapter is built (chapter 10 early, with Bouncy and Wave); the playgrounds, the live XAML and the summaries come with phase 4. Their exact status is in [roadmap.md](roadmap.md).
+Each chapter was added in the phase that implemented its feature, so the gallery grew with the library and each phase ended with a working, testable story. Every chapter is built; the playgrounds, the live XAML and the summaries come with phase 4. Their exact status is in [roadmap.md](roadmap.md).
 
 ## Acceptance scenarios (covered by the gallery chapters)
 

@@ -8,7 +8,7 @@ using System.Windows.Media;
 namespace OpenSilver.Animations.Gallery.Chapters
 {
     /// <summary>
-    /// A small copy of the window of the OpenSilver Showcase, for chapter 15. Its animations and
+    /// A small copy of the window of the OpenSilver Showcase, for chapter 10. Its animations and
     /// the code that drives them are the Showcase's: the menu, its button on small screens, the
     /// welcome page, the loading popup and the source code pane.
     /// </summary>

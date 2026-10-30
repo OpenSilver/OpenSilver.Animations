@@ -6,7 +6,7 @@ using OpenSilver.Animations.Gallery.Shell;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter14 : Page
+    public partial class NeverAnimatesChapter : Page
     {
         private const int RowCount = 30;
         private const double ShortRow = 40;
@@ -22,7 +22,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private int _wordIndex;
 
-        public Chapter14()
+        public NeverAnimatesChapter()
         {
             InitializeComponent();
 
@@ -77,9 +77,9 @@ namespace OpenSilver.Animations.Gallery.Chapters
             _wordIndex = (_wordIndex + 1) % Words.Length;
         }
 
-        private void Chapter8_Click(object sender, RoutedEventArgs e)
+        private void WindowChapter_Click(object sender, RoutedEventArgs e)
         {
-            MainPage.Current?.Navigate(Tour.Get(8));
+            MainPage.Current?.Navigate(Tour.Get(12));
         }
 
         private void TileCount_Click(object sender, RoutedEventArgs e)

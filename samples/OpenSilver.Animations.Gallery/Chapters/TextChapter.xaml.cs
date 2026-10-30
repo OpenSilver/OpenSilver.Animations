@@ -7,7 +7,7 @@ using OpenSilver.Animations.Gallery.Controls;
 
 namespace OpenSilver.Animations.Gallery.Chapters
 {
-    public partial class Chapter09 : Page
+    public partial class TextChapter : Page
     {
         private static readonly string[] Words = { "the web", "desktops", "phones", "tablets" };
 
@@ -20,7 +20,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private double _conversion = 4.2;
         private readonly bool _ready;
 
-        public Chapter09()
+        public TextChapter()
         {
             InitializeComponent();
             _clock.Tick += (s, e) => ShowTime();
