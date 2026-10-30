@@ -47,7 +47,8 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, Bouncy, EaseOut,
-        /// EaseIn, EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. Not used by
+        /// EaseIn, EaseInOut, StrongEaseOut, StrongEaseIn, StrongEaseInOut or Overshoot, or any
+        /// <see cref="IEasingFunction"/>. Not used by
         /// <see cref="Nudge"/>, which always springs back.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]

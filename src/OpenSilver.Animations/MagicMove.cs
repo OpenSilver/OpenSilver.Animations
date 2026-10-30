@@ -53,10 +53,10 @@ namespace OpenSilver.Animations
         public AnimationTime? Duration { get; set; }
 
         /// <summary>
-        /// How it speeds up and slows down: Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn,
-        /// EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. By default, it uses a much
-        /// stronger EaseInOut: very slow at the start and the end, and very fast in between. With
-        /// Bouncy, it changes size without bouncing.
+        /// How it speeds up and slows down: StrongEaseInOut (the default), Smooth, Gentle, Linear,
+        /// Bouncy, EaseOut, EaseIn, EaseInOut, StrongEaseOut, StrongEaseIn or Overshoot, or any
+        /// <see cref="IEasingFunction"/>. StrongEaseInOut is very slow at the start and the end, and
+        /// very fast in between. With Bouncy, it changes size without bouncing.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }

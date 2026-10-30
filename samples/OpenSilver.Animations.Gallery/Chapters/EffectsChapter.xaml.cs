@@ -202,6 +202,9 @@ namespace OpenSilver.Animations.Gallery.Chapters
                 case "EaseOut": return Easings.EaseOut;
                 case "EaseIn": return Easings.EaseIn;
                 case "EaseInOut": return Easings.EaseInOut;
+                case "StrongEaseOut": return Easings.StrongEaseOut;
+                case "StrongEaseIn": return Easings.StrongEaseIn;
+                case "StrongEaseInOut": return Easings.StrongEaseInOut;
                 case "Overshoot": return Easings.Overshoot;
                 default: return null;
             }

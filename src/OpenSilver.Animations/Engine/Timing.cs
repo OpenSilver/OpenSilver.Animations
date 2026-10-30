@@ -206,11 +206,11 @@ namespace OpenSilver.Animations.Engine
         /// <paramref name="nearFactor"/> times the default duration up to
         /// <paramref name="nearDistance"/>, up to <paramref name="farFactor"/> times from
         /// <paramref name="farDistance"/>. Without an Easing, it uses
-        /// <see cref="Easings.MagicMove"/>.
+        /// <see cref="Easings.StrongEaseInOut"/>.
         /// </summary>
         public static Timing FromMagicMove(MagicMove magicMove, double distance, double nearDistance, double farDistance, double nearFactor, double farFactor, AnimationSettings settings)
         {
-            IEasingFunction easing = magicMove?.Easing ?? Easings.MagicMove;
+            IEasingFunction easing = magicMove?.Easing ?? Easings.StrongEaseInOut;
             bool bouncy = easing is SpringEasing;
             bool byDistance = magicMove?.Duration == null;
             double share = Math.Max(0, Math.Min(1, (distance - nearDistance) / (farDistance - nearDistance)));

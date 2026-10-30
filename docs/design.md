@@ -97,12 +97,12 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
 - **Off by default.** Choosing an effect is enough; every parameter has a good default.
 - **Surrounding elements never overlap or jump.** When something animates, everything involved in the same change animates with it. That's not an option the developer has to understand.
 - **Beginner vocabulary:** `From`/`To` (not Direction), `StartAfter` (not Delay), `Zoom` (not Scale), `Bouncy` (not Spring), `Cascade` (not Stagger), `Wave` (not Ripple).
-- **One curve vocabulary everywhere:** `Smooth` (default, a soft start and a long, soft end), `Gentle` (ease-in-out), `Linear`, `Bouncy` (a spring, tuned by `Bounciness`), and the classic curves of WPF and Silverlight, for apps that come from them: `EaseOut`, `EaseIn` and `EaseInOut` (a `CubicEase`), and `Overshoot` (a `BackEase` ease-out, whose amplitude is `Bounciness`).
+- **One curve vocabulary everywhere:** `Smooth` (default, a soft start and a long, soft end), `Gentle` (ease-in-out), `Linear`, `Bouncy` (a spring, tuned by `Bounciness`), and the classic curves of WPF and Silverlight, for apps that come from them: `EaseOut`, `EaseIn` and `EaseInOut` (a `CubicEase`), and `Overshoot` (a `BackEase` ease-out, whose amplitude is `Bounciness`). The strong curves `StrongEaseOut`, `StrongEaseIn` and `StrongEaseInOut` (close to an `ExponentialEase`) are much slower at their slow ends and much faster in between; `StrongEaseInOut` is the default of Magic moves.
 - **Readable times.** Time values accept `300` (milliseconds), `300ms` or `0.3s`. The designer shows and writes seconds.
 
 ## Library API
 
-The NuGet package is `OpenSilver.Animations`, described as "Easy animations for OpenSilver" and tagged `animation` and `transition`. The XML namespace is `xmlns:anim="http://opensilver.net/animations"` (declared with `XmlnsDefinition`; the `clr-namespace:OpenSilver.Animations;assembly=OpenSilver.Animations` form also works). All properties are attached on `Animate` and are not inherited. The value types are `Movement` (the base of `Smooth`, `Bouncy` and `None`), `Transition` (the base of the Appear and Disappear presets, with `Transition.None`), `Reaction` (the base of the Hover and Press presets, with `Reaction.None`), `AnimationTime` for durations and `Distance` for Slide, Lift and Nudge. `From` and `To` take a `Side`, and `OthersMove` is an enum of the same name. The curves `Smooth`, `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut` and `Overshoot` are on the `Easings` class.
+The NuGet package is `OpenSilver.Animations`, described as "Easy animations for OpenSilver" and tagged `animation` and `transition`. The XML namespace is `xmlns:anim="http://opensilver.net/animations"` (declared with `XmlnsDefinition`; the `clr-namespace:OpenSilver.Animations;assembly=OpenSilver.Animations` form also works). All properties are attached on `Animate` and are not inherited. The value types are `Movement` (the base of `Smooth`, `Bouncy` and `None`), `Transition` (the base of the Appear and Disappear presets, with `Transition.None`), `Reaction` (the base of the Hover and Press presets, with `Reaction.None`), `AnimationTime` for durations and `Distance` for Slide, Lift and Nudge. `From` and `To` take a `Side`, and `OthersMove` is an enum of the same name. The curves `Smooth`, `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut` and `Overshoot` are on the `Easings` class.
 
 - The base of the presets is named `Transition`, not `Effect`: every element already has an `Effect` property (`UIElement.Effect`), which would hide the type in code-behind.
 - `Distance` is a struct with a type converter, not a `double` with named values: the OpenSilver XAML compiler only accepts numbers for `double` properties.
@@ -158,7 +158,7 @@ Animate.Skip(() => LoadInitialData());
     - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.25 s). All presets except Typewriter and Backspace. Pop, and any preset with `Easing=Bouncy`, default to twice `DefaultDuration`, so that the bounce has time to settle. FadeLetters also defaults to twice `DefaultDuration` (0.5 s).
     - `OthersDuration`: 0.05 to 3 s, default the effect's `Duration`. How long the surrounding elements take to make room or to fill the space. All presets.
     - `StartAfter`: 0 to 10 s, default 0. All presets.
-    - `Easing`: `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `Overshoot`, or an `IEasingFunction` resource. All presets except the text ones.
+    - `Easing`: `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot`, or an `IEasingFunction` resource. All presets except the text ones.
     - `Bounciness`: 0.1 to 1, default 0.5. Pop, any preset with `Easing=Bouncy`, and `Easing=Overshoot`, where it's the amplitude of the `BackEase` (about 13% past the end at 0.5, 38% at 1).
     - Custom look: `Opacity` (0 to 1, default 0), `OffsetX`/`OffsetY` (px, default 0), `Zoom` (0 to 3, default 1), `Rotate` (degrees, default 0), `Blur` (px, default 0). Used by Custom. It's the start look for Appear and the end look for Disappear.
     - `Speed`: letters per second, 5 to 200, default 30. Typewriter and Backspace.
@@ -198,7 +198,7 @@ Animate.Skip(() => LoadInitialData());
   - **Parameters:**
     - `Duration`.
     - `Bounciness` (Bouncy, and Smooth with `Easing=Overshoot`).
-    - `Easing` (Smooth only): `Smooth`, `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `Overshoot` or an `IEasingFunction`.
+    - `Easing` (Smooth only): `Smooth`, `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot` or an `IEasingFunction`.
     - `Wave`: 0 to 2, default 0.
     - `ApplyTo`: `ThisElement` (default) or `EverythingInside`.
     - `AlsoOnWindowResize`: default false.
@@ -262,7 +262,7 @@ Animate.Skip(() => LoadInitialData());
     - `Travel`: see "Magic move" below.
     - The parameters of the element that appears are used; when it has none, those of the element that disappeared.
   - `Animate.MagicMoveByName` (bool) on a ContentControl or a Frame: when its content changes, the elements with the same `x:Name` in the old and new content travel, while the old content fades out and the new one fades in. An element with its own `MagicMove` travels by its id instead, and the parts of control templates don't count, because their names are the same in every control. An old content with its own Disappear, or a new one with its own Appear, plays it instead of the fade.
-  - **Messages:** "Pill of RadioButton "Month" appeared as Pill of RadioButton "Week" disappeared, with the same Magic move "SelectionPill"; it travels from where that one was, behind the elements around it (Strong EaseInOut, 0.5 s for the distance)." and "The content of WizardHost changed (MagicMoveByName): 3 elements with the same x:Name in both travel to their new places, like Avatar (…), while the old content fades out and the new one fades in (…)."
+  - **Messages:** "Pill of RadioButton "Month" appeared as Pill of RadioButton "Week" disappeared, with the same Magic move "SelectionPill"; it travels from where that one was, behind the elements around it (StrongEaseInOut, 0.5 s for the distance)." and "The content of WizardHost changed (MagicMoveByName): 3 elements with the same x:Name in both travel to their new places, like Avatar (…), while the old content fades out and the new one fades in (…)."
   - **Snaps.** With `IsEnabled` off, inside `Animate.Skip`, while dragging, or in the designer, the new element appears at once.
 - **Globals.**
   - `AnimationSettings`:
@@ -352,7 +352,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
   - Typing `300ms` is accepted and converted to seconds.
   - Out-of-range values are clamped, with a short message.
   - Ranges: Duration 0.05 to 3 s in 0.05 s steps; Start after 0 to 10 s in 0.05 s steps; Cascade 0 to 0.3 s in 0.01 s steps.
-- **Easing:** four buttons with curve icons (Smooth, Gentle, Linear, Bouncy), under the line "How it speeds up and slows down", and a "Classic curves" row under them (EaseOut, EaseIn, EaseInOut, Overshoot). Choosing Bouncy or Overshoot reveals the Bounciness slider, labelled "A little" to "A lot".
+- **Easing:** four buttons with curve icons (Smooth, Gentle, Linear, Bouncy), under the line "How it speeds up and slows down", a "Classic curves" row under them (EaseOut, EaseIn, EaseInOut, Overshoot), and a "Strong curves" row (StrongEaseOut, StrongEaseIn, StrongEaseInOut). Choosing Bouncy or Overshoot reveals the Bounciness slider, labelled "A little" to "A lot".
 - **Example line:** grey text under each field, listed per section below.
 - **Advanced:** an expander at the bottom of a section, closed by default. It opens by itself when it holds a non-default value.
 - **Values that don't apply.**
@@ -412,7 +412,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
 - **Advanced:**
   - **"Apply to"**: "This element only" (default) or "This element and everything inside it". Example: "Everything inside: any change in it animates, including items and elements that appear."
   - **Wave**: a slider from Off to Strong (0 to 2). Example: "Farther elements start a bit later, like a wave."
-  - **Easing** (Smooth only): Smooth, Gentle, Linear, or a classic curve (EaseOut, EaseIn, EaseInOut, Overshoot).
+  - **Easing** (Smooth only): Smooth, Gentle, Linear, a classic curve (EaseOut, EaseIn, EaseInOut, Overshoot), or a strong one (StrongEaseOut, StrongEaseIn, StrongEaseInOut).
 - **Example line:** "For example when its text, content or size changes, or when an element next to it appears, disappears or grows."
 - **Inside an area**, when the element has no value of its own:
   - The section shows "Smooth (from SettingsForm)", with a link that selects the area.

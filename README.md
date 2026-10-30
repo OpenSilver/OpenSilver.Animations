@@ -281,7 +281,7 @@ The ids can be bound, so that each item of a list has its own. The list and the 
 
 - `Travel`: `Automatic` (the default) travels behind the other elements when the element is a background, like a selection pill, and above them otherwise. `Above` travels above everything on the page, even outside the containers that clip their content. `Behind` travels behind the elements it travels between.
 - `Duration`: by default, it depends on the distance, from 0.5 s for a short trip (twice the default duration of the other animations) to almost twice that for a long one.
-- `Easing`: as for the other animations. By default, it's a much stronger `EaseInOut`: very slow at the start and the end, and very fast in between. With `Bouncy`, the size changes without bouncing.
+- `Easing`: as for the other animations. By default, it's `StrongEaseInOut`: very slow at the start and the end, and very fast in between. With `Bouncy`, the size changes without bouncing.
 - A bound id uses the default parameters, because a markup extension can't hold a binding.
 - The elements are hidden with `Visibility`, or added and removed. A template whose visual states use `Opacity` needs to use `Visibility` instead.
 - When several elements could pair, like in the templates of two lists, the two that are the closest in the page travel.
@@ -380,14 +380,14 @@ Resizing the browser window doesn't animate by default, because following the ed
 ### Parameters of MoveAndResize
 
 
-| Parameter            | Values, and the default                                                                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Duration`           | 0.05 to 3 s. Default: 0.25 s, and twice that for `Bouncy`                                                                                                 |
-| `Easing`             | For `Smooth`: `Smooth` (default), `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `Overshoot`, or any `IEasingFunction`                             |
-| `Bounciness`         | For `Bouncy` and `Easing=Overshoot`: 0.1 to 1. Default: 0.5                                                                                               |
-| `Wave`               | 0 to 2. Elements farther from where the change started begin later, like a wave: at 1, the farthest ones start 0.2 s later; at 2, 0.4 s later. Default: 0 |
-| `ApplyTo`            | `ThisElement` (default), or `EverythingInside`: see [Everything inside](#everything-inside)                                                               |
-| `AlsoOnWindowResize` | `True` to also animate when the change comes from resizing the browser window. Default: `False`                                                           |
+| Parameter            | Values, and the default                                                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Duration`           | 0.05 to 3 s. Default: 0.25 s, and twice that for `Bouncy`                                                                                                                         |
+| `Easing`             | For `Smooth`: `Smooth` (default), `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot`, or any `IEasingFunction` |
+| `Bounciness`         | For `Bouncy` and `Easing=Overshoot`: 0.1 to 1. Default: 0.5                                                                                                                       |
+| `Wave`               | 0 to 2. Elements farther from where the change started begin later, like a wave: at 1, the farthest ones start 0.2 s later; at 2, 0.4 s later. Default: 0                         |
+| `ApplyTo`            | `ThisElement` (default), or `EverythingInside`: see [Everything inside](#everything-inside)                                                                                       |
+| `AlsoOnWindowResize` | `True` to also animate when the change comes from resizing the browser window. Default: `False`                                                                                   |
 
 
 See chapters [3](http://opensilver-animations-library.azurewebsites.net/#/chapter/3), [7](http://opensilver-animations-library.azurewebsites.net/#/chapter/7) and [12](http://opensilver-animations-library.azurewebsites.net/#/chapter/12) of the gallery.
@@ -462,20 +462,20 @@ Write the name of an effect, or use it as a markup extension to set parameters:
 ```
 
 
-| Parameter                                                 | For                                                                | Values, and the default                                                                                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `Duration`                                                | Every effect except Typewriter and Backspace, which have a `Speed` | 0.05 to 3 s. Default: 0.25 s, and twice that for Pop, FadeLetters and `Easing=Bouncy`                                          |
-| `Easing`                                                  | Every effect except the letter effects                             | `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `Overshoot`, or any `IEasingFunction`      |
-| `Bounciness`                                              | Pop, `Easing=Bouncy` and `Easing=Overshoot`                        | 0.1 (a little) to 1 (a lot). Default: 0.5                                                                                      |
-| `From`, `To`                                              | Slide and Wipe                                                     | `Top`, `Bottom`, `Left` or `Right`. Default: `Bottom`                                                                          |
-| `From`, `To`                                              | Zoom                                                               | A size from 0 to 3. Default: 0.9                                                                                               |
-| `Distance`                                                | Slide                                                              | `Short` (10 px), `Medium` (30 px, the default), `Long` (100 px), a number of pixels, or a percent of its own size (`100%`)     |
-| `Fade`                                                    | Slide and Zoom                                                     | `False` to only slide, or only zoom. Default: `True`                                                                           |
-| `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate`, `Blur` | Custom                                                             | The look it starts from, or ends with. Defaults: 0, 0, 0, 1, 0 degrees, 0 px                                                   |
-| `StartAfter`                                              | Every effect                                                       | A wait before it starts, from 0 to 10 s. Default: 0                                                                            |
-| `OthersMove`                                              | Every effect                                                       | When the elements around it move: `While` (default), `Before` it appears, or `After` it disappears (the default for Backspace) |
-| `OthersDuration`                                          | Every effect                                                       | How long the elements around it take to move. Default: the effect's `Duration`                                                 |
-| `OnPageOpen`                                              | Appear                                                             | What it does when it appears together with its page: `InPlace` (default), `PushOthers` or `Skip`                               |
+| Parameter                                                 | For                                                                | Values, and the default                                                                                                                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Duration`                                                | Every effect except Typewriter and Backspace, which have a `Speed` | 0.05 to 3 s. Default: 0.25 s, and twice that for Pop, FadeLetters and `Easing=Bouncy`                                                                                         |
+| `Easing`                                                  | Every effect except the letter effects                             | `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot`, or any `IEasingFunction` |
+| `Bounciness`                                              | Pop, `Easing=Bouncy` and `Easing=Overshoot`                        | 0.1 (a little) to 1 (a lot). Default: 0.5                                                                                                                                     |
+| `From`, `To`                                              | Slide and Wipe                                                     | `Top`, `Bottom`, `Left` or `Right`. Default: `Bottom`                                                                                                                         |
+| `From`, `To`                                              | Zoom                                                               | A size from 0 to 3. Default: 0.9                                                                                                                                              |
+| `Distance`                                                | Slide                                                              | `Short` (10 px), `Medium` (30 px, the default), `Long` (100 px), a number of pixels, or a percent of its own size (`100%`)                                                    |
+| `Fade`                                                    | Slide and Zoom                                                     | `False` to only slide, or only zoom. Default: `True`                                                                                                                          |
+| `Opacity`, `OffsetX`, `OffsetY`, `Zoom`, `Rotate`, `Blur` | Custom                                                             | The look it starts from, or ends with. Defaults: 0, 0, 0, 1, 0 degrees, 0 px                                                                                                  |
+| `StartAfter`                                              | Every effect                                                       | A wait before it starts, from 0 to 10 s. Default: 0                                                                                                                           |
+| `OthersMove`                                              | Every effect                                                       | When the elements around it move: `While` (default), `Before` it appears, or `After` it disappears (the default for Backspace)                                                |
+| `OthersDuration`                                          | Every effect                                                       | How long the elements around it take to move. Default: the effect's `Duration`                                                                                                |
+| `OnPageOpen`                                              | Appear                                                             | What it does when it appears together with its page: `InPlace` (default), `PushOthers` or `Skip`                                                                              |
 
 
 Times are written `0.3s`, `300ms`, `300` (milliseconds) or `00:00:00.3`.

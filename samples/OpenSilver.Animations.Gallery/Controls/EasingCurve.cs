@@ -36,7 +36,7 @@ namespace OpenSilver.Animations.Gallery.Controls
 
         /// <summary>
         /// The name of the easing, as in XAML: Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn,
-        /// EaseInOut or Overshoot.
+        /// EaseInOut, Overshoot, StrongEaseOut, StrongEaseIn or StrongEaseInOut.
         /// </summary>
         public string EasingName
         {

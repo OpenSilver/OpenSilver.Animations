@@ -62,7 +62,8 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, Bouncy, EaseOut,
-        /// EaseIn, EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. With Bouncy, it
+        /// EaseIn, EaseInOut, StrongEaseOut, StrongEaseIn, StrongEaseInOut or Overshoot, or any
+        /// <see cref="IEasingFunction"/>. With Bouncy, it
         /// fades without bouncing, and the elements around it move smoothly. With Overshoot, it
         /// fades, and they move, with EaseOut. Not used by the effects of a TextBlock's letters.
         /// </summary>

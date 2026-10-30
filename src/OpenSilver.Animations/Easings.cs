@@ -65,15 +65,31 @@ namespace OpenSilver.Animations
         public static IEasingFunction EaseInOut { get; } = new CubicBezierEasing("EaseInOut", 0.65, 0, 0.35, 1);
 
         /// <summary>
+        /// A much stronger EaseOut: it starts very fast, and takes a long time to slow down to a
+        /// stop, like an <see cref="ExponentialEase"/> with <c>EasingMode="EaseOut"</c>.
+        /// </summary>
+        public static IEasingFunction StrongEaseOut { get; } = new CubicBezierEasing("StrongEaseOut", 0.16, 1, 0.3, 1);
+
+        /// <summary>
+        /// A much stronger EaseIn: it starts very slowly, and leaves very fast, like an
+        /// <see cref="ExponentialEase"/> with <c>EasingMode="EaseIn"</c>. It suits elements that
+        /// leave quickly.
+        /// </summary>
+        public static IEasingFunction StrongEaseIn { get; } = new CubicBezierEasing("StrongEaseIn", 0.7, 0, 0.84, 0);
+
+        /// <summary>
+        /// A much stronger EaseInOut: very slow at the start and the end, and very fast in between,
+        /// like an <see cref="ExponentialEase"/> with <c>EasingMode="EaseInOut"</c>. This is the
+        /// default of Magic moves: the eye follows the element as it leaves and as it arrives.
+        /// </summary>
+        public static IEasingFunction StrongEaseInOut { get; } = new CubicBezierEasing("StrongEaseInOut", 0.85, 0, 0.15, 1);
+
+        /// <summary>
         /// Like EaseOut, but goes a little past the end and comes back, once, like a
         /// <see cref="BackEase"/>. How far comes from the <c>Bounciness</c> of the effect that uses
         /// it: about 13% of the way past at 0.5 (the default), and 38% at 1.
         /// </summary>
         public static IEasingFunction Overshoot { get; } = new OvershootEasing("Overshoot", 0.5);
-
-        // The default of Magic moves: a much stronger EaseInOut, very slow at the start and the
-        // end, and very fast in between.
-        internal static IEasingFunction MagicMove { get; } = new CubicBezierEasing("Strong EaseInOut", 0.85, 0, 0.15, 1);
 
         internal static string GetName(IEasingFunction easing) => easing switch
         {
@@ -110,6 +126,15 @@ namespace OpenSilver.Animations
                 case "easeinout":
                     easing = EaseInOut;
                     return true;
+                case "strongeaseout":
+                    easing = StrongEaseOut;
+                    return true;
+                case "strongeasein":
+                    easing = StrongEaseIn;
+                    return true;
+                case "strongeaseinout":
+                    easing = StrongEaseInOut;
+                    return true;
                 case "overshoot":
                     easing = Overshoot;
                     return true;
@@ -121,8 +146,8 @@ namespace OpenSilver.Animations
     }
 
     /// <summary>
-    /// Converts the names Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn, EaseInOut and Overshoot
-    /// to an easing function.
+    /// Converts the names Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn, EaseInOut,
+    /// StrongEaseOut, StrongEaseIn, StrongEaseInOut and Overshoot to an easing function.
     /// </summary>
     public sealed class EasingConverter : TypeConverter
     {
@@ -140,7 +165,7 @@ namespace OpenSilver.Animations
                     return easing;
                 }
 
-                throw new FormatException($"'{s}' is not an easing. Use Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn, EaseInOut or Overshoot.");
+                throw new FormatException($"'{s}' is not an easing. Use Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn, EaseInOut, StrongEaseOut, StrongEaseIn, StrongEaseInOut or Overshoot.");
             }
 
             return base.ConvertFrom(context, culture, value);
