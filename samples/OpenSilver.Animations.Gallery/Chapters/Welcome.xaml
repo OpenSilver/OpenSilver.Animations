@@ -3,6 +3,7 @@
           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
+          xmlns:anim="http://opensilver.net/animations"
           Title="OpenSilver.Animations library: a guided tour">
 
     <sdk:Page.Resources>
@@ -15,14 +16,40 @@
     </sdk:Page.Resources>
 
     <StackPanel Style="{StaticResource ChapterRoot}">
-        <TextBlock Text="WELCOME" Style="{StaticResource OverlineText}" />
-        <TextBlock Text="Animations in one attribute" Style="{StaticResource ChapterTitleText}" />
-        <TextBlock Style="{StaticResource IntroText}"
-                   Text="OpenSilver.Animations makes your pages feel alive without writing a single storyboard. You say what an element does when it moves, changes size, appears or disappears, and the library takes care of the rest, including everything around it." />
-        <TextBlock Style="{StaticResource IntroText}"
-                   Text="This tour tells the story one idea at a time. Every chapter has something to click, the XAML that makes it work, and a log, What just happened, that explains in plain words why things moved or not." />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <!-- The logo, larger: it twists in, then its box moves, leaving its trail -->
+            <Border x:Name="WelcomeLogo" Width="56" Height="56" CornerRadius="16" Background="{StaticResource AccentBrush}"
+                    VerticalAlignment="Center" Margin="0,0,18,6"
+                    anim:Animate.Appear="{anim:Custom Zoom=0.3, Rotate=-45, Duration=0.9s, Easing=Overshoot, StartAfter=0.1s}">
+                <Canvas Width="56" Height="56">
+                    <Border Canvas.Left="10" Canvas.Top="18" Width="20" Height="20" CornerRadius="6" Background="#40FFFFFF"
+                            anim:Animate.Appear="{anim:Fade Duration=0.5s, StartAfter=0.4s}" />
+                    <Border Canvas.Left="18" Canvas.Top="18" Width="20" Height="20" CornerRadius="6" Background="#80FFFFFF"
+                            anim:Animate.Appear="{anim:Custom OffsetX=-8, Duration=0.8s, Easing=StrongEaseOut, StartAfter=0.45s}" />
+                    <Border Canvas.Left="26" Canvas.Top="18" Width="20" Height="20" CornerRadius="6" Background="White"
+                            anim:Animate.Appear="{anim:Custom OffsetX=-16, Duration=0.9s, Easing=StrongEaseOut, StartAfter=0.5s}" />
+                </Canvas>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="WelcomeOverline" Text="WELCOME" Style="{StaticResource OverlineText}"
+                           anim:Animate.Appear="{anim:FadeLetters Duration=0.6s, StartAfter=0.3s}" />
+                <TextBlock x:Name="WelcomeTitle" Text="Animations in one attribute" Style="{StaticResource ChapterTitleText}"
+                           anim:Animate.Appear="{anim:Custom OffsetY=24, Blur=12, Duration=1.1s, Easing=StrongEaseOut, StartAfter=0.4s}" />
+            </StackPanel>
+        </Grid>
+        <TextBlock x:Name="WelcomeIntro" Style="{StaticResource IntroText}"
+                   Text="OpenSilver.Animations makes your pages feel alive without writing a single storyboard. You say what an element does when it moves, changes size, appears or disappears, and the library takes care of the rest, including everything around it."
+                   anim:Animate.Appear="{anim:Custom OffsetY=16, Blur=4, Duration=1s, Easing=StrongEaseOut, StartAfter=0.6s}" />
+        <TextBlock x:Name="WelcomeTour" Style="{StaticResource IntroText}"
+                   Text="This tour tells the story one idea at a time. Every chapter has something to click, the XAML that makes it work, and a log, What just happened, that explains in plain words why things moved or not."
+                   anim:Animate.Appear="{anim:Custom OffsetY=16, Blur=4, Duration=1s, Easing=StrongEaseOut, StartAfter=0.7s}" />
 
-        <Border Style="{StaticResource Card}" Padding="24" Margin="0,12,0,0">
+        <Border x:Name="OptionsCard" Style="{StaticResource Card}" Padding="24" Margin="0,12,0,0"
+                anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Duration=1.1s, Easing=StrongEaseOut, StartAfter=0.85s}">
             <StackPanel>
                 <TextBlock Text="The options" Style="{StaticResource HeadingText}" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
@@ -50,7 +77,8 @@
             </StackPanel>
         </Border>
 
-        <Border Style="{StaticResource TipBox}" Margin="0,24,0,0">
+        <Border x:Name="WhereToStart" Style="{StaticResource TipBox}" Margin="0,24,0,0"
+                anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Duration=1.1s, Easing=StrongEaseOut, StartAfter=1s}">
             <StackPanel>
                 <TextBlock Text="Where to start" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
@@ -58,6 +86,7 @@
             </StackPanel>
         </Border>
 
-        <Button Content="Start with chapter 1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,24,0,0" Click="Start_Click" />
+        <Button x:Name="StartButton" Content="Start with chapter 1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,24,0,0" Click="Start_Click"
+                anim:Animate.Appear="{anim:Pop StartAfter=1.3s}" />
     </StackPanel>
 </sdk:Page>

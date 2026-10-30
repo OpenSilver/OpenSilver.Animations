@@ -90,6 +90,8 @@ The snippet of a demo with options follows them, without the default values: in 
 
 **The logo and the title of the top bar** go back to the welcome page.
 
+**The welcome page has an intro**, asked for by the product owner on October 30, 2026, so that the first impression is a great one. A larger copy of the logo twists in (`Custom Zoom=0.3, Rotate=-45` with Overshoot), then its box moves, leaving its trail. "WELCOME" fades in letter by letter. The title rises out of a blur, and the two paragraphs, the options card and the tip follow, all with `StrongEaseOut`. The button pops in last, at 1.3 s. The log explains it in one message ("11 elements appeared with their container, and play their effects, like WelcomeLogo."). Coming back to the page, or Replay page, plays it again.
+
 **The shell is responsive**, with the breakpoints set in `App` (`ResponsiveThreshold.Default = new ResponsiveThreshold(960, 1280)`):
 
 - **Desktop** (1280 px and wider): the chapters on the left, the options in the top bar, and the log on the right.
