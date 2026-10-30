@@ -71,6 +71,10 @@ namespace OpenSilver.Animations
         /// </summary>
         public static IEasingFunction Overshoot { get; } = new OvershootEasing("Overshoot", 0.5);
 
+        // The default of Magic moves: a much stronger EaseInOut, very slow at the start and the
+        // end, and very fast in between.
+        internal static IEasingFunction MagicMove { get; } = new CubicBezierEasing("Strong EaseInOut", 0.85, 0, 0.15, 1);
+
         internal static string GetName(IEasingFunction easing) => easing switch
         {
             null => null,

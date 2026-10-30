@@ -35,11 +35,12 @@ namespace OpenSilver.Animations.Engine
         // with MagicMoveByName for its new content.
         private const long MagicWaitMs = 300;
 
-        // A trip up to NearTrip pixels takes the default duration, and FarTripFactor times as much
-        // from FarTrip pixels.
+        // A trip up to NearTrip pixels takes NearTripFactor times the default duration, and
+        // FarTripFactor times from FarTrip pixels.
         private const double NearTrip = 150;
         private const double FarTrip = 900;
-        private const double FarTripFactor = 1.8;
+        private const double NearTripFactor = 2;
+        private const double FarTripFactor = 3.6;
 
         // A background is the first of several children, and covers this much of its parent's
         // width and height.
@@ -660,7 +661,7 @@ namespace OpenSilver.Animations.Engine
                 double dy = Math.Max(Math.Abs(from.Top - to.Top), Math.Abs(from.Bottom - to.Bottom));
                 distance = Math.Sqrt(dx * dx + dy * dy);
             }
-            Timing timing = Timing.FromMagicMove(magicMove, distance, NearTrip, FarTrip, FarTripFactor, settings);
+            Timing timing = Timing.FromMagicMove(magicMove, distance, NearTrip, FarTrip, NearTripFactor, FarTripFactor, settings);
 
             MagicMoveTravel travel = magicMove?.Travel ?? MagicMoveTravel.Automatic;
             string ancestorId = null;

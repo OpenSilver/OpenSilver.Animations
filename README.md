@@ -280,8 +280,8 @@ The ids can be bound, so that each item of a list has its own. The list and the 
 ```
 
 - `Travel`: `Automatic` (the default) travels behind the other elements when the element is a background, like a selection pill, and above them otherwise. `Above` travels above everything on the page, even outside the containers that clip their content. `Behind` travels behind the elements it travels between.
-- `Duration`: by default, it depends on the distance, from 0.25 s for a short trip to almost twice that for a long one.
-- `Easing`: as for the other animations. With `Bouncy`, the size changes without bouncing.
+- `Duration`: by default, it depends on the distance, from 0.5 s for a short trip (twice the default duration of the other animations) to almost twice that for a long one.
+- `Easing`: as for the other animations. By default, it's a much stronger `EaseInOut`: very slow at the start and the end, and very fast in between. With `Bouncy`, the size changes without bouncing.
 - A bound id uses the default parameters, because a markup extension can't hold a binding.
 - The elements are hidden with `Visibility`, or added and removed. A template whose visual states use `Opacity` needs to use `Visibility` instead.
 - When several elements could pair, like in the templates of two lists, the two that are the closest in the page travel.

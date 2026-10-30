@@ -202,17 +202,19 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// The timing of a Magic move. Without a Duration, a longer trip takes longer: the default
-        /// duration up to <paramref name="nearDistance"/>, up to <paramref name="farFactor"/> times
-        /// as much from <paramref name="farDistance"/>, and twice that with Easing=Bouncy.
+        /// The timing of a Magic move. Without a Duration, a longer trip takes longer:
+        /// <paramref name="nearFactor"/> times the default duration up to
+        /// <paramref name="nearDistance"/>, up to <paramref name="farFactor"/> times from
+        /// <paramref name="farDistance"/>. Without an Easing, it uses
+        /// <see cref="Easings.MagicMove"/>.
         /// </summary>
-        public static Timing FromMagicMove(MagicMove magicMove, double distance, double nearDistance, double farDistance, double farFactor, AnimationSettings settings)
+        public static Timing FromMagicMove(MagicMove magicMove, double distance, double nearDistance, double farDistance, double nearFactor, double farFactor, AnimationSettings settings)
         {
-            IEasingFunction easing = magicMove?.Easing ?? Easings.Smooth;
+            IEasingFunction easing = magicMove?.Easing ?? Easings.MagicMove;
             bool bouncy = easing is SpringEasing;
             bool byDistance = magicMove?.Duration == null;
             double share = Math.Max(0, Math.Min(1, (distance - nearDistance) / (farDistance - nearDistance)));
-            double seconds = magicMove?.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (1 + (farFactor - 1) * share) * (bouncy ? 2 : 1);
+            double seconds = magicMove?.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (nearFactor + (farFactor - nearFactor) * share);
 
             var timing = new Timing { DurationMs = Clamp(seconds) * 1000 / settings.Speed };
             timing.SetCurve(easing, 0.5);

@@ -47,15 +47,16 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How long the travel lasts, from 0.05 to 3 seconds. By default, it depends on the
-        /// distance: <see cref="AnimationSettings.DefaultDuration"/> for a short trip, up to almost
-        /// twice that for a long one.
+        /// distance: twice <see cref="AnimationSettings.DefaultDuration"/> for a short trip (0.5 s),
+        /// up to almost twice that for a long one (0.9 s).
         /// </summary>
         public AnimationTime? Duration { get; set; }
 
         /// <summary>
-        /// How it speeds up and slows down: Smooth (the default), Gentle, Linear, Bouncy, EaseOut,
-        /// EaseIn, EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. With Bouncy, it
-        /// changes size without bouncing.
+        /// How it speeds up and slows down: Smooth, Gentle, Linear, Bouncy, EaseOut, EaseIn,
+        /// EaseInOut or Overshoot, or any <see cref="IEasingFunction"/>. By default, it uses a much
+        /// stronger EaseInOut: very slow at the start and the end, and very fast in between. With
+        /// Bouncy, it changes size without bouncing.
         /// </summary>
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }
