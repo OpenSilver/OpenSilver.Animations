@@ -601,7 +601,7 @@ The chapters start with what shows the library best, so that a visitor who reads
    - **Slow enough to see:** the duration starts at 0.5 s, as the default, 0.25 s, is too quick to tell the effects apart.
    - **The layout:** on a wide stage, the options are on the left and the card on the right, beside a vertical line, so that the card stays in sight. On a narrow one, the card is below the effects, and the other options below it.
 10. **Putting it together.** The Showcase as the real-world example:
-    - a small copy of its window, with the names and values of its XAML: the welcome intro, the tabs that drop in, the menu that pushes the page, Nudge, two samples (one loads quickly, the other shows the loading popup), the source code pane, and a Phone size switch for the menu that becomes a drawer;
+    - a small copy of its window, with the names and values of its XAML: the welcome intro, the tabs that drop in, the menu that pushes the page, Nudge, two samples (one loads quickly, the other shows the loading popup over its page), the source code pane, and a Phone size switch for the menu that becomes a drawer. It also tries three ideas that the Showcase doesn't have yet: the page shows at once under the popup, the menu slides out on small screens, and the pages have a transition;
     - then each of its animations, with its code and links to the chapters that explain it;
     - links to the live Showcase and its source code.
 11. **When the others move.** `OthersMove` While, Before and After. Demos: an accordion, then the three side by side.

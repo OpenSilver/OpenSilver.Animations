@@ -15,23 +15,23 @@
         <!-- 1. Nudge -->
         <controls:DemoCard x:Name="NudgeDemo" Title="Icons that the mouse nudges"
                            Description="Sweep the mouse quickly across these icons. Each one is pushed a little in the direction the mouse goes, turns a little if the mouse comes near a corner, and springs back. The faster the mouse, the more it moves."
-                           Xaml='&lt;Border anim:Animate.Hover="Nudge" /&gt;'
-                           Expectations="• A fast sweep pushes each icon in the direction of the mouse; a slow one barely moves them.&#10;• Each icon springs back past its place, and settles.&#10;• Move the sliders for a stronger push and more turn.">
+                           Xaml='&lt;Border anim:Animate.Hover="{anim:Nudge Distance=8, Tilt=5}" /&gt;'
+                           Expectations="• A fast sweep pushes each icon in the direction of the mouse; a slow one barely moves them.&#10;• Each icon springs back past its place, and settles.&#10;• The demo starts at 8 px and 5°, more than the defaults of 3 px and 2°, so that the push is easy to see. Move the sliders for a softer or stronger push.">
             <StackPanel>
                 <WrapPanel x:Name="NudgeIcons">
-                    <Border Width="64" Height="64" CornerRadius="16" Background="#5B5BD6" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#5B5BD6" Margin="0,0,16,16" anim:Animate.Hover="{anim:Nudge Distance=8, Tilt=5}">
                         <TextBlock Text="M" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <Border Width="64" Height="64" CornerRadius="16" Background="#E07A1F" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#E07A1F" Margin="0,0,16,16" anim:Animate.Hover="{anim:Nudge Distance=8, Tilt=5}">
                         <TextBlock Text="C" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <Border Width="64" Height="64" CornerRadius="16" Background="#239B6A" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#239B6A" Margin="0,0,16,16" anim:Animate.Hover="{anim:Nudge Distance=8, Tilt=5}">
                         <TextBlock Text="P" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <Border Width="64" Height="64" CornerRadius="16" Background="#D6455B" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#D6455B" Margin="0,0,16,16" anim:Animate.Hover="{anim:Nudge Distance=8, Tilt=5}">
                         <TextBlock Text="N" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <Border Width="64" Height="64" CornerRadius="16" Background="#23263A" Margin="0,0,16,16" anim:Animate.Hover="Nudge">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#23263A" Margin="0,0,16,16" anim:Animate.Hover="{anim:Nudge Distance=8, Tilt=5}">
                         <TextBlock Text="S" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                 </WrapPanel>
@@ -47,13 +47,13 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Distance" Style="{StaticResource SliderLabel}" />
-                    <Slider x:Name="NudgeDistanceSlider" Grid.Column="1" Minimum="0" Maximum="20" Value="3" SmallChange="1" LargeChange="1"
+                    <Slider x:Name="NudgeDistanceSlider" Grid.Column="1" Minimum="0" Maximum="20" Value="8" SmallChange="1" LargeChange="1"
                             ValueChanged="NudgeSettings_Changed" />
-                    <TextBlock x:Name="NudgeDistanceText" Grid.Column="2" Text="3 px" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock x:Name="NudgeDistanceText" Grid.Column="2" Text="8 px" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <TextBlock Grid.Row="1" Text="Tilt" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
-                    <Slider x:Name="NudgeTiltSlider" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="15" Value="2" SmallChange="1" LargeChange="1" Margin="0,8,0,0"
+                    <Slider x:Name="NudgeTiltSlider" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="15" Value="5" SmallChange="1" LargeChange="1" Margin="0,8,0,0"
                             ValueChanged="NudgeSettings_Changed" />
-                    <TextBlock x:Name="NudgeTiltText" Grid.Row="1" Grid.Column="2" Text="2°" VerticalAlignment="Center" Margin="12,8,0,0" />
+                    <TextBlock x:Name="NudgeTiltText" Grid.Row="1" Grid.Column="2" Text="5°" VerticalAlignment="Center" Margin="12,8,0,0" />
                 </Grid>
             </StackPanel>
         </controls:DemoCard>

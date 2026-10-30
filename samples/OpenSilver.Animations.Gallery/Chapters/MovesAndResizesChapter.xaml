@@ -28,7 +28,7 @@
 
         <!-- 2. Badge -->
         <controls:DemoCard Title="A badge with a count"
-                           Description="The count goes from 3 to 12 to 128. The badge grows around the number, and the tabs next to it make room."
+                           Description="The count goes from 3 to 128 to 12345. The badge grows around the number, and the tabs next to it make room."
                            Xaml='&lt;Border x:Name="Badge" CornerRadius="10" anim:Animate.MoveAndResize="Smooth"&gt;&#10;    &lt;TextBlock Text="{Binding UnreadCount}" /&gt;&#10;&lt;/Border&gt;'
                            Expectations="• The badge widens and narrows smoothly.&#10;• The Archive and Spam tabs slide with it.">
             <StackPanel HorizontalAlignment="Left">
@@ -98,11 +98,11 @@
         <!-- 4. Wave -->
         <controls:DemoCard x:Name="WaveDemo" Title="Cards that move like a wave"
                            Description="The cards are in a StackPanel that has ApplyTo=EverythingInside and a Wave: the elements farther from the change start a bit later. When the first card grows, the cards below it start moving one after the other, the farthest last."
-                           Xaml='&lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Wave=0.8, Duration=0.4s}"&gt;'
+                           Xaml='&lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Wave=1.5, Duration=0.4s}"&gt;'
                            Expectations="• The first card grows, and the cards below follow it one after the other, like a wave.&#10;• With Wave at 0, they all move at the same time.&#10;• The content of the first card never lags behind the card.">
             <StackPanel>
                 <StackPanel x:Name="WaveArea" MaxWidth="520" HorizontalAlignment="Left"
-                            anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Wave=0.8, Duration=0.4s}">
+                            anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Wave=1.5, Duration=0.4s}">
                     <Border x:Name="GrowingCard" Style="{StaticResource Card}" Height="64" Padding="16,12" Margin="0,0,0,8" ClipToBounds="True">
                         <StackPanel>
                             <TextBlock Text="Release notes" FontWeight="SemiBold" />
@@ -141,9 +141,9 @@
                         <ColumnDefinition Width="60" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Wave" Style="{StaticResource SliderLabel}" />
-                    <Slider x:Name="WaveSlider" Grid.Column="1" Minimum="0" Maximum="2" Value="0.8" SmallChange="0.1" LargeChange="0.1"
+                    <Slider x:Name="WaveSlider" Grid.Column="1" Minimum="0" Maximum="2" Value="1.5" SmallChange="0.1" LargeChange="0.1"
                             ValueChanged="WaveSlider_ValueChanged" />
-                    <TextBlock x:Name="WaveText" Grid.Column="2" Text="0.8" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock x:Name="WaveText" Grid.Column="2" Text="1.5" VerticalAlignment="Center" Margin="12,0,0,0" />
                 </Grid>
             </StackPanel>
         </controls:DemoCard>

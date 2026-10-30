@@ -48,8 +48,8 @@
 
         <!-- 1. The copy -->
         <controls:DemoCard Title="A small Showcase"
-                           Description="Its window, with the names and the values of its XAML. Wait for the menu, or open it with its button on a small screen. Then open the samples: Buttons loads at once, and Data grid takes 2.5 s. On a sample, click View source."
-                           Expectations="• The window opens almost empty. The background fades in, the dots and the Welcome title zoom in, and the title bounces a little.&#10;• The line under the title zooms in and makes the title taller. Then the card zooms in below it, and pushes the title up.&#10;• The two tabs at the top right drop in, 0.3 s apart.&#10;• After 4.5 s, the menu slides in from the left, and the welcome page moves aside, a little slower than the menu.&#10;• The logo, the search box, the items of the menu and the tabs are pushed a little by a quick mouse, and spring back.&#10;• Buttons opens at once, without the loading popup. Data grid shows the popup after 1 s: it zooms in, goes a little past its size and comes back. It goes away when the sample is there.&#10;• On a sample, View source slides the pane up from the bottom of the window, at full opacity, and the page shrinks above it. × slides it back down, and the page grows back. Dragging the line between them doesn't animate.&#10;• Phone size (on a phone, the copy is always that size): the window narrows, the menu goes away, and its button fades in at the top left. The button slides the menu in over the page, faster than the first time. Clicking the page or an item of the menu closes it.&#10;• Turn Phone size off: the window widens, and the menu slides in again and pushes the page aside.&#10;• Phone size before the menu has come: the menu never comes by itself, and its button fades in instead.&#10;• Open it again plays everything from the start. With Slow motion, the samples also take four times longer to load.">
+                           Description="Its window, with the names and the values of its XAML. Wait for the menu, or open it with its button on a small screen. Then open the samples: each page shows at once. Buttons loads at once, and the rows of Data grid take 2.5 s. On a sample, click View source."
+                           Expectations="• The window opens almost empty. The background fades in, the dots and the Welcome title zoom in, and the title bounces a little.&#10;• The line under the title zooms in and makes the title taller. Then the card zooms in below it, and pushes the title up.&#10;• The two tabs at the top right drop in, 0.3 s apart.&#10;• After 4.5 s, the menu slides in from the left, and the welcome page moves aside, a little slower than the menu.&#10;• The logo, the search box, the items of the menu and the tabs are pushed a little by a quick mouse, and spring back.&#10;• Each page you open slides up a little and fades in at once, while the page it replaces fades out.&#10;• Buttons has no loading popup. On Data grid, the popup zooms in over the page after 1 s, goes a little past its size and comes back. When it goes away, the rows fade in.&#10;• On a sample, View source slides the pane up from the bottom of the window, at full opacity, and the page shrinks above it. × slides it back down, and the page grows back. Dragging the line between them doesn't animate.&#10;• Phone size (on a phone, the copy is always that size): the window narrows, the menu slides out to the left, and its button fades in at the top left. The button slides the menu in over the page, faster than the first time. Clicking the page or an item of the menu slides it out again.&#10;• Turn Phone size off: the window widens, and the menu slides in again and pushes the page aside.&#10;• Phone size before the menu has come: the menu never comes by itself, and its button fades in instead.&#10;• Open it again plays everything from the start. With Slow motion, the samples also take four times longer to load.">
             <StackPanel>
                 <Border x:Name="ShowcaseHost" />
                 <WrapPanel Margin="0,12,0,0">
@@ -153,10 +153,10 @@
             <StackPanel>
                 <TextBlock Text="On a small screen, the menu is a drawer" Style="{StaticResource HeadingText}" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,6,0,0"
-                           Text="When the window is narrower than 768 px, the menu hides behind a button, which fades in, and opens over the page. There, the code gives the menu a quicker effect, without OnPageOpen=PushOthers: if the window is small when the Showcase opens, the menu stops waiting for its page, and stays hidden." />
+                           Text="When the window is narrower than 768 px, the menu hides behind a button, which fades in, and opens over the page. There, the code gives the menu a quicker effect, without OnPageOpen=PushOthers: if the window is small when the Showcase opens, the menu stops waiting for its page, and stays hidden. In this copy, the menu also slides back out to the left when it closes, a little faster than it came (Disappear). The Showcase doesn't do that yet." />
                 <Border Style="{StaticResource CodeBlock}">
                     <TextBlock Style="{StaticResource CodeText}"
-                               Text='&lt;anim:Slide x:Key="MenuAnimation_OnAppear_Faster" From="Left" Distance="50%"&#10;            Duration="0.5s" OthersDuration="0.75s" Easing="EaseOut" /&gt;&#10;&#10;&lt;Border x:Name="ButtonToHideOrShowMenu" Visibility="Collapsed"&#10;        anim:Animate.Appear="{anim:Fade StartAfter=0.1s, Duration=0.5s, Easing=EaseInOut}"&gt;&#10;&#10;// On small screens&#10;Animate.SetAppear(MenuContainer, (Transition)this.Resources["MenuAnimation_OnAppear_Faster"]);' />
+                               Text='&lt;anim:Slide x:Key="MenuAnimation_OnAppear_Faster" From="Left" Distance="50%"&#10;            Duration="0.5s" OthersDuration="0.75s" Easing="EaseOut" /&gt;&#10;&#10;&lt;!-- Not in the Showcase yet --&gt;&#10;&lt;anim:Slide x:Key="MenuAnimation_OnDisappear" To="Left" Distance="50%"&#10;            Duration="0.4s" OthersDuration="0.6s" Easing="EaseIn" /&gt;&#10;&lt;Border x:Name="MenuContainer" anim:Animate.Disappear="{StaticResource MenuAnimation_OnDisappear}"&gt;&#10;&#10;&lt;Border x:Name="ButtonToHideOrShowMenu" Visibility="Collapsed"&#10;        anim:Animate.Appear="{anim:Fade StartAfter=0.1s, Duration=0.5s, Easing=EaseInOut}"&gt;&#10;&#10;// On small screens&#10;Animate.SetAppear(MenuContainer, (Transition)this.Resources["MenuAnimation_OnAppear_Faster"]);' />
                 </Border>
                 <WrapPanel Style="{StaticResource ChapterLinks}">
                     <Button Content="Chapter 13: From code" Tag="13" Style="{StaticResource LinkButton}" Click="Chapter_Click" />
@@ -174,9 +174,32 @@
                     <TextBlock Style="{StaticResource CodeText}"
                                Text='ShowLoadingPopup(itemsControl, new Zoom { From = 0.5, Easing = Easings.Overshoot, Bounciness = 0.3,&#10;                                          StartAfter = AnimationTime.FromSeconds(1) });' />
                 </Border>
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,12,0,0"
+                           Text="In the Showcase, the page waits for its sample. This copy shows the page at once, with the popup over it, and the rows of Data grid fade in when they are loaded. They have a fixed space, so that nothing moves when they come." />
+                <Border Style="{StaticResource CodeBlock}">
+                    <TextBlock Style="{StaticResource CodeText}"
+                               Text='&lt;Grid x:Name="Orders" Visibility="Collapsed" anim:Animate.Appear="Fade"&gt;&#10;&#10;// Opening the page&#10;page.Visibility = Visibility.Visible;&#10;LoadingPopup.Visibility = Visibility.Visible;&#10;await LoadOrdersAsync();&#10;LoadingPopup.Visibility = Visibility.Collapsed;&#10;Orders.Visibility = Visibility.Visible;' />
+                </Border>
                 <WrapPanel Style="{StaticResource ChapterLinks}">
                     <Button Content="Chapter 4: Page intros" Tag="4" Style="{StaticResource LinkButton}" Click="Chapter_Click" />
                     <Button Content="Chapter 13: From code" Tag="13" Style="{StaticResource LinkButton}" Click="Chapter_Click" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 9. Page transitions -->
+        <Border Style="{StaticResource Part}">
+            <StackPanel>
+                <TextBlock Text="The pages have a transition" Style="{StaticResource HeadingText}" />
+                <TextBlock Style="{StaticResource BodyText}" Margin="0,6,0,0"
+                           Text="This one is not in the Showcase yet. Each page has an Appear and a Disappear, set once in a style. The pages are in the same cell of a Grid: when the code switches them, the new page slides up a little and fades in, while the old one fades out. With OnPageOpen=Skip, the welcome page is just there when the window opens, and its own intro plays." />
+                <Border Style="{StaticResource CodeBlock}">
+                    <TextBlock Style="{StaticResource CodeText}"
+                               Text='&lt;anim:Slide x:Key="PageAnimation_OnAppear" From="Bottom" Distance="Short"&#10;            Duration="0.4s" Easing="EaseOut" OnPageOpen="Skip" /&gt;&#10;&lt;anim:Fade x:Key="PageAnimation_OnDisappear" Duration="0.2s" /&gt;&#10;&#10;&lt;Style x:Key="SamplePage" TargetType="StackPanel"&gt;&#10;    &lt;Setter Property="anim:Animate.Appear" Value="{StaticResource PageAnimation_OnAppear}" /&gt;&#10;    &lt;Setter Property="anim:Animate.Disappear" Value="{StaticResource PageAnimation_OnDisappear}" /&gt;&#10;&lt;/Style&gt;&#10;&#10;// Opening a page&#10;_page.Visibility = Visibility.Collapsed;&#10;page.Visibility = Visibility.Visible;' />
+                </Border>
+                <WrapPanel Style="{StaticResource ChapterLinks}">
+                    <Button Content="Chapter 9: Pick an effect" Tag="9" Style="{StaticResource LinkButton}" Click="Chapter_Click" />
+                    <Button Content="Chapter 4: Page intros" Tag="4" Style="{StaticResource LinkButton}" Click="Chapter_Click" />
                 </WrapPanel>
             </StackPanel>
         </Border>
@@ -189,7 +212,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• To see how it's put together, slow it down. The Showcase keeps two lines for that in its MainPage, commented out: AnimationSettings.Current.Speed = 0.1 makes everything ten times slower, and AnimationSettings.Current.LogForDebugging = true writes what animates, and why, in the browser console." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• The copy above is simpler than the Showcase: its samples are pretend, and it has no themes, store badges or search." />
+                           Text="• The copy above is simpler than the Showcase: its samples are pretend, and it has no themes, store badges or search. It also tries three ideas that the Showcase doesn't have yet: the page shows at once under the loading popup, the menu slides out on small screens, and the pages have a transition." />
             </StackPanel>
         </Border>
 

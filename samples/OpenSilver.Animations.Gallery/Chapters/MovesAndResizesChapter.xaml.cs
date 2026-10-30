@@ -19,7 +19,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         // The splitter and the smallest width of the pane next to the profile.
         private const double ProfileGap = 40;
 
-        private static readonly int[] BadgeCounts = { 3, 12, 128 };
+        private static readonly int[] BadgeCounts = { 3, 128, 12345 };
 
         private int _badgeIndex;
         private bool _saving;
@@ -39,8 +39,6 @@ namespace OpenSilver.Animations.Gallery.Chapters
             _saving = true;
             SaveButton.Content = "Saving...";
             await Task.Delay(1500);
-            SaveButton.Content = "Saved";
-            await Task.Delay(1200);
             SaveButton.Content = "Save";
             _saving = false;
         }

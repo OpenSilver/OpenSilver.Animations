@@ -247,7 +247,7 @@
         <controls:DemoCard x:Name="CarveOutDemo" Title="Leaving a live chart out"
                            Description="This dashboard has ApplyTo=EverythingInside, but its chart updates often and should not glide. MoveAndResize=None on the chart leaves it, and everything inside it, out of the area."
                            Xaml='&lt;Border anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;&#10;    &lt;!-- The numbers animate --&gt;&#10;    &lt;Grid x:Name="Chart" anim:Animate.MoveAndResize="None"&gt;&#10;        &lt;!-- The bars snap --&gt;&#10;    &lt;/Grid&gt;&#10;&lt;/Border&gt;'
-                           Expectations="• With the chart left out, Refresh makes the number cards resize smoothly, and the bars jump to their new heights.&#10;• Turn the switch off and refresh again: now the bars glide too.">
+                           Expectations="• With the chart left out, Refresh makes the number cards resize smoothly as their numbers get much longer or shorter, the cards next to them slide along, and the bars jump to their new heights.&#10;• Turn the switch off and refresh again: now the bars glide too.">
             <StackPanel>
                 <Border x:Name="Dashboard" Style="{StaticResource Card}" Padding="{Responsive Mobile=12, Tablet=20}" anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}">
                     <StackPanel>
@@ -267,7 +267,7 @@
                             <Border Background="{StaticResource StageBrush}" CornerRadius="10" Padding="14,10" Margin="0,0,10,10">
                                 <StackPanel>
                                     <TextBlock Text="Conversion" Style="{StaticResource CaptionText}" />
-                                    <TextBlock x:Name="ConversionText" Text="7%" FontSize="22" FontWeight="Bold" />
+                                    <TextBlock x:Name="ConversionText" Text="7.1%" FontSize="22" FontWeight="Bold" />
                                 </StackPanel>
                             </Border>
                         </WrapPanel>

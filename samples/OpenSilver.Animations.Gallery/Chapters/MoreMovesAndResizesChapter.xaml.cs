@@ -18,7 +18,18 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private static readonly Brush SelectedTabBrush = new SolidColorBrush(Color.FromArgb(255, 0x1C, 0x1E, 0x2B));
         private static readonly Brush TabBrush = new SolidColorBrush(Color.FromArgb(255, 0x54, 0x59, 0x70));
 
+        // A number card is as wide as its caption until the number gets longer, so the numbers
+        // change length a lot.
+        private static readonly (int Visitors, int SignUps)[] Stats =
+        {
+            (1204, 86),
+            (1284530, 24718),
+            (37, 9),
+            (98760, 12345),
+        };
+
         private readonly Random _random = new Random(7);
+        private int _statsIndex;
         private bool _oneColumn;
         private bool _sidebarCollapsed;
 
@@ -153,8 +164,9 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
-            int visitors = _random.Next(2, 40) * _random.Next(10, 1000);
-            int signUps = _random.Next(5, 2000);
+            _statsIndex = (_statsIndex + 1) % Stats.Length;
+            int visitors = Stats[_statsIndex].Visitors;
+            int signUps = Stats[_statsIndex].SignUps;
             VisitorsText.Text = visitors.ToString("N0", CultureInfo.InvariantCulture);
             SignUpsText.Text = signUps.ToString("N0", CultureInfo.InvariantCulture);
             ConversionText.Text = Math.Round(100.0 * signUps / Math.Max(1, visitors), 1).ToString(CultureInfo.InvariantCulture) + "%";

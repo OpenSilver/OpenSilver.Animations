@@ -8,9 +8,11 @@ using System.Windows.Media;
 namespace OpenSilver.Animations.Gallery.Chapters
 {
     /// <summary>
-    /// A small copy of the window of the OpenSilver Showcase, for chapter 10. Its animations and
-    /// the code that drives them are the Showcase's: the menu, its button on small screens, the
-    /// welcome page, the loading popup and the source code pane.
+    /// A small copy of the window of the OpenSilver Showcase, for chapter 10. Most of its animations
+    /// and the code that drives them are the Showcase's: the menu, its button on small screens, the
+    /// welcome page, the loading popup and the source code pane. Three ideas are not in the Showcase
+    /// yet: the page shows at once under the loading popup, the menu slides out on small screens,
+    /// and the pages have a transition.
     /// </summary>
     public partial class MiniShowcase : UserControl
     {
@@ -31,7 +33,6 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private State _state;
         private FrameworkElement _page;
-        private FrameworkElement _loadingPage;
         private int _navigation;
 
         public MiniShowcase()
@@ -106,29 +107,30 @@ namespace OpenSilver.Animations.Gallery.Chapters
 
         private void ButtonsItem_Click(object sender, RoutedEventArgs e) => NavigateToPage(ButtonsPage, QuickLoadingSeconds);
 
-        private void DataGridItem_Click(object sender, RoutedEventArgs e) => NavigateToPage(DataGridPage, SlowLoadingSeconds);
+        private void DataGridItem_Click(object sender, RoutedEventArgs e) => NavigateToPage(DataGridPage, SlowLoadingSeconds, Orders);
 
-        private async void NavigateToPage(FrameworkElement page, double loadingSeconds)
+        // The page shows at once, and its data, if any, when it's loaded.
+        private async void NavigateToPage(FrameworkElement page, double loadingSeconds, UIElement data = null)
         {
             if (_state == State.SmallScreenWithMenu)
             {
                 GoToState(State.SmallScreenWithoutMenu);
             }
-            if (page == (_loadingPage ?? _page))
+            if (page == _page)
             {
                 return;
             }
 
             int navigation = ++_navigation;
             SelectMenuItem(page);
-            if (page == _page)
+            if (data != null)
             {
-                _loadingPage = null;
-                LoadingPopup.Visibility = Visibility.Collapsed;
-                return;
+                data.Visibility = Visibility.Collapsed;
             }
-
-            _loadingPage = page;
+            _page.Visibility = Visibility.Collapsed;
+            page.Visibility = Visibility.Visible;
+            _page = page;
+            PageScrollViewer.ScrollToVerticalOffset(0);
             LoadingPopup.Visibility = Visibility.Visible;
 
             // The loading takes longer in slow motion too, so that it still compares with the 1 s
@@ -140,11 +142,10 @@ namespace OpenSilver.Animations.Gallery.Chapters
             }
 
             LoadingPopup.Visibility = Visibility.Collapsed;
-            _page.Visibility = Visibility.Collapsed;
-            page.Visibility = Visibility.Visible;
-            _page = page;
-            _loadingPage = null;
-            PageScrollViewer.ScrollToVerticalOffset(0);
+            if (data != null)
+            {
+                data.Visibility = Visibility.Visible;
+            }
         }
 
         private void SelectMenuItem(FrameworkElement page)

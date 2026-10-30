@@ -10,6 +10,11 @@
         <anim:Slide x:Key="MenuAnimation_OnAppear_Default" From="Left" Distance="50%" StartAfter="4.5s" Duration="1s" OthersDuration="1.5s" Easing="EaseOut" OnPageOpen="PushOthers" />
         <anim:Slide x:Key="MenuAnimation_OnAppear_Faster" From="Left" Distance="50%" Duration="0.5s" OthersDuration="0.75s" Easing="EaseOut" />
 
+        <!-- Not in the Showcase yet: the menu slides out on small screens, and the pages have a transition -->
+        <anim:Slide x:Key="MenuAnimation_OnDisappear" To="Left" Distance="50%" Duration="0.4s" OthersDuration="0.6s" Easing="EaseIn" />
+        <anim:Slide x:Key="PageAnimation_OnAppear" From="Bottom" Distance="Short" Duration="0.4s" Easing="EaseOut" OnPageOpen="Skip" />
+        <anim:Fade x:Key="PageAnimation_OnDisappear" Duration="0.2s" />
+
         <Style x:Key="MenuItem" TargetType="Button" BasedOn="{StaticResource ChapterButton}">
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="FontSize" Value="12" />
@@ -42,6 +47,12 @@
         <Style x:Key="SamplePage" TargetType="StackPanel">
             <Setter Property="Margin" Value="20,40,20,16" />
             <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="anim:Animate.Appear" Value="{StaticResource PageAnimation_OnAppear}" />
+            <Setter Property="anim:Animate.Disappear" Value="{StaticResource PageAnimation_OnDisappear}" />
+        </Style>
+        <Style x:Key="OrderText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="12,6" />
         </Style>
         <Style x:Key="SampleTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="20" />
@@ -107,7 +118,8 @@
 
                     <!-- Menu -->
                     <Border x:Name="MenuContainer" Canvas.ZIndex="3" HorizontalAlignment="Left"
-                            anim:Animate.Appear="{StaticResource MenuAnimation_OnAppear_Default}">
+                            anim:Animate.Appear="{StaticResource MenuAnimation_OnAppear_Default}"
+                            anim:Animate.Disappear="{StaticResource MenuAnimation_OnDisappear}">
                         <Border Width="150" Background="White">
                             <Border.Effect>
                                 <DropShadowEffect ShadowDepth="2" Color="Black" BlurRadius="12" Opacity="0.15" />
@@ -153,7 +165,8 @@
                         <Grid>
                             <Grid x:Name="PageContainer">
                                 <!-- The welcome page -->
-                                <Grid x:Name="WelcomePage">
+                                <Grid x:Name="WelcomePage"
+                                      anim:Animate.Appear="{StaticResource PageAnimation_OnAppear}" anim:Animate.Disappear="{StaticResource PageAnimation_OnDisappear}">
                                     <Grid x:Name="Particles" IsHitTestVisible="False"
                                           anim:Animate.Appear="{anim:Zoom From=0.5, StartAfter=0.5s, Duration=1s, Easing=EaseOut}">
                                         <Ellipse Style="{StaticResource Particle}" Width="10" Height="10" Margin="30,60,0,0" />
@@ -218,32 +231,47 @@
                                 <StackPanel x:Name="DataGridPage" Style="{StaticResource SamplePage}">
                                     <TextBlock Text="Data grid" Style="{StaticResource SampleTitle}" />
                                     <TextBlock Text="A data grid shows a list of items in rows and columns." Style="{StaticResource CaptionText}" Margin="0,2,0,0" />
+                                    <!-- The rows are in a grid of their own, which shows when they are loaded.
+                                         The last column has a fixed width, so that it lines up in both grids. -->
                                     <Border Style="{StaticResource SampleBox}" Padding="0">
                                         <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="92" />
                                             </Grid.RowDefinitions>
-                                            <Border Grid.ColumnSpan="3" Background="{StaticResource StageBrush}" CornerRadius="10,10,0,0" />
-                                            <TextBlock Text="Order" FontSize="12" FontWeight="SemiBold" Margin="12,8" />
-                                            <TextBlock Grid.Column="1" Text="Customer" FontSize="12" FontWeight="SemiBold" Margin="12,8" />
-                                            <TextBlock Grid.Column="2" Text="Total" FontSize="12" FontWeight="SemiBold" Margin="12,8" />
-                                            <TextBlock Grid.Row="1" Text="#1024" FontSize="12" Margin="12,6" />
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Alex Martin" FontSize="12" Margin="12,6" />
-                                            <TextBlock Grid.Row="1" Grid.Column="2" Text="$64.00" FontSize="12" Margin="12,6" />
-                                            <TextBlock Grid.Row="2" Text="#1025" FontSize="12" Margin="12,6" />
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Sam Lee" FontSize="12" Margin="12,6" />
-                                            <TextBlock Grid.Row="2" Grid.Column="2" Text="$18.50" FontSize="12" Margin="12,6" />
-                                            <TextBlock Grid.Row="3" Text="#1026" FontSize="12" Margin="12,6,12,10" />
-                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="Kim Novak" FontSize="12" Margin="12,6,12,10" />
-                                            <TextBlock Grid.Row="3" Grid.Column="2" Text="$120.00" FontSize="12" Margin="12,6,12,10" />
+                                            <Border Background="{StaticResource StageBrush}" CornerRadius="10,10,0,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="76" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Order" Style="{StaticResource OrderText}" FontWeight="SemiBold" Margin="12,8" />
+                                                    <TextBlock Grid.Column="1" Text="Customer" Style="{StaticResource OrderText}" FontWeight="SemiBold" Margin="12,8" />
+                                                    <TextBlock Grid.Column="2" Text="Total" Style="{StaticResource OrderText}" FontWeight="SemiBold" Margin="12,8" />
+                                                </Grid>
+                                            </Border>
+                                            <Grid x:Name="Orders" Grid.Row="1" Visibility="Collapsed" VerticalAlignment="Top" anim:Animate.Appear="Fade">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="76" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="#1024" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Column="1" Text="Alex Martin" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Column="2" Text="$64.00" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Row="1" Text="#1025" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Sam Lee" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Row="1" Grid.Column="2" Text="$18.50" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Row="2" Text="#1026" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Row="2" Grid.Column="1" Text="Kim Novak" Style="{StaticResource OrderText}" />
+                                                <TextBlock Grid.Row="2" Grid.Column="2" Text="$120.00" Style="{StaticResource OrderText}" />
+                                            </Grid>
                                         </Grid>
                                     </Border>
                                     <Button Content="View source" Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Margin="-8,8,0,0" Click="ViewSource_Click"
