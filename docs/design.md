@@ -285,6 +285,7 @@ Animate.Skip(() => LoadInitialData());
   - `Animate.Changes(Action, duration?)` animates every change made in the action, even without any property set. `Animate.Skip(Action)` makes those changes instant.
     - Both apply to the layout pass that contains the changes made in the action.
     - The library calls `UpdateLayout()` right after the action when it isn't already inside a layout pass.
+  - `Animate.PlayHover(element)` and `Animate.PlayPress(element)` play the element's Hover or Press once, as if the mouse came over it and left, or pressed and released it, a moment later. They are for previews, like in the XAML.io designer, where the mouse is on the settings, not on the element.
 - **Reduced motion.** When the user prefers reduced motion and `RespectReducedMotion` is on:
   - moves and resizes snap;
   - appear and disappear effects become a 0.15 s fade;

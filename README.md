@@ -685,6 +685,13 @@ Animate.Changes(() => ChangesBox.Width = 360, AnimationTime.FromSeconds(0.6));
 Animate.Skip(() => SkipPanel.Width = 400);
 ```
 
+Two others play the Hover or the Press of an element once, as if the mouse came over it and left, or pressed it and released it. They are meant for previews, like in a designer:
+
+```csharp
+Animate.PlayHover(BuyButton);
+Animate.PlayPress(BuyButton);
+```
+
 ## Settings, reduced motion and debugging
 
 The settings apply to the whole app. Declare them in `App.xaml`, or change them in code at any time:

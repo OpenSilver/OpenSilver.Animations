@@ -63,6 +63,31 @@ namespace OpenSilver.Animations.Engine
             Send(element);
         }
 
+        public static void Play(UIElement element, bool press)
+        {
+            if (DesignerProperties.IsInDesignTool)
+            {
+                return;
+            }
+
+            Reaction reaction = press ? Animate.GetPress(element) : Animate.GetHover(element);
+            if (reaction == null || reaction.IsNone)
+            {
+                return;
+            }
+
+            string id = Interop.GetDiv(element).Uid;
+            if (string.IsNullOrEmpty(id))
+            {
+                return;
+            }
+
+            // The element may not have been loaded since its reaction was set, or it was set in a designer.
+            EnsureStarted();
+            Send(element);
+            BrowserBridge.PlayReaction(id, press);
+        }
+
         /// <summary>
         /// The application set other settings.
         /// </summary>

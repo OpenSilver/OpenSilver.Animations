@@ -188,6 +188,7 @@ AnimationSettings.Logged += (s, e) => Debug.WriteLine(e.Message);
 - `Animate.MagicMoveByName` (attached, `bool`) starts the engine and turns on `AnyMagic` too. On an element that isn't a `ContentControl`, it writes a warning (`CheckMagicMoveByName`). A `Frame` is a `ContentControl`.
 - `Animate.Changes(action, duration?)` first runs `UpdateLayout()`, so that pending layout is attributed to earlier changes. Then it runs the action and `UpdateLayout()` again, inside a scope where every change animates, even without settings, with the Smooth curve.
 - `Animate.Skip(action)` does the same with a scope where nothing animates.
+- `Animate.PlayHover(element)` and `Animate.PlayPress(element)` (`Reactions.Play`) send the element's reactions again, in case it wasn't loaded since they were set, then call the script's `playReaction`. It plays the level up, then back 200 ms after it arrived, unless the pointer is really over the element or pressing it by then. A Nudge plays with a strength of 0.7, as if the pointer came in from the upper left (`playNudge`, which the pointer events use too).
 - **Nested scopes:** the inner one applies until it exits, then the outer one applies again.
 - `AnimationSettings`:
   - `Current` is read lazily. The first time, it comes from the application resource with the key `"AnimationSettings"`, if there is one (the gallery declares `<anim:AnimationSettings x:Key="AnimationSettings" />` in App.xaml).

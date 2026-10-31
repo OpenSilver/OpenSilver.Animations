@@ -2154,15 +2154,20 @@
     // its center, from where the pointer comes in, and springs it back. The faster the pointer,
     // the more it moves.
     function nudge(element, r, e) {
-        const spec = r.hover;
         if ((r.nudge && r.nudge.playState === 'running') || e.buttons) return;
         const v = pointerVelocity(e);
         const speed = v ? Math.hypot(v.x, v.y) : 0;
         if (speed < 0.05) return;
 
-        const k = Math.min(speed, 1), dirX = v.x / speed, dirY = v.y / speed;
         const rect = element.getBoundingClientRect();
-        let ex = e.clientX - (rect.left + rect.right) / 2, ey = e.clientY - (rect.top + rect.bottom) / 2;
+        playNudge(element, r, Math.min(speed, 1), v.x / speed, v.y / speed,
+            e.clientX - (rect.left + rect.right) / 2, e.clientY - (rect.top + rect.bottom) / 2);
+    }
+
+    // k is how strong, from 0 to 1, dir is where the pointer goes, and e is where it comes in,
+    // from the center of the element.
+    function playNudge(element, r, k, dirX, dirY, ex, ey) {
+        const spec = r.hover;
         const length = Math.hypot(ex, ey);
         ex = length > 0.001 ? ex / length : 0;
         ey = length > 0.001 ? ey / length : 0;
@@ -2243,6 +2248,29 @@
             if (r) setLevel(element, r, PRESS, 0);
         }
         pressed.clear();
+    }
+
+    // Plays the hover or the press once, as if the pointer came and left, or pressed and released,
+    // a moment later. A Nudge plays as if the pointer came in from the upper left.
+    function playReaction(id, press) {
+        const element = document.getElementById(id);
+        const r = element ? reactions.get(element) : null;
+        const slot = press ? PRESS : HOVER;
+        const spec = r ? (press ? r.press : r.hover) : null;
+        if (!spec || !r.enabled || !reactionsAllowed()) return;
+
+        if (spec.k === KIND_NUDGE) {
+            if (r.nudge && r.nudge.playState === 'running') return;
+            const rect = element.getBoundingClientRect();
+            playNudge(element, r, 0.7, 0.8, 0.6, -rect.width / 2, -rect.height / 4);
+            return;
+        }
+
+        setLevel(element, r, slot, 1);
+        setTimeout(() => {
+            const held = press ? pressed.has(element) : r.hovered || lingering.has(element);
+            if (!held && reactions.get(element) === r) setLevel(element, r, slot, 0);
+        }, reactionMs(spec) + 200);
     }
 
     // Sets what the element does when the pointer is over it, and when it is pressed. Called
@@ -2378,7 +2406,7 @@
     }
 
     globalThis.osAnimations = Object.freeze({
-        init, run, hold, ghost, ghostInView, capture, react, reactSettings, textHold, textStop,
+        init, run, hold, ghost, ghostInView, capture, react, reactSettings, playReaction, textHold, textStop,
         slowMotion: command('slowMotion'),
         showWhatAnimates: command('showWhatAnimates'),
         logForDebugging: command('logForDebugging'),

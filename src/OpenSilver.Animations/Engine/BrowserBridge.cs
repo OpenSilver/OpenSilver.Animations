@@ -183,6 +183,17 @@ namespace OpenSilver.Animations.Engine
             Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
         }
 
+        /// <summary>
+        /// Plays the hover or the press of an element once.
+        /// </summary>
+        public static void PlayReaction(string id, bool press)
+        {
+            var sb = new StringBuilder("globalThis.osAnimations.playReaction(");
+            AppendString(sb, id);
+            sb.Append(',').Append(press ? '1' : '0');
+            Interop.ExecuteJavaScriptVoidAsync(sb.Append(')').ToString());
+        }
+
         public static void SetReactionSettings(bool enabled, double speed, double defaultMs, bool respectReducedMotion, bool simulateReducedMotion)
         {
             var sb = new StringBuilder("globalThis.osAnimations.reactSettings(");

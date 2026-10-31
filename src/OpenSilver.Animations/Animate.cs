@@ -653,6 +653,46 @@ namespace OpenSilver.Animations
             Run(changes, skip: true, null);
         }
 
+        /// <summary>
+        /// Plays the Hover of the element once, as if the mouse came over it and left a moment
+        /// later: <see cref="Grow"/>, <see cref="Lift"/> and <see cref="Shrink"/> go and come back,
+        /// and <see cref="Nudge"/> plays as when the mouse comes in. It's meant for previews, like
+        /// in a designer. Nothing happens if the element has no Hover, is disabled or isn't shown,
+        /// or if animations are off.
+        /// </summary>
+        /// <param name="element">The element whose Hover plays.</param>
+        /// <example>
+        /// <code>Animate.PlayHover(MyButton);</code>
+        /// </example>
+        public static void PlayHover(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            Reactions.Play(element, press: false);
+        }
+
+        /// <summary>
+        /// Plays the Press of the element once, as if it were pressed and released a moment
+        /// later. It's meant for previews, like in a designer. Nothing happens if the element has
+        /// no Press, is disabled or isn't shown, or if animations are off.
+        /// </summary>
+        /// <param name="element">The element whose Press plays.</param>
+        /// <example>
+        /// <code>Animate.PlayPress(MyButton);</code>
+        /// </example>
+        public static void PlayPress(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            Reactions.Play(element, press: true);
+        }
+
         private static void Run(Action changes, bool skip, AnimationTime? duration)
         {
             LayoutAnimator.EnsureStarted();
