@@ -49,7 +49,7 @@ dotnet build OpenSilver.Animations.slnx -c Release
 To make the package:
 
 ```bat
-build\Build_NuGet.bat 0.1.0-preview
+build\Build_NuGet.bat 0.2.0-preview
 ```
 
 The arguments are the OpenSilver.Animations version and the OpenSilver version, which defaults to the one in `Directory.Build.props`. The package goes to `build\output` (git-ignored). For a quick check without msbuild, run `dotnet pack src\OpenSilver.Animations\OpenSilver.Animations.csproj -c Release -o artifacts\test-pack`, then delete `artifacts`.
@@ -88,7 +88,7 @@ dotnet run --project src\OpenSilver.Showcase.Browser\OpenSilver.Showcase.Browser
 **CI.** `.github/workflows/build-package.yml` is started by hand (`workflow_dispatch`).
 
 - It takes an optional `opensilver-version` input, a published OpenSilver that includes `InternalHooks`. Without it, the package uses the version of `Directory.Build.props`.
-- It builds the version `0.1.0-preview-<date>-<sha>` with `Build_NuGet.bat`, and pushes it to the OpenSilver MyGet feed with the `MYGET_TOKEN` secret.
+- It builds the version `<stable-version>-preview-<date>-<sha>` with `Build_NuGet.bat`, and pushes it to the OpenSilver MyGet feed with the `MYGET_TOKEN` secret. `stable-version` is at the top of the workflow (`0.2.0`); when it changes, change the `<Version>` of `src/OpenSilver.Animations/OpenSilver.Animations.csproj` with it.
 - It only runs in the `OpenSilver` organization.
 
 ## Run the gallery

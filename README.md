@@ -658,7 +658,7 @@ You need an OpenSilver app. If you don't have one, [About OpenSilver](#about-ope
 2. **The package.** Preview builds of `OpenSilver.Animations` are published on the same feed. The package isn't on NuGet.org yet. Add it to the project that holds your XAML:
 
    ```xml
-   <PackageReference Include="OpenSilver.Animations" Version="0.1.0-preview-*" />
+   <PackageReference Include="OpenSilver.Animations" Version="0.2.0-preview-*" />
    ```
 
    To use a build of your own, see [Building from source](#building-from-source).
