@@ -792,9 +792,41 @@ namespace OpenSilver.Animations.Engine
                 BrowserBridge.Run(batch.ToJson());
             }
 
+            // Inside an element that is not held, those with an effect of their own appear with it,
+            // and would show before their effects start.
+            if (AnyEffects && !_held.Contains(element))
+            {
+                HoldEffectsInside(element);
+            }
+
             if (AnyMagic)
             {
                 HoldMagicInside(element);
+            }
+        }
+
+        /// <summary>
+        /// The elements with an Appear, or that are items of a list with an ItemsAppear, inside a
+        /// container that is shown again stay hidden until their effects start, like the
+        /// container's own one. Those inside them are hidden with them.
+        /// </summary>
+        private void HoldEffectsInside(UIElement container)
+        {
+            int count = VisualTreeHelper.GetChildrenCount(container);
+            for (int i = 0; i < count; i++)
+            {
+                if (VisualTreeHelper.GetChild(container, i) is UIElement child && child.Visibility == Visibility.Visible)
+                {
+                    if (GetAppearEffect(child) == null)
+                    {
+                        HoldEffectsInside(child);
+                    }
+                    else if (!_held.Contains(child) && IsAnimatable(child, out string id))
+                    {
+                        _held.Add(child);
+                        BrowserBridge.Hold(id);
+                    }
+                }
             }
         }
 
