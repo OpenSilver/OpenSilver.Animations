@@ -142,9 +142,9 @@
                             ValueChanged="BouncySettings_Changed" />
                     <TextBlock x:Name="BouncinessText" Grid.Column="2" Text="0.5" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <TextBlock Grid.Row="1" Text="Duration" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
-                    <Slider x:Name="BouncyDurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.2" Maximum="1.5" Value="0.5" SmallChange="0.1" LargeChange="0.1" Margin="0,8,0,0"
+                    <Slider x:Name="BouncyDurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.2" Maximum="1.5" Value="0.6" SmallChange="0.1" LargeChange="0.1" Margin="0,8,0,0"
                             ValueChanged="BouncySettings_Changed" />
-                    <TextBlock x:Name="BouncyDurationText" Grid.Row="1" Grid.Column="2" Text="0.5 s" VerticalAlignment="Center" Margin="12,8,0,0" />
+                    <TextBlock x:Name="BouncyDurationText" Grid.Row="1" Grid.Column="2" Text="0.6 s" VerticalAlignment="Center" Margin="12,8,0,0" />
                 </Grid>
             </StackPanel>
         </controls:DemoCard>
@@ -292,7 +292,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• The nearest setting wins. Starting from the element that changed, the library goes up and takes the first EverythingInside, or the first setting of an element that moves or changes size because of the change. Everything the change moves uses that timing. For example, in a Smooth dashboard, a card with {anim:Bouncy} bounces when its content makes it grow, and so do the cards it pushes. When something else pushes it, it moves smoothly with the rest." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• Bouncy lasts twice as long as Smooth by default (0.5 s), so that the bounce has time to settle. A bounce goes past the end, so it can make elements overlap for a moment: use it for small, playful moves." />
+                           Text="• Bouncy lasts twice as long as Smooth by default (0.6 s), so that the bounce has time to settle. A bounce goes past the end, so it can make elements overlap for a moment: use it for small, playful moves." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Popups are boundaries: a drop-down, a tooltip or a ChildWindow opened from inside an area is not part of it. Set MoveAndResize on the ChildWindow itself, like the dialog above." />
             </StackPanel>

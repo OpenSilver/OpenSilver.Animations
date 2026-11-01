@@ -52,7 +52,7 @@
         <!-- 3. AnimationSettings -->
         <controls:DemoCard x:Name="SettingsDemo" Title="Adjust everything at once: AnimationSettings"
                            Description="AnimationSettings.Current applies to every animation of the application. Declare it in the resources of App.xaml, or change it from code at any time. Move the sliders, then try."
-                           Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" /&gt;&#10;&#10;// Or from code, at any time&#10;AnimationSettings.Current.Speed = 1;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.25);&#10;AnimationSettings.Current.IsEnabled = true;'
+                           Xaml='&lt;!-- App.xaml --&gt;&#10;&lt;anim:AnimationSettings x:Key="AnimationSettings" /&gt;&#10;&#10;// Or from code, at any time&#10;AnimationSettings.Current.Speed = 1;&#10;AnimationSettings.Current.DefaultDuration = AnimationTime.FromSeconds(0.3);&#10;AnimationSettings.Current.IsEnabled = true;'
                            Expectations="• Speed 0.5 plays every animation twice as slowly, and 2 twice as fast.&#10;• The default duration is used by every MoveAndResize without a Duration, like the box below.&#10;• With animations turned off, everything jumps.&#10;• The settings changed here are reset when you leave this chapter.">
             <StackPanel x:Name="SettingsStage">
                 <Grid>
@@ -70,8 +70,8 @@
                     <Slider x:Name="SpeedSlider" Grid.Column="1" Minimum="0.25" Maximum="2" Value="1" SmallChange="0.25" LargeChange="0.25" ValueChanged="Slider_ValueChanged" />
                     <TextBlock x:Name="SpeedText" Grid.Column="2" Text="1" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <TextBlock Grid.Row="1" Text="Default duration" Style="{StaticResource SliderLabel}" Margin="0,8,0,0" />
-                    <Slider x:Name="DurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.1" Maximum="1" Value="0.25" SmallChange="0.05" LargeChange="0.05" Margin="0,8,0,0" ValueChanged="Slider_ValueChanged" />
-                    <TextBlock x:Name="DurationText" Grid.Row="1" Grid.Column="2" Text="0.25 s" VerticalAlignment="Center" Margin="12,8,0,0" />
+                    <Slider x:Name="DurationSlider" Grid.Row="1" Grid.Column="1" Minimum="0.1" Maximum="1" Value="0.3" SmallChange="0.05" LargeChange="0.05" Margin="0,8,0,0" ValueChanged="Slider_ValueChanged" />
+                    <TextBlock x:Name="DurationText" Grid.Row="1" Grid.Column="2" Text="0.3 s" VerticalAlignment="Center" Margin="12,8,0,0" />
                     <CheckBox x:Name="EnabledSwitch" Grid.Row="2" Grid.ColumnSpan="3" Content="Animations are on (IsEnabled)" Style="{StaticResource SwitchCheckBox}" IsChecked="True"
                               Margin="-8,8,0,0" HorizontalAlignment="Left" Checked="EnabledSwitch_Changed" Unchecked="EnabledSwitch_Changed" />
                 </Grid>

@@ -11,7 +11,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
 {
     public partial class FromCodeChapter : Page
     {
-        private static readonly AnimationTime DefaultDuration = AnimationTime.FromMilliseconds(250);
+        private static readonly AnimationTime DefaultDuration = AnimationTime.FromMilliseconds(300);
 
         private bool _loading = true;
         private bool _saving;

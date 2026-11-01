@@ -112,12 +112,12 @@ namespace OpenSilver.Animations.Gallery.Chapters
             Animate.SetMoveAndResize(Underline, new Bouncy
             {
                 Bounciness = bounciness,
-                Duration = AnimationTime.FromSeconds(duration),
+                Duration = duration == 0.6 ? (AnimationTime?)null : AnimationTime.FromSeconds(duration),
             });
 
             string bouncy = Snippet.Effect("Bouncy",
                 bounciness == 0.5 ? null : "Bounciness=" + Snippet.Number(bounciness),
-                duration == 0.5 ? null : "Duration=" + AnimationTime.FromSeconds(duration));
+                duration == 0.6 ? null : "Duration=" + AnimationTime.FromSeconds(duration));
             BouncyDemo.Xaml = "<Border x:Name=\"Underline\" Grid.Row=\"1\" Height=\"3\" anim:Animate.MoveAndResize=\"" + bouncy + "\" />";
         }
 

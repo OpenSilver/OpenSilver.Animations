@@ -335,7 +335,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Elements travel above the page, so that nothing cuts them off. A background, like a selection pill, travels behind the elements around it instead, so that it never covers the labels. Set Travel=Above or Travel=Behind to choose." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• The farther an element goes, the longer it takes: 0.5 s for a short trip, twice the default duration of the other animations, up to 0.9 s across the page. It starts very slowly, goes very fast in the middle, and ends very slowly, so that the eye can follow it. Set Duration and Easing to change that." />
+                           Text="• The farther an element goes, the longer it takes: 0.5 s for a short trip, up to 0.9 s across the page. It starts very slowly, goes very fast in the middle, and ends very slowly, so that the eye can follow it. Set Duration and Easing to change that." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• A text grows or shrinks as a whole, like a picture, so that its words never wrap differently on the way. Boxes, like the pill and the cards, change their width and height." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"

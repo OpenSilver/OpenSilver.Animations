@@ -147,7 +147,7 @@
                     </WrapPanel>
                 </Grid>
                 <TextBlock Style="{StaticResource CaptionText}" Margin="0,4,0,0"
-                           Text="Speed, Cursor and Blink first are for Typewriter and Backspace. Blink first is how long the cursor blinks before the letters change: 0.8 s for Typewriter and none for Backspace by default. FadeLetters lasts its Duration: 0.5 s by default." />
+                           Text="Speed, Cursor and Blink first are for Typewriter and Backspace. Blink first is how long the cursor blinks before the letters change: 0.8 s for Typewriter and none for Backspace by default. FadeLetters lasts its Duration: 0.6 s by default." />
 
                 <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,16,0,0">
                     <StackPanel>
