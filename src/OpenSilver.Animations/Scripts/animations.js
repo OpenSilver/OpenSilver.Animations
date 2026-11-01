@@ -2095,7 +2095,20 @@
         lingering.delete(element);
     }
 
+    // The elements removed from the page while they react, like a card closed while the pointer
+    // is over it, which would otherwise be kept with their content until the next react.
+    function forgetRemoved() {
+        for (const element of reacting) {
+            if (!element.isConnected) {
+                reacting.delete(element);
+                pressed.delete(element);
+                lingering.delete(element);
+            }
+        }
+    }
+
     function trackPointer(e) {
+        if (reacting.size > 0) forgetRemoved();
         if (e.pointerType === 'touch') return;
         trail.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
         if (trail.length > 8) trail.shift();
@@ -2276,13 +2289,7 @@
     // Sets what the element does when the pointer is over it, and when it is pressed. Called
     // again when the element is enabled or disabled, and each time it is shown in a page.
     function react(id, hover, press, enabled) {
-        for (const element of reacting) {
-            if (!element.isConnected) {
-                reacting.delete(element);
-                pressed.delete(element);
-                lingering.delete(element);
-            }
-        }
+        forgetRemoved();
 
         const element = document.getElementById(id);
         if (!element) return;

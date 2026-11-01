@@ -152,7 +152,9 @@ namespace OpenSilver.Animations
         }
 
         /// <summary>
-        /// Occurs when the library explains why a change animated or not.
+        /// Occurs when the library explains why a change animated or not. As it is static, a page
+        /// or a control that handles it should stop handling it (<c>-=</c>) when it goes away:
+        /// otherwise it stays in memory, and the library keeps writing the messages.
         /// </summary>
         public static event EventHandler<AnimationLoggedEventArgs> Logged;
 

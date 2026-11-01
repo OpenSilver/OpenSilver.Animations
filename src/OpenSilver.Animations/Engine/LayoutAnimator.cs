@@ -650,6 +650,13 @@ namespace OpenSilver.Animations.Engine
                     container.DataContextChanged -= OnContainerDataContextChanged;
                     container.DataContextChanged += OnContainerDataContextChanged;
                 }
+                // A container that shows another item in its place no longer shows the old one.
+                if (list.ItemOf.TryGetValue(element, out object previous) && !Equals(previous, item) &&
+                    list.Slots.TryGetValue(previous, out Slot previousSlot) && previousSlot.Container == element)
+                {
+                    list.Slots.Remove(previous);
+                }
+
                 list.ItemOf[element] = item;
                 list.Slots[item] = new Slot { Container = element, Rect = visualRect };
             }
@@ -3016,6 +3023,7 @@ namespace OpenSilver.Animations.Engine
             if (captured != null)
             {
                 bucket.Animated.RemoveAll(index => _capturedChain.Contains(_records[index].Element) || IsStrictDescendant(_records[index].Element, captured));
+                _capturedChain.Clear();
             }
 
             _animatedNow.Clear();
@@ -4072,6 +4080,8 @@ namespace OpenSilver.Animations.Engine
             _effectAppears.Clear();
             _effectTimings.Clear();
             _windowTimings.Clear();
+            _owners.Clear();
+            _ownerOf.Clear();
 
             _groupParents.Clear();
             _groupParents.Add(0);
