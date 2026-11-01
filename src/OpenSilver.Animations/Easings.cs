@@ -48,9 +48,10 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// Starts at full speed and slows down until the end: the classic ease-out, like a
-        /// <see cref="CubicEase"/> with <c>EasingMode="EaseOut"</c>.
+        /// <see cref="QuarticEase"/> with <c>EasingMode="EaseOut"</c>, a little stronger than a
+        /// <see cref="CubicEase"/>.
         /// </summary>
-        public static IEasingFunction EaseOut { get; } = new CubicBezierEasing("EaseOut", 0.33, 1, 0.68, 1);
+        public static IEasingFunction EaseOut { get; } = new CubicBezierEasing("EaseOut", 0.25, 1, 0.5, 1);
 
         /// <summary>
         /// Starts slowly and speeds up until the end: the classic ease-in, like a
@@ -69,13 +70,14 @@ namespace OpenSilver.Animations
         /// first tenth of the time, then takes the rest of the time to settle slowly into place.
         /// It suits long durations, like 0.6 to 1.2 seconds, so that the end shows.
         /// </summary>
-        public static IEasingFunction StrongEaseOut { get; } = new StrongEasing("StrongEaseOut", leaves: false);
+        public static IEasingFunction StrongEaseOut { get; } = new StrongEasing("StrongEaseOut", leaves: false, fastShare: 0.9, fastRate: 40, slowRate: 3.5);
 
         /// <summary>
-        /// A much stronger EaseIn, the mirror of StrongEaseOut: the element barely moves for most
-        /// of the time, then leaves very fast, almost 90% of the way in the last tenth of the time.
+        /// A much stronger EaseIn, like StrongEaseOut backwards but a little softer: the element
+        /// barely moves for most of the time, then leaves very fast, almost 75% of the way in the
+        /// last tenth of the time.
         /// </summary>
-        public static IEasingFunction StrongEaseIn { get; } = new StrongEasing("StrongEaseIn", leaves: true);
+        public static IEasingFunction StrongEaseIn { get; } = new StrongEasing("StrongEaseIn", leaves: true, fastShare: 0.85, fastRate: 24, slowRate: 3);
 
         /// <summary>
         /// A much stronger EaseInOut: very slow at the start and the end, and very fast in between,
@@ -318,22 +320,23 @@ namespace OpenSilver.Animations
     /// <summary>
     /// A fast and a slow exponential added together: most of the way is covered very fast, and
     /// the rest slowly, over most of the time. A single exponential can't do both: the stronger
-    /// it is, the sooner it ends. The one that leaves is its mirror.
+    /// it is, the sooner it ends. The one that leaves is the same curve backwards: fastShare of the
+    /// way is covered at fastRate, the rest at slowRate, in halvings per unit of time.
     /// </summary>
     internal sealed class StrongEasing : IEasingFunction
     {
-        private const double FastShare = 0.9;
-        private const double FastRate = 40;
-        private const double SlowRate = 3.5;
-
-        private static readonly double End = Arrive(1);
-
         private readonly bool _leaves;
+        private readonly double _fastShare, _fastRate, _slowRate;
+        private readonly double _end;
 
-        public StrongEasing(string name, bool leaves)
+        public StrongEasing(string name, bool leaves, double fastShare, double fastRate, double slowRate)
         {
             Name = name;
             _leaves = leaves;
+            _fastShare = fastShare;
+            _fastRate = fastRate;
+            _slowRate = slowRate;
+            _end = Arrive(1);
         }
 
         public string Name { get; }
@@ -341,11 +344,11 @@ namespace OpenSilver.Animations
         public double Ease(double normalizedTime)
         {
             double t = Math.Max(0, Math.Min(1, normalizedTime));
-            return _leaves ? 1 - Arrive(1 - t) / End : Arrive(t) / End;
+            return _leaves ? 1 - Arrive(1 - t) / _end : Arrive(t) / _end;
         }
 
-        private static double Arrive(double t)
-            => 1 - (FastShare * Math.Pow(2, -FastRate * t) + (1 - FastShare) * Math.Pow(2, -SlowRate * t));
+        private double Arrive(double t)
+            => 1 - (_fastShare * Math.Pow(2, -_fastRate * t) + (1 - _fastShare) * Math.Pow(2, -_slowRate * t));
 
         public override string ToString() => Name;
     }

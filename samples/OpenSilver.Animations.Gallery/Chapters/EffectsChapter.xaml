@@ -291,7 +291,7 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• Easing also has the classic curves: EaseOut, EaseIn and EaseInOut, like a CubicEase, and Overshoot, like a BackEase. Bounciness says how far Overshoot goes past the end: 0.5 by default, 1 for a lot." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• The strong curves are much more marked. StrongEaseOut covers almost all the way in the first tenth of the time, then slowly settles into place, which suits long intros of about a second. StrongEaseIn is its mirror: it barely moves, then leaves very fast. StrongEaseInOut is very slow at both ends and very fast in between, and is what Magic moves use by default." />
+                           Text="• The strong curves are much more marked. StrongEaseOut covers almost all the way in the first tenth of the time, then slowly settles into place, which suits long intros of about a second. StrongEaseIn is like it backwards, a little softer: it barely moves, then leaves very fast. StrongEaseInOut is very slow at both ends and very fast in between, and is what Magic moves use by default." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• OthersDuration is how long the elements around take to make room or to fill the space. By default, they take the Duration of the effect." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
