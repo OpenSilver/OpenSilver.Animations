@@ -3,6 +3,7 @@
           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
           xmlns:sdk="http://schemas.microsoft.com/winfx/2006/xaml/presentation/sdk"
           xmlns:controls="clr-namespace:OpenSilver.Animations.Gallery.Controls"
+          xmlns:demos="clr-namespace:OpenSilver.Animations.Gallery.Demos"
           xmlns:anim="http://opensilver.net/animations"
           Title="OpenSilver.Animations library: a guided tour">
 
@@ -41,15 +42,20 @@
                            anim:Animate.Appear="{anim:Custom OffsetY=24, Blur=12, Duration=1.1s, Easing=StrongEaseOut, StartAfter=0.4s}" />
             </StackPanel>
         </Grid>
+
+        <!-- A small app to try right away. When its card changes size, the rest of the page follows. -->
+        <demos:DeployDemo x:Name="DeployDemo" Margin="0,4,0,28"
+                          anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Blur=6, Duration=1.1s, Easing=StrongEaseOut, StartAfter=0.5s}" />
+
         <TextBlock x:Name="WelcomeIntro" Style="{StaticResource IntroText}"
-                   Text="OpenSilver.Animations makes your pages feel alive without writing a single storyboard. You say what an element does when it moves, changes size, appears or disappears, and the library takes care of the rest, including everything around it."
-                   anim:Animate.Appear="{anim:Custom OffsetY=16, Blur=4, Duration=1s, Easing=StrongEaseOut, StartAfter=0.6s}" />
+                   Text="OpenSilver.Animations makes your pages feel alive without a single storyboard: you say what an element does when it moves, changes size, appears or disappears, and the library animates it and everything around it."
+                   anim:Animate.Appear="{anim:Custom OffsetY=16, Blur=4, Duration=1s, Easing=StrongEaseOut, StartAfter=0.8s}" />
         <TextBlock x:Name="WelcomeTour" Style="{StaticResource IntroText}"
-                   Text="This tour tells the story one idea at a time. Every chapter has something to click, the XAML that makes it work, and a log, What just happened, that explains in plain words why things moved or not."
-                   anim:Animate.Appear="{anim:Custom OffsetY=16, Blur=4, Duration=1s, Easing=StrongEaseOut, StartAfter=0.7s}" />
+                   Text="Each chapter of this tour shows one idea, with something to click, the XAML behind it, and a log, What just happened, that explains in plain words why things moved or not."
+                   anim:Animate.Appear="{anim:Custom OffsetY=16, Blur=4, Duration=1s, Easing=StrongEaseOut, StartAfter=0.9s}" />
 
         <Border x:Name="OptionsCard" Style="{StaticResource Card}" Padding="24" Margin="0,12,0,0"
-                anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Duration=1.1s, Easing=StrongEaseOut, StartAfter=0.85s}">
+                anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Duration=1.1s, Easing=StrongEaseOut, StartAfter=1s}">
             <StackPanel>
                 <TextBlock Text="The options" Style="{StaticResource HeadingText}" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
@@ -78,15 +84,15 @@
         </Border>
 
         <Border x:Name="WhereToStart" Style="{StaticResource TipBox}" Margin="0,24,0,0"
-                anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Duration=1.1s, Easing=StrongEaseOut, StartAfter=1s}">
+                anim:Animate.Appear="{anim:Custom OffsetY=40, Zoom=0.97, Duration=1.1s, Easing=StrongEaseOut, StartAfter=1.1s}">
             <StackPanel>
                 <TextBlock Text="Where to start" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="The library animates elements that appear and disappear, elements that travel from one place to another, moves and size changes, page intros, what the mouse is over, lists and text that changes. Start with chapter 1: the first three chapters show the main ideas in a few minutes. The next ones show more, and the last ones go into the details. Come back to any chapter from the list." />
+                           Text="Start with chapter 1: the first three chapters show the main ideas in a few minutes. The next ones show more, and the last ones go into the details. Come back to any chapter from the list." />
             </StackPanel>
         </Border>
 
         <Button x:Name="StartButton" Content="Start with chapter 1" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Margin="0,24,0,0" Click="Start_Click"
-                anim:Animate.Appear="{anim:Pop StartAfter=1.3s}" />
+                anim:Animate.Appear="{anim:Pop StartAfter=1.4s}" />
     </StackPanel>
 </sdk:Page>
