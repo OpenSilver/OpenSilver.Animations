@@ -36,11 +36,11 @@ namespace OpenSilver.Animations.Engine
         private const long MagicWaitMs = 300;
 
         // A trip up to NearTrip pixels takes NearTripFactor times the default duration, and
-        // FarTripFactor times from FarTrip pixels.
+        // FarTripFactor times from FarTrip pixels: 0.5 and 0.9 seconds at the default 0.3.
         private const double NearTrip = 150;
         private const double FarTrip = 900;
-        private const double NearTripFactor = 2;
-        private const double FarTripFactor = 3.6;
+        private const double NearTripFactor = 0.5 / 0.3;
+        private const double FarTripFactor = 0.9 / 0.3;
 
         // A background is the first of several children, and covers this much of its parent's
         // width and height.

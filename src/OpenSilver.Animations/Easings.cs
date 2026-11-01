@@ -65,17 +65,17 @@ namespace OpenSilver.Animations
         public static IEasingFunction EaseInOut { get; } = new CubicBezierEasing("EaseInOut", 0.65, 0, 0.35, 1);
 
         /// <summary>
-        /// A much stronger EaseOut: it starts very fast, and takes a long time to slow down to a
-        /// stop, like an <see cref="ExponentialEase"/> with <c>EasingMode="EaseOut"</c>.
+        /// A much stronger EaseOut: the element arrives very fast, almost 90% of the way in the
+        /// first tenth of the time, then takes the rest of the time to settle slowly into place.
+        /// It suits long durations, like 0.6 to 1.2 seconds, so that the end shows.
         /// </summary>
-        public static IEasingFunction StrongEaseOut { get; } = new CubicBezierEasing("StrongEaseOut", 0.16, 1, 0.3, 1);
+        public static IEasingFunction StrongEaseOut { get; } = new StrongEasing("StrongEaseOut", leaves: false);
 
         /// <summary>
-        /// A much stronger EaseIn: it starts very slowly, and leaves very fast, like an
-        /// <see cref="ExponentialEase"/> with <c>EasingMode="EaseIn"</c>. It suits elements that
-        /// leave quickly.
+        /// A much stronger EaseIn, the mirror of StrongEaseOut: the element barely moves for most
+        /// of the time, then leaves very fast, almost 90% of the way in the last tenth of the time.
         /// </summary>
-        public static IEasingFunction StrongEaseIn { get; } = new CubicBezierEasing("StrongEaseIn", 0.7, 0, 0.84, 0);
+        public static IEasingFunction StrongEaseIn { get; } = new StrongEasing("StrongEaseIn", leaves: true);
 
         /// <summary>
         /// A much stronger EaseInOut: very slow at the start and the end, and very fast in between,
@@ -98,6 +98,7 @@ namespace OpenSilver.Animations
             LinearEasing => "Linear",
             SpringEasing s => s.Name,
             OvershootEasing o => o.Name,
+            StrongEasing s => s.Name,
             _ => easing.GetType().Name,
         };
 
@@ -310,6 +311,41 @@ namespace OpenSilver.Animations
             double envelope = Math.Exp(-_zeta * _omega * t);
             return 1 - envelope * (Math.Cos(_omegaD * t) + _zeta * _omega / _omegaD * Math.Sin(_omegaD * t));
         }
+
+        public override string ToString() => Name;
+    }
+
+    /// <summary>
+    /// A fast and a slow exponential added together: most of the way is covered very fast, and
+    /// the rest slowly, over most of the time. A single exponential can't do both: the stronger
+    /// it is, the sooner it ends. The one that leaves is its mirror.
+    /// </summary>
+    internal sealed class StrongEasing : IEasingFunction
+    {
+        private const double FastShare = 0.9;
+        private const double FastRate = 40;
+        private const double SlowRate = 3.5;
+
+        private static readonly double End = Arrive(1);
+
+        private readonly bool _leaves;
+
+        public StrongEasing(string name, bool leaves)
+        {
+            Name = name;
+            _leaves = leaves;
+        }
+
+        public string Name { get; }
+
+        public double Ease(double normalizedTime)
+        {
+            double t = Math.Max(0, Math.Min(1, normalizedTime));
+            return _leaves ? 1 - Arrive(1 - t) / End : Arrive(t) / End;
+        }
+
+        private static double Arrive(double t)
+            => 1 - (FastShare * Math.Pow(2, -FastRate * t) + (1 - FastShare) * Math.Pow(2, -SlowRate * t));
 
         public override string ToString() => Name;
     }

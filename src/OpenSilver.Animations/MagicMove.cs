@@ -47,8 +47,8 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How long the travel lasts, from 0.05 to 3 seconds. By default, it depends on the
-        /// distance: twice <see cref="AnimationSettings.DefaultDuration"/> for a short trip (0.5 s),
-        /// up to almost twice that for a long one (0.9 s).
+        /// distance: 0.5 seconds for a short trip, up to 0.9 seconds for a long one, longer or
+        /// shorter with <see cref="AnimationSettings.DefaultDuration"/>.
         /// </summary>
         public AnimationTime? Duration { get; set; }
 

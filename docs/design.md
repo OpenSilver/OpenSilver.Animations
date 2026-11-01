@@ -97,7 +97,7 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
 - **Off by default.** Choosing an effect is enough; every parameter has a good default.
 - **Surrounding elements never overlap or jump.** When something animates, everything involved in the same change animates with it. That's not an option the developer has to understand.
 - **Beginner vocabulary:** `From`/`To` (not Direction), `StartAfter` (not Delay), `Zoom` (not Scale), `Bouncy` (not Spring), `Cascade` (not Stagger), `Wave` (not Ripple).
-- **One curve vocabulary everywhere:** `Smooth` (default, a soft start and a long, soft end), `Gentle` (ease-in-out), `Linear`, `Bouncy` (a spring, tuned by `Bounciness`), and the classic curves of WPF and Silverlight, for apps that come from them: `EaseOut`, `EaseIn` and `EaseInOut` (a `CubicEase`), and `Overshoot` (a `BackEase` ease-out, whose amplitude is `Bounciness`). The strong curves `StrongEaseOut`, `StrongEaseIn` and `StrongEaseInOut` (close to an `ExponentialEase`) are much slower at their slow ends and much faster in between; `StrongEaseInOut` is the default of Magic moves.
+- **One curve vocabulary everywhere:** `Smooth` (default, a soft start and a long, soft end), `Gentle` (ease-in-out), `Linear`, `Bouncy` (a spring, tuned by `Bounciness`), and the classic curves of WPF and Silverlight, for apps that come from them: `EaseOut`, `EaseIn` and `EaseInOut` (a `CubicEase`), and `Overshoot` (a `BackEase` ease-out, whose amplitude is `Bounciness`). The strong curves are much more marked: `StrongEaseOut` arrives almost all the way in the first tenth of the time, then settles slowly for the rest; `StrongEaseIn` is its mirror, which barely moves, then leaves very fast; and `StrongEaseInOut` (close to an `ExponentialEase`) is very slow at both ends and very fast in between, and is the default of Magic moves.
 - **Readable times.** Time values accept `300` (milliseconds), `300ms` or `0.3s`. The designer shows and writes seconds.
 
 ## Library API
@@ -155,7 +155,7 @@ Animate.Skip(() => LoadInitialData());
     - `From` (Appear) / `To` (Disappear): `Top`, `Bottom` (default), `Left`, `Right`. Used by Slide and Wipe. On Zoom, the size it grows from or shrinks to: 0 to 3, default 0.9.
     - `Distance`: `Short` (10 px), `Medium` (30 px, default), `Long` (100 px), a number of pixels, or a percent of the element's own size (`50%`, 0 to 1000%): of its width from the left or the right, of its height from the top or the bottom. Used by Slide. Lift and Nudge take pixels only: a percent warns and uses their default.
     - `Fade`: `True` (default) or `False`. Used by Slide and Zoom: `False` only moves or zooms, like a panel that slides in from beyond its edge with `Distance=100%`.
-    - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.25 s). All presets except Typewriter and Backspace. Pop, and any preset with `Easing=Bouncy`, default to twice `DefaultDuration`, so that the bounce has time to settle. FadeLetters also defaults to twice `DefaultDuration` (0.5 s).
+    - `Duration`: 0.05 to 3 s, default `AnimationSettings.DefaultDuration` (0.3 s). All presets except Typewriter and Backspace. Pop, and any preset with `Easing=Bouncy`, default to twice `DefaultDuration`, so that the bounce has time to settle. FadeLetters also defaults to twice `DefaultDuration` (0.6 s).
     - `OthersDuration`: 0.05 to 3 s, default the effect's `Duration`. How long the surrounding elements take to make room or to fill the space. All presets.
     - `StartAfter`: 0 to 10 s, default 0. All presets.
     - `Easing`: `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot`, or an `IEasingFunction` resource. All presets except the text ones.
@@ -196,7 +196,7 @@ Animate.Skip(() => LoadInitialData());
     - On an element that is not a TextBlock, a text preset fades, with a warning. As an item effect, see "Items".
 - **Animate.MoveAndResize**: `None` (default), `Smooth` or `Bouncy`.
   - **Parameters:**
-    - `Duration`.
+    - `Duration`: 0.05 to 3 s. By default it depends on how far the elements go, the longest move or size change of the group: `DefaultDuration` up to 100 px, growing to 1.5 times that at 600 px and beyond (0.3 s to 0.45 s with the defaults), and twice that with Bouncy. A long move in 0.3 s looks rushed. A window resize, `Animate.Changes` and the elements that make room for an effect keep their own duration.
     - `Bounciness` (Bouncy, and Smooth with `Easing=Overshoot`).
     - `Easing` (Smooth only): `Smooth`, `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot` or an `IEasingFunction`.
     - `Wave`: 0 to 2, default 0.
@@ -247,17 +247,17 @@ Animate.Skip(() => LoadInitialData());
     - `Retype`: erases the old text down to the beginning it shares with the new one, then types the rest, at `Speed` letters per second (5 to 200, default 30). Erasing and typing take 3 s at most. A cursor follows the letters, then blinks twice and fades away, like Typewriter's. `Cursor` (default true) and `BlinkFirst` (0 to 10 s, default 0: the cursor blinks after the old text before erasing) work like on Typewriter.
     - `CountUp`: counts from the old number to the new one, fast at first, then slowing down, in the format of the new text: its text around the number, its group separator and its number of decimals. When the old text has no number, it counts from 0. When the new text has no number, it cross-fades.
     - `None`.
-  - **Duration:** 0.05 to 3 s. `Roll` and `CrossFade` default to `DefaultDuration` (0.25 s); `Scramble` and `CountUp` to four times that (1 s). `Retype` uses `Speed` instead, and ignores `Duration` with a warning, and `BlinkFirst` with `Cursor=False`.
+  - **Duration:** 0.05 to 3 s. `Roll` and `CrossFade` default to `DefaultDuration` (0.3 s); `Scramble` and `CountUp` to four times that (1.2 s). `Retype` uses `Speed` instead, and ignores `Duration` with a warning, and `BlinkFirst` with `Cursor=False`.
   - **Numbers.** A number is a run of digits, with an optional minus sign, and separators between groups of 3 digits. Its decimal separator is a last `.` or `,` that is different from the separators before it, or a single one that can't be a group separator: not followed by exactly 3 digits, or after a lone 0 or more than 3 digits. Otherwise the current culture decides. So "$12,480" is 12480, "4.2%" is 4.2, and in "Oct 28 2026" the number is 28.
   - **Fallbacks.** Roll on text that wraps to several lines, and any effect on a TextBlock whose content is not a single Run, cross-fade.
   - **A new change during an effect** waits for its layout pass while the effect goes on, then starts from what the effect shows: Roll and CrossFade from their new text, Scramble and Retype from their current letters, CountUp from the number it shows. The count never jumps back.
   - **Snaps.** With `IsEnabled` off, reduced motion, inside `Animate.Skip`, while dragging, or in the designer, the new text shows at once.
-  - **Messages:** "The text of BadgeCount changed; it rolls up (0.25 s, from its TextChange)." or "The text of BadgeCount changed at once, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion)."
+  - **Messages:** "The text of BadgeCount changed; it rolls up (0.3 s, from its TextChange)." or "The text of BadgeCount changed at once, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion)."
   - **Around it.** The TextBlock gets its new size at once. To move what is around it smoothly, add `MoveAndResize` to the TextBlock or to its container; both play together.
 - **Magic move.**
   - `Animate.MagicMove`: an id, which can be bound. Or `{anim:MagicMove Id=..., Travel=Automatic|Above|Behind, Duration=..., Easing=...}`. A markup extension can't hold a binding, so a bound id uses the default parameters.
     - When an element with an id disappears (collapsed or removed) and another one with the same id appears, the old one seems to travel to the new one's place and turn into it. Moving the same element to another parent works too.
-    - `Duration`: 0.05 to 3 s. By default it depends on the distance: `DefaultDuration` up to 150 px, growing to 1.8 times that at 900 px and beyond (0.25 s to 0.45 s with the defaults), and twice that with Bouncy.
+    - `Duration`: 0.05 to 3 s. By default it depends on the distance: 0.5 s up to 150 px, growing to 0.9 s at 900 px and beyond, in proportion to `DefaultDuration` (5/3 to 3 times it).
     - `Easing`: Smooth by default. With Bouncy, only the move bounces; the size changes Smooth.
     - `Travel`: see "Magic move" below.
     - The parameters of the element that appears are used; when it has none, those of the element that disappeared.
@@ -268,8 +268,8 @@ Animate.Skip(() => LoadInitialData());
   - `AnimationSettings`:
     - `IsEnabled` (true) and `RespectReducedMotion` (true).
     - `Speed` (1; 2 means twice as fast, 0.5 half as fast).
-    - `DefaultDuration` (0.25 s).
-    - `LogForDebugging` (false). It logs why each change animated or not, in plain language (for example "DetailsPanel appeared; 5 elements moved with it; timing from its Fade, 0.25 s"). The same messages are raised as the static `AnimationSettings.Logged` event, whether or not `LogForDebugging` is on.
+    - `DefaultDuration` (0.3 s).
+    - `LogForDebugging` (false). It logs why each change animated or not, in plain language (for example "DetailsPanel appeared; 5 elements moved with it; timing from its Fade, 0.3 s"). The same messages are raised as the static `AnimationSettings.Logged` event, whether or not `LogForDebugging` is on.
       - Only changes that involve a setting (or `Animate.Changes`) are explained. A repeated snap message is logged at most once per second, and window-resize messages at most once per second.
       - Changes that start in scroll bars or scroll viewer parts, or right after an element appeared, snap silently.
       - Messages name an element from the page rather than a part of a control template when they can, and the timing source names the element that carries the setting.
@@ -329,7 +329,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
 ### Section header
 
 - Each header shows the title, a status, a Play button and a Reset button.
-  - The status is "Off", or the short summary, for example "Slide from bottom, 0.25 s".
+  - The status is "Off", or the short summary, for example "Slide from bottom, 0.3 s".
   - Reset removes every attribute of that section from the XAML.
 - Sections with no value are collapsed. Sections with a value, or a value from a style or an area, are expanded.
 
@@ -452,10 +452,10 @@ This section is the specification for the XAML.io repo. It is not implemented in
 
 Each section shows a plain-language sentence under it, generated by `AnimationDesign.Describe`. The same text is used for the header status and the canvas badge tooltip. Examples:
 - Appear: "Slides in from the bottom in 0.3 s, 0.2 s after the page opens. The elements below slide down to make room."
-- Disappear: "Fades out in 0.25 s. The elements below move up after it has disappeared."
-- Moves: "Moves and resizes smoothly in 0.25 s, also when the window is resized. Everything inside it too."
+- Disappear: "Fades out in 0.3 s. The elements below move up after it has disappeared."
+- Moves: "Moves and resizes smoothly in 0.3 s, a little longer when it goes far, also when the window is resized. Everything inside it too."
 - Items: "New items slide in from the right, one every 0.04 s. Removed items fade out. Items glide to their new places."
-- Text: "When the text changes, the characters roll up in 0.25 s."
+- Text: "When the text changes, the characters roll up in 0.3 s."
 - Magic move: "Travels from the other 'SelectionPill' element to here, behind the other elements, in 0.5 s."
 
 ### Hints
@@ -599,7 +599,7 @@ The chapters start with what shows the library best, so that a visitor who reads
 9. **Pick an effect.** Every Appear and Disappear preset, with From, Distance, Duration, Start after and Easing in the playground. Demo: a validation message under a field.
    - **Every effect.** Each effect is a tile with a still drawing that tells what it does, like arrows from the corners for Zoom or a blurry card for Blur. Half a second after the mouse enters a tile, its little card plays the effect again and again, slower and bigger than the real one on purpose, until the mouse leaves. Storyboards play these loops, not the library, so that each one shows its own effect clearly. The same previews are meant for a XAML.io panel where users pick the animations of their apps.
    - **Each change plays the card again:** it disappears with the new choice, then appears with it, once the text below has filled its space. A click on the option that is already chosen plays it again too.
-   - **Slow enough to see:** the duration starts at 0.5 s, as the default, 0.25 s, is too quick to tell the effects apart.
+   - **Slow enough to see:** the duration starts at 1 s, as the default, 0.3 s, is too quick to tell the effects apart.
    - **The layout:** on a wide stage, the options are on the left and the card on the right, beside a vertical line, so that the card stays in sight. On a narrow one, the card is below the effects, and the other options below it.
 10. **Putting it together.** The Showcase as the real-world example:
     - a small copy of its window, with the names and values of its XAML: the welcome intro, the tabs that drop in, the menu that pushes the page, Nudge, two samples (one loads quickly, the other shows the loading popup over its page), the source code pane, and a Phone size switch for the menu that becomes a drawer. It also tries three ideas that the Showcase doesn't have yet: the page shows at once under the popup, the menu slides out on small screens, and the pages have a transition;

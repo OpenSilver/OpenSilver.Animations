@@ -143,7 +143,7 @@ private void ToggleDetails(object sender, RoutedEventArgs e)
 </p>
 
 - There is no Storyboard, no trigger and no call to start anything. The effect plays because the panel's `Visibility` changed. Adding the element to the page, or removing it, plays the same effects.
-- When the panel appears, the payment row below it slides down to make room, and the card around it grows, in the same 0.25 seconds as the fade. They have no settings: they move because the change moves them.
+- When the panel appears, the payment row below it slides down to make room, and the card around it grows, in the same 0.3 seconds as the fade. They have no settings: they move because the change moves them.
 - When the panel is collapsed, the layout moves on at once, but the panel stays on screen while it fades out, and the payment row slides up into its space.
 - Your code sees the final state right away: `ActualHeight`, bindings, hit testing and focus. The library never animates a dependency property. It animates what the browser shows (see [How it works](#how-it-works-and-why-it-is-built-on-opensilver)). Removing the two attributes changes how the app looks while it changes, and nothing else.
 
@@ -164,7 +164,7 @@ The usual way is a Style trigger on `Visibility` that starts a Storyboard:
                         <BeginStoryboard>
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                 From="0" To="1" Duration="0:0:0.25" />
+                                                 From="0" To="1" Duration="0:0:0.3" />
                             </Storyboard>
                         </BeginStoryboard>
                     </Trigger.EnterActions>
@@ -280,7 +280,7 @@ The ids can be bound, so that each item of a list has its own. The list and the 
 ```
 
 - `Travel`: `Automatic` (the default) travels behind the other elements when the element is a background, like a selection pill, and above them otherwise. `Above` travels above everything on the page, even outside the containers that clip their content. `Behind` travels behind the elements it travels between.
-- `Duration`: by default, it depends on the distance, from 0.5 s for a short trip (twice the default duration of the other animations) to almost twice that for a long one.
+- `Duration`: by default, it depends on the distance, from 0.5 s for a short trip to 0.9 s for a long one.
 - `Easing`: as for the other animations. By default, it's `StrongEaseInOut`: very slow at the start and the end, and very fast in between. With `Bouncy`, the size changes without bouncing.
 - A bound id uses the default parameters, because a markup extension can't hold a binding.
 - The elements are hidden with `Visibility`, or added and removed. A template whose visual states use `Opacity` needs to use `Visibility` instead.
@@ -382,7 +382,7 @@ Resizing the browser window doesn't animate by default, because following the ed
 
 | Parameter            | Values, and the default                                                                                                                                                           |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Duration`           | 0.05 to 3 s. Default: 0.25 s, and twice that for `Bouncy`                                                                                                                         |
+| `Duration`           | 0.05 to 3 s. Default: 0.3 s, up to 0.45 s for the elements that go far, and twice that for `Bouncy`                                                                               |
 | `Easing`             | For `Smooth`: `Smooth` (default), `Gentle`, `Linear`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot`, or any `IEasingFunction` |
 | `Bounciness`         | For `Bouncy` and `Easing=Overshoot`: 0.1 to 1. Default: 0.5                                                                                                                       |
 | `Wave`               | 0 to 2. Elements farther from where the change started begin later, like a wave: at 1, the farthest ones start 0.2 s later; at 2, 0.4 s later. Default: 0                         |
@@ -466,7 +466,7 @@ Write the name of an effect, or use it as a markup extension to set parameters:
 
 | Parameter                                                 | For                                                                | Values, and the default                                                                                                                                                       |
 | --------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Duration`                                                | Every effect except Typewriter and Backspace, which have a `Speed` | 0.05 to 3 s. Default: 0.25 s, and twice that for Pop, FadeLetters and `Easing=Bouncy`                                                                                         |
+| `Duration`                                                | Every effect except Typewriter and Backspace, which have a `Speed` | 0.05 to 3 s. Default: 0.3 s, and twice that for Pop, FadeLetters and `Easing=Bouncy`                                                                                          |
 | `Easing`                                                  | Every effect except the letter effects                             | `Smooth` (default), `Gentle`, `Linear`, `Bouncy`, `EaseOut`, `EaseIn`, `EaseInOut`, `StrongEaseOut`, `StrongEaseIn`, `StrongEaseInOut`, `Overshoot`, or any `IEasingFunction` |
 | `Bounciness`                                              | Pop, `Easing=Bouncy` and `Easing=Overshoot`                        | 0.1 (a little) to 1 (a lot). Default: 0.5                                                                                                                                     |
 | `From`, `To`                                              | Slide and Wipe                                                     | `Top`, `Bottom`, `Left` or `Right`. Default: `Bottom`                                                                                                                         |
@@ -618,7 +618,7 @@ The icons above were recorded with a larger `Distance` and `Tilt` than the defau
   <img src="docs/images/words.gif" width="674" alt="The same tagline three times. With Retype, the last word is erased and the new one is typed. With CrossFade, the new text fades in over the old one. With Scramble, the last word turns into random letters that settle on the new word.">
 </p>
 
-The TextBlock takes its new size at once. Put `MoveAndResize` on it, or on its container like the badge above, so that what is around it follows smoothly. `Roll` and `CrossFade` last 0.25 s, and `Scramble` and `CountUp` four times that. `Retype` has a `Speed` in letters per second (30 by default), a `Cursor`, and a `BlinkFirst` time.
+The TextBlock takes its new size at once. Put `MoveAndResize` on it, or on its container like the badge above, so that what is around it follows smoothly. `Roll` and `CrossFade` last 0.3 s, and `Scramble` and `CountUp` four times that. `Retype` has a `Speed` in letters per second (30 by default), a `Cursor`, and a `BlinkFirst` time.
 
 ### Text that appears and disappears
 
@@ -700,7 +700,7 @@ The settings apply to the whole app. Declare them in `App.xaml`, or change them 
 
 ```xml
 <Application.Resources>
-    <anim:AnimationSettings x:Key="AnimationSettings" Speed="1" DefaultDuration="0.25s" />
+    <anim:AnimationSettings x:Key="AnimationSettings" Speed="1" DefaultDuration="0.3s" />
 </Application.Resources>
 ```
 
@@ -715,7 +715,7 @@ AnimationSettings.Current.IsEnabled = false;
 | `RespectReducedMotion`  | When the user asked their device for less motion, moves and resizes don't animate, effects become a short fade, and Magic moves cross-fade in place.            | `True`  |
 | `SimulateReducedMotion` | Behaves as if the user had asked for less motion, to test it.                                                                                                   | `False` |
 | `Speed`                 | Plays every animation faster or slower: 2 is twice as fast, 0.5 half as fast.                                                                                   | 1       |
-| `DefaultDuration`       | The duration of the animations that don't set one.                                                                                                              | 0.25 s  |
+| `DefaultDuration`       | The duration of the animations that don't set one.                                                                                                              | 0.3 s   |
 | `LogForDebugging`       | Writes to the browser console, in plain language, why each change animated or not. The same messages are raised by the static `AnimationSettings.Logged` event. | `False` |
 | `ShowWhatAnimates`      | Outlines the elements that animate together while they animate, with the element where the change started in another color.                                     | `False` |
 
@@ -723,9 +723,9 @@ AnimationSettings.Current.IsEnabled = false;
 The messages say what changed, what it did, how many elements followed, and which setting gave the timing. These are the gallery's messages for the first example and for the Save button above:
 
 ```text
-[OpenSilver.Animations] Details appeared; it fades in, and 28 elements animate together (Smooth, 0.25 s, from the Appear of Details).
-[OpenSilver.Animations] Details disappeared; it fades out, and 28 elements animate together (Smooth, 0.25 s, from the Disappear of Details).
-[OpenSilver.Animations] TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.25 s, from the MoveAndResize of SaveButton).
+[OpenSilver.Animations] Details appeared; it fades in, and 28 elements animate together (Smooth, 0.3 s, from the Appear of Details).
+[OpenSilver.Animations] Details disappeared; it fades out, and 28 elements animate together (Smooth, 0.3 s, from the Disappear of Details).
+[OpenSilver.Animations] TextBlock "Saving..." changed size; 10 elements animate together (Smooth, 0.3 s, from the MoveAndResize of SaveButton).
 ```
 
 In any app that uses the library, the same settings can be changed from the browser console, until the page is reloaded:

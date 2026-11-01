@@ -41,7 +41,9 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How long the animation lasts, from 0.05 to 3 seconds. The default is
-        /// <see cref="AnimationSettings.DefaultDuration"/> (twice that for <see cref="Bouncy"/>).
+        /// <see cref="AnimationSettings.DefaultDuration"/> (twice that for <see cref="Bouncy"/>),
+        /// and up to 1.5 times longer when the elements go far: from 100 pixels, and the most
+        /// from 600 pixels.
         /// </summary>
         public AnimationTime? Duration { get; set; }
 

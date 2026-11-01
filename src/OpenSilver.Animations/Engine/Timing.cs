@@ -26,6 +26,20 @@ namespace OpenSilver.Animations.Engine
     {
         private const int CurveSamples = 32;
         private const int SpringSamples = 64;
+        private const int StrongSamples = 64;
+
+        /// <summary>
+        /// The distance, in pixels, up to which moves and resizes take the default duration.
+        /// </summary>
+        public const double NearMove = 100;
+
+        /// <summary>
+        /// The distance, in pixels, from which moves and resizes take <see cref="FarMoveFactor"/>
+        /// times the default duration.
+        /// </summary>
+        public const double FarMove = 600;
+
+        public const double FarMoveFactor = 1.5;
 
         private Timing() { }
 
@@ -56,10 +70,18 @@ namespace OpenSilver.Animations.Engine
 
         public string Description { get; private set; }
 
-        public static Timing FromMovement(Movement movement, AnimationSettings settings)
+        /// <summary>
+        /// The timing of moves and resizes. Without a Duration, the farther the elements go
+        /// (<paramref name="distance"/>, in pixels), the longer they take: the default duration
+        /// up to <see cref="NearMove"/>, up to <see cref="FarMoveFactor"/> times from
+        /// <see cref="FarMove"/>.
+        /// </summary>
+        public static Timing FromMovement(Movement movement, AnimationSettings settings, double distance = 0)
         {
             bool bouncy = movement is Bouncy;
-            double seconds = movement.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (bouncy ? 2 : 1);
+            double share = Math.Max(0, Math.Min(1, (distance - NearMove) / (FarMove - NearMove)));
+            bool byDistance = movement.Duration == null && share > 0;
+            double seconds = movement.Duration?.Seconds ?? settings.DefaultDuration.Seconds * (bouncy ? 2 : 1) * (1 + (FarMoveFactor - 1) * share);
 
             var timing = new Timing
             {
@@ -79,6 +101,11 @@ namespace OpenSilver.Animations.Engine
                 IEasingFunction easing = movement.Easing ?? Easings.Smooth;
                 timing.SetCurve(easing, movement.Bounciness ?? 0.5);
                 timing.Description = Invariant($"{Easings.GetName(easing)}, {Math.Round(timing.DurationMs / 1000, 2)} s");
+            }
+
+            if (byDistance)
+            {
+                timing.Description += " for the distance";
             }
 
             return timing;
@@ -261,6 +288,9 @@ namespace OpenSilver.Animations.Engine
                     break;
                 case OvershootEasing o:
                     Samples = Sample(new OvershootEasing(o.Name, bounciness), CurveSamples);
+                    break;
+                case StrongEasing:
+                    Samples = Sample(easing, StrongSamples);
                     break;
                 default:
                     Samples = Sample(easing, CurveSamples);

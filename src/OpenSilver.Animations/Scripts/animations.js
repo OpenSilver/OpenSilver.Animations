@@ -2006,7 +2006,7 @@
     const pressed = new Set();
     const lingering = new Set();
 
-    let reactionSettings = { on: true, speed: 1, defaultMs: 250, respect: true, simulate: false };
+    let reactionSettings = { on: true, speed: 1, defaultMs: 300, respect: true, simulate: false };
     let prefersReducedMotion = false;
 
     // The last positions of the mouse or pen, to know where it goes, and how fast, when it comes
@@ -2336,7 +2336,7 @@
     }
 
     function reactSettings(on, speed, defaultMs, respect, simulate) {
-        reactionSettings = { on: !!on, speed: speed > 0 ? speed : 1, defaultMs: defaultMs > 0 ? defaultMs : 250, respect: !!respect, simulate: !!simulate };
+        reactionSettings = { on: !!on, speed: speed > 0 ? speed : 1, defaultMs: defaultMs > 0 ? defaultMs : 300, respect: !!respect, simulate: !!simulate };
         if (!reactionsAllowed()) stopAllReactions();
     }
 

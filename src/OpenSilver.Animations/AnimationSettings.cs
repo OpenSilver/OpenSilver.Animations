@@ -36,7 +36,7 @@ namespace OpenSilver.Animations
         private bool _respectReducedMotion = true;
         private bool _simulateReducedMotion;
         private double _speed = 1;
-        private AnimationTime _defaultDuration = AnimationTime.FromMilliseconds(250);
+        private AnimationTime _defaultDuration = AnimationTime.FromMilliseconds(300);
         private bool _logForDebugging;
         private bool _showWhatAnimates;
 
@@ -123,7 +123,8 @@ namespace OpenSilver.Animations
         }
 
         /// <summary>
-        /// The duration of animations that don't set one. The default is 0.25 seconds.
+        /// The duration of animations that don't set one. The default is 0.3 seconds. Moves and
+        /// resizes that go far take up to 1.5 times as long, and Bouncy ones twice as long.
         /// </summary>
         public AnimationTime DefaultDuration
         {

@@ -993,7 +993,7 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// "it fades in (Smooth, 0.25 s, from its Appear)", "it fades in after 0.5 s (...)", or "it
+        /// "it fades in (Smooth, 0.3 s, from its Appear)", "it fades in after 0.5 s (...)", or "it
         /// fades in quickly, because the device asks for reduced motion".
         /// </summary>
         private static string DescribeOwnEffect(Transition effect, bool appear, bool quick, Timing timing, string reason, double waitMs, string source)
@@ -1350,7 +1350,7 @@ namespace OpenSilver.Animations.Engine
 
         /// <summary>
         /// Adds the change of a TextBlock's text to the batch, and says what it does: "rolls up
-        /// (0.25 s, from its TextChange)". Text in several runs, which can each have their own
+        /// (0.3 s, from its TextChange)". Text in several runs, which can each have their own
         /// font, cross-fades, and so does a CountUp to a text that is not a number.
         /// </summary>
         private static string AddTextChange(BatchBuilder batch, string id, TextBlock textBlock, TextTransition effect, string oldText, string newText, AnimationSettings settings)
@@ -2042,7 +2042,7 @@ namespace OpenSilver.Animations.Engine
 
             if (nearest != null)
             {
-                timing = Timing.FromMovement(nearest, settings);
+                timing = Timing.FromMovement(nearest, settings, GetDistance(bucket));
                 source = DescribeSource(nearest, nearestOwner, nearestOrigin);
                 return null;
             }
@@ -2054,7 +2054,7 @@ namespace OpenSilver.Animations.Engine
 
             if (FindNearestMemberMovement(bucket, eligible, out UIElement memberOwner) is Movement memberMovement)
             {
-                timing = Timing.FromMovement(memberMovement, settings);
+                timing = Timing.FromMovement(memberMovement, settings, GetDistance(bucket));
                 source = DescribeSource(memberMovement, memberOwner, memberOwner);
                 return null;
             }
@@ -2122,7 +2122,7 @@ namespace OpenSilver.Animations.Engine
                     continue;
                 }
 
-                Timing timing = forcedTiming ?? Timing.FromMovement(owner.Movement, settings);
+                Timing timing = forcedTiming ?? Timing.FromMovement(owner.Movement, settings, GetDistance(part));
                 Emit(part, timing, origin, settings, now, batch);
 
                 if (logging)
@@ -2131,6 +2131,29 @@ namespace OpenSilver.Animations.Engine
                     _messages.Add($"{Describe(part, origin, false)}; {DescribeAnimated(part)} ({timing.Description}, from {source}).");
                 }
             }
+        }
+
+        /// <summary>
+        /// How far the group goes, in pixels: the longest move or size change of its elements.
+        /// </summary>
+        private double GetDistance(Bucket bucket)
+        {
+            double distance = 0;
+            foreach (int index in bucket.Members)
+            {
+                ref Record record = ref _records[index];
+                if (record.OldRect.IsEmpty || record.NewRect.IsEmpty)
+                {
+                    continue;
+                }
+
+                double dx = record.NewRect.X - record.OldRect.X;
+                double dy = record.NewRect.Y - record.OldRect.Y;
+                double resize = Math.Max(Math.Abs(record.NewRect.Width - record.OldRect.Width), Math.Abs(record.NewRect.Height - record.OldRect.Height));
+                distance = Math.Max(distance, Math.Max(Math.Sqrt(dx * dx + dy * dy), resize));
+            }
+
+            return distance;
         }
 
         /// <summary>
