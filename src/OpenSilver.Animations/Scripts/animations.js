@@ -1006,11 +1006,12 @@
         const isText = !layer && element.classList.contains('opensilver-textblock');
         const content = layer || isText ? null : contentOf(element);
         const rect = element.getBoundingClientRect();
+        let radii = radiiOf(style);
+        if (!layer && radii.every((r) => r === 0)) radii = frameRadiiOf(element, rect) || radii;
         return {
             w: element.offsetWidth || rect.width || 1,
             h: element.offsetHeight || rect.height || 1,
-            radii: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius]
-                .map((r) => parseFloat(r) || 0),
+            radii,
             borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth]
                 .map((b) => parseFloat(b) || 0),
             text: isText ? textRectOf(element) : null,
@@ -1018,6 +1019,34 @@
             content: content ? content.rect : null,
             font: content ? content.font : 0,
         };
+    }
+
+    function radiiOf(style) {
+        return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius]
+            .map((r) => parseFloat(r) || 0);
+    }
+
+    // A box with no corners of its own, like a Button, shows those of its frame: the first panel
+    // that fills it with corners, like the Border of its template. Without them, its copy would
+    // start or end square.
+    const MAX_FRAME_DEPTH = 4;
+
+    function frameRadiiOf(element, box) {
+        let holder = element;
+        for (let depth = 0; depth < MAX_FRAME_DEPTH; depth++) {
+            let frame = null;
+            for (const child of holder.children) {
+                if (child.classList.contains('opensilver-uielement') && fills(child.getBoundingClientRect(), box, FRAME_GAP)) {
+                    frame = child;
+                    break;
+                }
+            }
+            if (!frame) return null;
+            const radii = radiiOf(getComputedStyle(frame));
+            if (radii.some((r) => r > 0)) return radii;
+            holder = frame;
+        }
+        return null;
     }
 
     const MAX_MEASURED = 50;
