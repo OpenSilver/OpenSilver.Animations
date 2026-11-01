@@ -428,6 +428,8 @@ When elements appear together with their page, a dialog or a card, `StartAfter` 
 - `PushOthers`: the page opens without it. After its `StartAfter`, it appears, and the elements around it move to make room.
 - `Skip`: it is there when the page opens, without its effect. It still plays its effect when it appears later on its own.
 
+Inside an element that appears with an effect of its own, like a card that slides in after 0.5 s, an element waits for that effect to start, then for its own `StartAfter`. So a card and what's inside it can each have their intro, without hiding each other.
+
 When an element appears later, on its own, with a `StartAfter`, the room for it opens at once, and only its effect waits. See [chapter 4](http://opensilver-animations-library.azurewebsites.net/#/chapter/4) of the gallery.
 
 ### Effects

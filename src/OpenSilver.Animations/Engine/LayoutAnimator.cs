@@ -181,7 +181,7 @@ namespace OpenSilver.Animations.Engine
         // OnPageOpen=PushOthers: the elements held out of the layout while their page opens, and
         // those shown again since the last pass, which appear in the next one.
         private readonly PageOpenHolds _pageOpenHolds;
-        private readonly HashSet<UIElement> _released = new HashSet<UIElement>();
+        private readonly Dictionary<UIElement, double> _released = new Dictionary<UIElement, double>();
 
         // The lists with item settings, or inside an area: where each of their items was at the end
         // of the last pass, the lists found since then (null for the panels that are not lists),
@@ -229,7 +229,7 @@ namespace OpenSilver.Animations.Engine
 
         private LayoutAnimator()
         {
-            _pageOpenHolds = new PageOpenHolds(element => _released.Add(element));
+            _pageOpenHolds = new PageOpenHolds((element, waitedMs) => _released[element] = waitedMs);
         }
 
         public static void EnsureStarted()
@@ -612,9 +612,11 @@ namespace OpenSilver.Animations.Engine
 
                 // Held while its page opened (OnPageOpen=PushOthers): it pushes the others now, even
                 // though the page has just appeared, and it has already waited its StartAfter.
-                if (_released.Count > 0 && _released.Remove(element))
+                if (_released.Count > 0 && _released.TryGetValue(element, out double waitedMs))
                 {
+                    _released.Remove(element);
                     record.Flags |= RecordFlags.Released;
+                    record.WaitedMs = waitedMs;
                     if (parent >= 0 && !_switchOnly && (_records[parent].Flags & RecordFlags.Scrolled) == 0)
                     {
                         _records[parent].Flags |= RecordFlags.Origin | RecordFlags.Released;
@@ -1199,7 +1201,7 @@ namespace OpenSilver.Animations.Engine
 
             if (_pageOpenHolds.IsWaitingForPass)
             {
-                _pageOpenHolds.OnLayoutPassCompleted(AppearsWithContainer);
+                _pageOpenHolds.OnLayoutPassCompleted(AppearsWithContainer, GetContainersWaitMs);
             }
 
             // The containers copied before their removal, but not removed.
@@ -2329,8 +2331,7 @@ namespace OpenSilver.Animations.Engine
             if (origin == bucket.EffectElement)
             {
                 return bucket.EffectAppears
-                    ? DescribeAppeared(origin, _recordIndex.TryGetValue(origin, out int effectIndex) && (_records[effectIndex].Flags & RecordFlags.Released) != 0,
-                                       bucket.Effect, AnimationSettings.Current)
+                    ? DescribeAppeared(origin)
                     : NameOf(origin, bucket.EffectParent) + " disappeared";
             }
 
@@ -2369,14 +2370,14 @@ namespace OpenSilver.Animations.Engine
         /// "Banner appeared", or, for an element held while its page opened, "Banner appeared 0.6 s
         /// after its page opened, as OnPageOpen=PushOthers asks".
         /// </summary>
-        private static string DescribeAppeared(UIElement element, bool released, Transition effect, AnimationSettings settings)
+        private string DescribeAppeared(UIElement element)
         {
-            if (!released)
+            if (!_recordIndex.TryGetValue(element, out int index) || (_records[index].Flags & RecordFlags.Released) == 0)
             {
                 return ElementNames.Of(element) + " appeared";
             }
 
-            double wait = GetWaitMs(effect, settings);
+            double wait = _records[index].WaitedMs;
             return ElementNames.Of(element) + (wait > 0 ? " appeared " + Seconds(wait) : " appeared right") +
                    " after its page opened, as OnPageOpen=PushOthers asks";
         }
@@ -3254,35 +3255,89 @@ namespace OpenSilver.Animations.Engine
         }
 
         /// <summary>
-        /// Plays the Appear of an element, after <paramref name="delay"/> and its StartAfter.
-        /// Returns how long it waits for its StartAfter: nothing for an element held while its page
-        /// opened, which has already waited.
+        /// Plays the Appear of an element, after <paramref name="delay"/> and its StartAfter, and
+        /// inside a container that appears with an effect, once that effect starts: until then the
+        /// container hides it anyway. Returns how long it waits for its StartAfter and its
+        /// container: no StartAfter for an element held while its page opened, which has already
+        /// waited.
         /// </summary>
         private double PlayAppearEffect(int index, Transition effect, double delay, bool raise, AnimationSettings settings, BatchBuilder batch)
         {
             ref Record record = ref _records[index];
             record.Flags |= RecordFlags.Played;
-            double wait = (record.Flags & RecordFlags.Released) != 0 ? 0 : GetWaitMs(effect, settings);
+            double wait = ((record.Flags & RecordFlags.Released) != 0 ? 0 : GetWaitMs(effect, settings)) + GetContainerStartMs(index);
             if (!IsAnimatable(record.Element, out string id))
             {
                 return wait;
             }
 
+            double start = _quickFades ? wait : delay + wait;
+            record.Flags |= RecordFlags.Started;
+            record.StartMs = start;
             if (_quickFades)
             {
-                batch.AddEffect(id, batch.AddTiming(QuickFadeTiming), wait, FadeLook, raise: false);
+                batch.AddEffect(id, batch.AddTiming(QuickFadeTiming), start, FadeLook, raise: false);
             }
             else
             {
                 Timing timing = GetEffectTiming(effect, settings);
-                batch.AddEffect(id, batch.AddTiming(timing), delay + wait, GetEffectLook(effect, true, record.Element, settings), raise);
+                batch.AddEffect(id, batch.AddTiming(timing), start, GetEffectLook(effect, true, record.Element, settings), raise);
                 if (settings.ShowWhatAnimates)
                 {
-                    batch.AddOutline(id, GetEffectMs(effect, true, record.Element, settings), delay + wait, false);
+                    batch.AddOutline(id, GetEffectMs(effect, true, record.Element, settings), start, false);
                 }
             }
 
             return wait;
+        }
+
+        /// <summary>
+        /// When the effect of the nearest container that appears with an effect in this pass
+        /// starts, or 0. The containers that appear without one show at once, with theirs.
+        /// </summary>
+        private double GetContainerStartMs(int index)
+        {
+            int container = FindStartedContainer(index);
+            return container >= 0 ? _records[container].StartMs : 0;
+        }
+
+        /// <summary>
+        /// The record of the nearest container that appears with an effect in this pass, or -1.
+        /// </summary>
+        private int FindStartedContainer(int index)
+        {
+            for (int parent = _records[index].Parent; parent >= 0 && (_records[parent].Flags & RecordFlags.Appears) != 0; parent = _records[parent].Parent)
+            {
+                if ((_records[parent].Flags & RecordFlags.Started) != 0)
+                {
+                    return parent;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// How long the containers of an element held while its page opened wait for their
+        /// StartAfter: it is released when the nearest one starts its effect, plus its own wait.
+        /// Their effects haven't started yet, at the end of the pass where they appeared.
+        /// </summary>
+        private double GetContainersWaitMs(UIElement element)
+        {
+            AnimationSettings settings = AnimationSettings.Current;
+            double waitMs = 0;
+            for (DependencyObject e = VisualTreeHelper.GetParent(element); e != null; e = VisualTreeHelper.GetParent(e))
+            {
+                if (e is UIElement ancestor && _recordIndex.TryGetValue(ancestor, out int index) &&
+                    (_records[index].Flags & (RecordFlags.Appears | RecordFlags.Released | RecordFlags.Scrolled | RecordFlags.Magic)) == RecordFlags.Appears &&
+                    GetAppearEffect(ancestor) is Transition effect &&
+                    ((_records[index].Flags & RecordFlags.WithContainer) == 0 || effect.OnPageOpen != PageOpen.Skip))
+                {
+                    waitMs += GetWaitMs(effect, settings);
+                }
+            }
+
+            return waitMs;
         }
 
         /// <summary>
@@ -3512,13 +3567,7 @@ namespace OpenSilver.Animations.Engine
         /// </summary>
         private void PlayRemainingEffects(AnimationSettings settings, string snapReason, bool logging, BatchBuilder batch)
         {
-            int withContainer = 0;
-            UIElement firstWithContainer = null;
-            Transition firstEffect = null;
-            double firstWait = 0;
-            // The cascade is told when all of them are items of the same list.
-            double firstCascade = 0;
-            ItemList firstList = null;
+            List<ContainerGroup> withContainer = null;
             int skipped = 0;
             UIElement firstSkipped = null;
 
@@ -3552,40 +3601,69 @@ namespace OpenSilver.Animations.Engine
                 {
                     if (appearsWithContainer)
                     {
-                        if (withContainer++ == 0)
+                        int container = FindStartedContainer(index);
+                        UIElement host = container >= 0 ? _records[container].Element : null;
+                        withContainer ??= new List<ContainerGroup>();
+                        ContainerGroup group = withContainer.Find(g => g.Hosted == (host != null));
+                        if (group == null)
                         {
-                            firstWithContainer = element;
-                            firstEffect = effect;
-                            firstWait = wait;
-                            firstList = itemList;
-                            firstCascade = GetCascadeStep(_appearCascades, itemList, settings);
+                            withContainer.Add(new ContainerGroup
+                            {
+                                Hosted = host != null,
+                                Host = host,
+                                Count = 1,
+                                First = element,
+                                Effect = effect,
+                                Wait = wait,
+                                List = itemList,
+                                Cascade = GetCascadeStep(_appearCascades, itemList, settings),
+                            });
                         }
-                        else if (itemList != firstList)
+                        else
                         {
-                            firstCascade = 0;
+                            group.Count++;
+                            if (host != group.Host)
+                            {
+                                group.Host = null;
+                            }
+
+                            if (itemList != group.List)
+                            {
+                                group.Cascade = 0;
+                            }
                         }
                     }
                     else
                     {
                         Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(effect, settings);
                         UIElement parent = VisualTreeHelper.GetParent(element) as UIElement;
-                        _messages.Add($"{DescribeAppeared(element, (record.Flags & RecordFlags.Released) != 0, effect, settings)}; " +
+                        _messages.Add($"{DescribeAppeared(element)}; " +
                                       $"{DescribeOwnEffect(effect, true, _quickFades, timing, snapReason, wait, DescribeEffectSource(element, effect, true, parent, own: true))}.");
                     }
                 }
             }
 
-            if (withContainer == 1)
+            for (int i = 0; withContainer != null && i < withContainer.Count; i++)
             {
-                Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(firstEffect, settings);
-                UIElement parent = VisualTreeHelper.GetParent(firstWithContainer) as UIElement;
-                _messages.Add($"{ElementNames.Of(firstWithContainer)} appeared with its container; " +
-                              $"{DescribeOwnEffect(firstEffect, true, _quickFades, timing, snapReason, firstWait, DescribeEffectSource(firstWithContainer, firstEffect, true, parent, own: true))}.");
-            }
-            else if (withContainer > 1)
-            {
-                string cascade = firstCascade > 0 && !_quickFades ? $", one after the other (every {Seconds(firstCascade)})" : string.Empty;
-                _messages.Add($"{withContainer} elements appeared with their container, and play their effects{cascade}, like {ElementNames.Of(firstWithContainer)}.");
+                ContainerGroup group = withContainer[i];
+                if (group.Count == 1)
+                {
+                    Timing timing = _quickFades ? QuickFadeTiming : GetEffectTiming(group.Effect, settings);
+                    UIElement parent = VisualTreeHelper.GetParent(group.First) as UIElement;
+                    string with = group.Hosted
+                        ? $"appeared inside {ElementNames.Of(group.Host)}, which plays its own effect"
+                        : "appeared with its container";
+                    _messages.Add($"{ElementNames.Of(group.First)} {with}; " +
+                                  $"{DescribeOwnEffect(group.Effect, true, _quickFades, timing, snapReason, group.Wait, DescribeEffectSource(group.First, group.Effect, true, parent, own: true))}.");
+                }
+                else
+                {
+                    string cascade = group.Cascade > 0 && !_quickFades ? $", one after the other (every {Seconds(group.Cascade)})" : string.Empty;
+                    string with = !group.Hosted ? "with their container, and play their effects"
+                        : group.Host == null ? "inside containers that play their own effects, and play theirs once those start"
+                        : $"inside {ElementNames.Of(group.Host)}, and play their effects once its own starts";
+                    _messages.Add($"{group.Count} elements appeared {with}{cascade}, like {ElementNames.Of(group.First)}.");
+                }
             }
 
             if (logging && skipped == 1)
@@ -4032,6 +4110,8 @@ namespace OpenSilver.Animations.Engine
             // Travels from where an element with the same Magic move disappeared, or fades in with
             // the new content of a container with MagicMoveByName: it plays nothing else.
             Magic = 512,
+            // Its Appear effect starts at StartMs, so the elements that appear inside it wait for it.
+            Started = 1024,
         }
 
         private struct Record
@@ -4042,6 +4122,9 @@ namespace OpenSilver.Animations.Engine
             public Rect NewRect;
             public RecordFlags Flags;
             public int Group;
+            public double StartMs;
+            // How long it was held while its page opened, when Released.
+            public double WaitedMs;
         }
 
         private enum GroupKind : byte
@@ -4084,6 +4167,24 @@ namespace OpenSilver.Animations.Engine
         {
             public double Horizontal;
             public double Vertical;
+        }
+
+        /// <summary>
+        /// The elements that appear with their container, for one message: those inside a
+        /// container that plays its own effect (<see cref="Hosted"/>), named when they share it,
+        /// or those that aren't.
+        /// </summary>
+        private sealed class ContainerGroup
+        {
+            public bool Hosted;
+            public UIElement Host;
+            public int Count;
+            public UIElement First;
+            public Transition Effect;
+            public double Wait;
+            public ItemList List;
+            // Told only when all of them are items of the same list.
+            public double Cascade;
         }
 
         private sealed class Bucket

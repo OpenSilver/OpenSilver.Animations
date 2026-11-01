@@ -45,15 +45,16 @@ namespace OpenSilver.Animations.Engine
         private readonly List<Hold> _waitingForPass = new List<Hold>();
         private readonly List<Hold> _due = new List<Hold>();
         private readonly Stopwatch _clock = Stopwatch.StartNew();
-        private readonly Action<UIElement> _released;
+        private readonly Action<UIElement, double> _released;
         private DispatcherTimer _timer;
         private bool _posted;
         private int _count;
 
         /// <param name="released">
-        /// Called for each element shown again after its page opened.
+        /// Called for each element shown again after its page opened, with how long it waited, in
+        /// milliseconds.
         /// </param>
-        public PageOpenHolds(Action<UIElement> released)
+        public PageOpenHolds(Action<UIElement, double> released)
         {
             _released = released;
         }
@@ -149,9 +150,10 @@ namespace OpenSilver.Animations.Engine
         /// <summary>
         /// Called at the end of a layout pass, while its records still exist. The elements loaded
         /// since the last pass are released after their StartAfter, if they appeared with their
-        /// page or container, or now, if they were added on their own.
+        /// page or container, or now, if they were added on their own. Inside containers that
+        /// wait for their own StartAfter, they also wait for them.
         /// </summary>
-        public void OnLayoutPassCompleted(Func<UIElement, bool> appearsWithContainer)
+        public void OnLayoutPassCompleted(Func<UIElement, bool> appearsWithContainer, Func<UIElement, double> containersWaitMs)
         {
             if (_waitingForPass.Count == 0)
             {
@@ -167,6 +169,10 @@ namespace OpenSilver.Animations.Engine
                 }
 
                 hold.PageOpen = appearsWithContainer(hold.Element);
+                if (hold.PageOpen)
+                {
+                    hold.WaitMs += containersWaitMs(hold.Element);
+                }
                 hold.Due = hold.PageOpen ? now + (long)hold.WaitMs : now;
                 _due.Add(hold);
             }
@@ -253,7 +259,7 @@ namespace OpenSilver.Animations.Engine
 
             if (hold.PageOpen && element.IsLoaded && element.Visibility == Visibility.Visible)
             {
-                _released(element);
+                _released(element, hold.WaitMs);
             }
         }
 

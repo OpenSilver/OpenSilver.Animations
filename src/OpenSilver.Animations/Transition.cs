@@ -97,7 +97,8 @@ namespace OpenSilver.Animations
         /// How long it waits before its effect starts, from 0 (the default) to 10 seconds. It stays
         /// invisible until then. When it appears at runtime, the elements around it make room at
         /// once; when it appears with its page, the time counts from when the page opens, which
-        /// makes elements appear one after the other.
+        /// makes elements appear one after the other. Inside an element that appears with an effect
+        /// of its own, it counts from when that effect starts.
         /// </summary>
         public AnimationTime StartAfter
         {
