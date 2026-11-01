@@ -92,7 +92,7 @@ namespace OpenSilver.Animations.Engine
         // Typewriter and Backspace: the whole text at most, and how long the cursor blinks after it.
         private const double MaxTypingMs = 10000;
         private const double MaxErasingMs = 3000;
-        private const double CursorBlinkMs = 2000;
+        private const double CursorBlinkMs = 1200;
         private const double MaxRetypeMs = 3000;
 
         private static readonly Timing QuickFadeTiming = Timing.QuickFade();

@@ -971,7 +971,7 @@ namespace OpenSilver.Animations
 
         /// <summary>
         /// How long the cursor blinks after the last letter typed, in milliseconds at the current
-        /// speed, or 0 without a cursor. Each blink lasts a fifth of it, also before the first
+        /// speed, or 0 without a cursor. Each blink lasts a third of it, also before the first
         /// letter.
         /// </summary>
         public double CursorMs;

@@ -1742,7 +1742,7 @@
                 const letters = k <= erase ? oldLetters : newLetters;
                 positions.push(count > 0 ? after(letters[count - 1]) : before(first));
             }
-            end = playCursor(st.animations, makeCursor(st.overlay, first), positions, 0, blinkFirst, ms, cursorMs / 5, true);
+            end = playCursor(st.animations, makeCursor(st.overlay, first), positions, 0, blinkFirst, ms, cursorMs / 3, true);
         }
 
         const clock = endTextAfter(element, st, end);
@@ -1804,12 +1804,12 @@
     function after(letter) { return [letter.offsetLeft + letter.offsetWidth, letter.offsetTop, letter.offsetHeight]; }
 
     // Plays a cursor that blinks at the first position for blinkFirst, goes to the next position
-    // every letterMs, then, if fadeAway, blinks twice and fades away. It is on, or off, for
-    // blinkMs in a blink, and shows nothing during its delay. Returns how long it plays, delay
-    // not included.
+    // every letterMs, then, if fadeAway, blinks twice: it stays on, goes off, and comes back as it
+    // fades away. It is on, or off, for blinkMs in a blink, and shows nothing during its delay.
+    // Returns how long it plays, delay not included.
     function playCursor(animations, cursor, positions, delay, blinkFirst, letterMs, blinkMs, fadeAway) {
         const active = blinkFirst + (positions.length - 1) * letterMs;
-        const total = Math.max(1, active + (fadeAway ? 5 * blinkMs : 0));
+        const total = Math.max(1, active + (fadeAway ? 3 * blinkMs : 0));
         const at = (ms) => Math.min(1, ms / total);
         const moves = positions.map((p, i) => ({ offset: i === 0 ? 0 : at(blinkFirst + i * letterMs), translate: px(p[0]) + ' ' + px(p[1]), height: px(p[2]), easing: 'steps(1, end)' }));
         const last = positions[positions.length - 1];
@@ -1822,9 +1822,7 @@
         if (fadeAway) {
             blinks.push(
                 { offset: at(active + blinkMs), opacity: 0, easing: 'steps(1, end)' },
-                { offset: at(active + 2 * blinkMs), opacity: 1, easing: 'steps(1, end)' },
-                { offset: at(active + 3 * blinkMs), opacity: 0, easing: 'steps(1, end)' },
-                { offset: at(active + 4 * blinkMs), opacity: 1, easing: 'ease-in' },
+                { offset: at(active + 2 * blinkMs), opacity: 1, easing: 'ease-in' },
                 { offset: 1, opacity: 0 });
         } else {
             blinks.push({ offset: 1, opacity: 1 });
@@ -1860,7 +1858,7 @@
             end = delay + blinkFirst + n * letterMs;
             if (cursorMs > 0) {
                 const positions = [before(letters[0])].concat(letters.map(after));
-                end = delay + playCursor(st.animations, makeCursor(st.overlay, letters[0]), positions, delay, blinkFirst, letterMs, cursorMs / 5, true);
+                end = delay + playCursor(st.animations, makeCursor(st.overlay, letters[0]), positions, delay, blinkFirst, letterMs, cursorMs / 3, true);
             }
         }
         endTextAfter(element, st, end);
@@ -1887,7 +1885,7 @@
                 const positions = [];
                 for (let k = 0; k < n; k++) positions.push(after(letters[n - 1 - k]));
                 positions.push(before(letters[0]));
-                playCursor([], makeCursor(ghost.clone, letters[n - 1]), positions, delay, blinkFirst, letterMs, cursorMs / 5, false);
+                playCursor([], makeCursor(ghost.clone, letters[n - 1]), positions, delay, blinkFirst, letterMs, cursorMs / 3, false);
             }
         }
 
