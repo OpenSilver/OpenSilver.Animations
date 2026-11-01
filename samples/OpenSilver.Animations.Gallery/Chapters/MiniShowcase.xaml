@@ -195,7 +195,7 @@
                                                 </TextBlock>
                                                 <TextBlock x:Name="WelcomeSubtitle" Text="TO THE OPENSILVER SHOWCASE!" FontSize="7" FontWeight="Bold" CharacterSpacing="300"
                                                            Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"
-                                                           anim:Animate.Appear="{anim:Zoom From=0.5, StartAfter=1.5s, OthersDuration=0.375s, Easing=EaseInOut, OnPageOpen=PushOthers}" />
+                                                           anim:Animate.Appear="{anim:Zoom From=0.5, StartAfter=1s, OthersDuration=0.375s, Easing=EaseInOut, OnPageOpen=PushOthers}" />
                                             </StackPanel>
                                         </Border>
                                         <Border x:Name="WelcomeCard" Background="White" CornerRadius="14" MaxWidth="300" Margin="20,0,20,16" Padding="18,14"

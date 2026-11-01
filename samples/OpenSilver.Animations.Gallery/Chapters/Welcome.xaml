@@ -27,11 +27,11 @@
                     anim:Animate.Appear="{anim:Custom Zoom=0.3, Rotate=-45, Duration=0.9s, Easing=Overshoot, StartAfter=0.1s}">
                 <Canvas Width="56" Height="56">
                     <Border Canvas.Left="10" Canvas.Top="18" Width="20" Height="20" CornerRadius="6" Background="#40FFFFFF"
-                            anim:Animate.Appear="{anim:Fade Duration=0.5s, StartAfter=0.4s}" />
+                            anim:Animate.Appear="{anim:Fade Duration=0.5s, StartAfter=0.3s}" />
                     <Border Canvas.Left="18" Canvas.Top="18" Width="20" Height="20" CornerRadius="6" Background="#80FFFFFF"
-                            anim:Animate.Appear="{anim:Custom OffsetX=-8, Duration=0.8s, Easing=StrongEaseOut, StartAfter=0.45s}" />
+                            anim:Animate.Appear="{anim:Custom OffsetX=-8, Duration=0.8s, Easing=StrongEaseOut, StartAfter=0.35s}" />
                     <Border Canvas.Left="26" Canvas.Top="18" Width="20" Height="20" CornerRadius="6" Background="White"
-                            anim:Animate.Appear="{anim:Custom OffsetX=-16, Duration=0.9s, Easing=StrongEaseOut, StartAfter=0.5s}" />
+                            anim:Animate.Appear="{anim:Custom OffsetX=-16, Duration=0.9s, Easing=StrongEaseOut, StartAfter=0.4s}" />
                 </Canvas>
             </Border>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">

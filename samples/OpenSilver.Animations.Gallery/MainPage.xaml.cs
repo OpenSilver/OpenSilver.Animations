@@ -25,17 +25,15 @@ namespace OpenSilver.Animations.Gallery
         private const double MenuWidth = 300;
         private const double MenuGap = 48;
 
-        // Each new page slides in a little. Not the first one, which comes after the shell when the app opens.
-        private static readonly Transition PageAppear = new Slide { From = Side.Bottom, Distance = Distance.Short };
-
         // The shell's animations stay out of the log. A message about LogList would add an entry,
         // which animates and logs again, forever.
         private static readonly string[] ShellNames = { "ChaptersPanel", "LogPanel", "LogList", "Scrim", "ChapterSelection", "ChapterHover", "UnreadDot" };
 
         private readonly ObservableCollection<LogEntry> _log = new ObservableCollection<LogEntry>();
 
-        private string _pageAppeared;
-        private bool _hasOpenedAPage;
+        // The message about the intro of the page, kept out of the log. The demos inside the page
+        // have messages of their own.
+        private string _pageIntroMessage;
         private bool _isPhone;
         private bool _isLogBeside = true;
         private bool _isMenuOpen;
@@ -93,8 +91,9 @@ namespace OpenSilver.Animations.Gallery
 
         private bool IsAboutTheShell(string message)
         {
-            if (_pageAppeared != null && message.StartsWith(_pageAppeared, StringComparison.Ordinal))
+            if (_pageIntroMessage != null && message.StartsWith(_pageIntroMessage, StringComparison.Ordinal))
             {
+                _pageIntroMessage = null;
                 return true;
             }
 
@@ -128,12 +127,8 @@ namespace OpenSilver.Animations.Gallery
                 chapter.IsCurrent = string.Equals(chapter.Path, path, StringComparison.OrdinalIgnoreCase);
             }
 
-            if (e.Content is UIElement page && _hasOpenedAPage)
-            {
-                Animate.SetAppear(page, PageAppear);
-                _pageAppeared = page.GetType().Name + " appeared";
-            }
-            _hasOpenedAPage = true;
+            int introCount = e.Content is Page page ? PageIntro.Apply(page) : 0;
+            _pageIntroMessage = introCount > 1 ? introCount + " elements appeared with their container, and play their effects" : null;
 
             PageScroller.ScrollToVerticalOffset(0);
             _isMenuOpen = false;
