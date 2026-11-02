@@ -4,7 +4,7 @@
   <a href="http://opensilver-animations-library.azurewebsites.net"><img src="docs/images/live-gallery.svg" width="674" alt="Try the live gallery: all the demos of this page, and many more, running in your browser."></a>
 </p>
 
-Layout animations for [OpenSilver](https://opensilver.net), declared in XAML. Add an attribute to an element, and the changes your app makes to the layout animate on their own: the element that appears, disappears, moves or changes size, and everything that moves because of it.
+Layout animations for [OpenSilver](https://opensilver.net) (web-native WPF), declared in XAML. Add an attribute to an element, and the changes your app makes to the layout animate on their own: the element that appears, disappears, moves or changes size, and everything that moves because of it.
 
 How it differs from the animations that XAML frameworks usually provide:
 
