@@ -4172,7 +4172,7 @@ namespace OpenSilver.Animations.Engine
             Released = 128,
             // A container that shows an item its list showed in the last pass: it glides from there.
             Paired = 256,
-            // Travels from where an element with the same Magic move disappeared, or fades in with
+            // Travels from where an element with the same MagicMoveId disappeared, or fades in with
             // the new content of a container with MagicMoveByName: it plays nothing else.
             Magic = 512,
             // Its Appear effect starts at StartMs, so the elements that appear inside it wait for it.

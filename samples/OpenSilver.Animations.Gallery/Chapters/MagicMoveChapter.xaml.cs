@@ -44,7 +44,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
         private Button CreateChip(string name)
         {
             var chip = new Button { Content = name, Style = (Style)Resources["Chip"] };
-            Animate.SetMagicMove(chip, "topping-" + name);
+            Animate.SetMagicMoveId(chip, "topping-" + name);
             chip.Click += Chip_Click;
             return chip;
         }

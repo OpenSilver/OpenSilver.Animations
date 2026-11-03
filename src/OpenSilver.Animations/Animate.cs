@@ -30,7 +30,7 @@ namespace OpenSilver.Animations
     /// &lt;StackPanel anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside}"&gt;...&lt;/StackPanel&gt;
     /// &lt;ItemsControl anim:Animate.ItemsAppear="Fade" anim:Animate.ItemsDisappear="Fade" anim:Animate.ItemsMoveAndResize="Smooth" /&gt;
     /// &lt;Button Content="Buy" anim:Animate.Hover="Grow" anim:Animate.Press="Shrink" /&gt;
-    /// &lt;Border anim:Animate.MagicMove="SelectionPill" /&gt;
+    /// &lt;Border anim:Animate.MagicMoveId="SelectionPill" /&gt;
     /// </code>
     /// </example>
     public static class Animate
@@ -508,26 +508,26 @@ namespace OpenSilver.Animations
         }
 
         /// <summary>
-        /// Identifies the MagicMove attached property.
+        /// Identifies the MagicMoveId attached property.
         /// </summary>
-        public static readonly DependencyProperty MagicMoveProperty =
+        public static readonly DependencyProperty MagicMoveIdProperty =
             DependencyProperty.RegisterAttached(
-                "MagicMove",
-                typeof(MagicMove),
+                "MagicMoveId",
+                typeof(string),
                 typeof(Animate),
-                new PropertyMetadata(null, OnMagicMoveChanged));
+                new PropertyMetadata(null, OnMagicMoveIdChanged));
 
         /// <summary>
         /// Gets the id that links the element to the other elements it travels to and from.
         /// </summary>
-        public static MagicMove GetMagicMove(UIElement element)
+        public static string GetMagicMoveId(UIElement element)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            return (MagicMove)element.GetValue(MagicMoveProperty);
+            return (string)element.GetValue(MagicMoveIdProperty);
         }
 
         /// <summary>
@@ -536,33 +536,89 @@ namespace OpenSilver.Animations
         /// into the new one, as if it were the same element going to its new place. Put it, for
         /// example, on the selection background in the template of a RadioButton, which is only
         /// visible when the button is checked, or on a photo in a list and on the same photo in its
-        /// detail view. The elements are hidden with Visibility; a template whose states use
-        /// Opacity instead needs to use Visibility. Its Appear and Disappear only play when it
-        /// doesn't travel.
+        /// detail view. When several elements could travel, like in the templates of two lists, the
+        /// two that are the closest in the page travel. The elements are hidden with Visibility; a
+        /// template whose states use Opacity instead needs to use Visibility. Its Appear and
+        /// Disappear only play when it doesn't travel. <see cref="SetMagicMoveSettings">MagicMoveSettings</see>
+        /// says how it travels.
         /// </summary>
         /// <example>
         /// <code>
-        /// &lt;Border anim:Animate.MagicMove="SelectionPill" /&gt;
-        /// &lt;Image anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" /&gt;
+        /// &lt;Border anim:Animate.MagicMoveId="SelectionPill" /&gt;
+        /// &lt;Image anim:Animate.MagicMoveId="{Binding Id, StringFormat='photo-{0}'}" /&gt;
         /// </code>
         /// </example>
-        public static void SetMagicMove(UIElement element, MagicMove value)
+        public static void SetMagicMoveId(UIElement element, string value)
         {
             if (element is null)
             {
                 throw new ArgumentNullException(nameof(element));
             }
 
-            element.SetValue(MagicMoveProperty, value);
+            element.SetValue(MagicMoveIdProperty, value);
         }
 
-        private static void OnMagicMoveChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        private static void OnMagicMoveIdChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is UIElement element && e.NewValue is MagicMove magicMove)
+            if (d is UIElement && !string.IsNullOrWhiteSpace(e.NewValue as string))
             {
                 LayoutAnimator.AnyMagic = true;
                 LayoutAnimator.EnsureStarted();
-                LayoutAnimator.OnMagicMoveSet(element, magicMove);
+            }
+        }
+
+        /// <summary>
+        /// Identifies the MagicMoveSettings attached property.
+        /// </summary>
+        public static readonly DependencyProperty MagicMoveSettingsProperty =
+            DependencyProperty.RegisterAttached(
+                "MagicMoveSettings",
+                typeof(MagicMove),
+                typeof(Animate),
+                new PropertyMetadata(null, OnMagicMoveSettingsChanged));
+
+        /// <summary>
+        /// Gets how the element travels to and from the other elements with its MagicMoveId.
+        /// </summary>
+        public static MagicMove GetMagicMoveSettings(UIElement element)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            return (MagicMove)element.GetValue(MagicMoveSettingsProperty);
+        }
+
+        /// <summary>
+        /// Sets how the element travels to and from the other elements with its
+        /// <see cref="SetMagicMoveId">MagicMoveId</see>: above or behind the other elements, how
+        /// long, and with which curve. Without it, the element travels with the default parameters.
+        /// The parameters of the element that appears win, then those of the one that disappeared.
+        /// Without a MagicMoveId, it does nothing.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// &lt;Border anim:Animate.MagicMoveId="SelectionPill"
+        ///         anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind, Duration=0.4s}" /&gt;
+        /// </code>
+        /// </example>
+        public static void SetMagicMoveSettings(UIElement element, MagicMove value)
+        {
+            if (element is null)
+            {
+                throw new ArgumentNullException(nameof(element));
+            }
+
+            element.SetValue(MagicMoveSettingsProperty, value);
+        }
+
+        private static void OnMagicMoveSettingsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is UIElement element && e.NewValue is MagicMove)
+            {
+                LayoutAnimator.EnsureStarted();
+                LayoutAnimator.CheckMagicMoveSettings(element);
             }
         }
 
@@ -592,7 +648,7 @@ namespace OpenSilver.Animations
         /// <summary>
         /// Set it to true on a Frame or a ContentControl: when its content changes, like the pages
         /// of a wizard, each element of the old content travels to the element with the same
-        /// x:Name in the new content, like <see cref="SetMagicMove">MagicMove</see>. Meanwhile, the
+        /// x:Name in the new content, like with <see cref="SetMagicMoveId">MagicMoveId</see>. Meanwhile, the
         /// old content fades out and the new one fades in, unless they have a Disappear or an
         /// Appear of their own.
         /// </summary>

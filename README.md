@@ -76,7 +76,7 @@ The main properties, one line each:
 <TextBlock Text="{Binding Total}" anim:Animate.TextChange="CountUp" />
 
 <!-- Travels to the element with the same id, in the list or in the details view -->
-<Image anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
+<Image anim:Animate.MagicMoveId="{Binding Id, StringFormat='photo-{0}'}" />
 
 <!-- When the content changes, each element travels to the one with the same x:Name -->
 <ContentControl anim:Animate.MagicMoveByName="True" />
@@ -182,7 +182,7 @@ It fades the panel in, but not out: a collapsed element is gone at once, so fadi
 
 ## Magic move
 
-Give two elements the same id. When one of them disappears and the other one appears, the old one seems to travel to the new one's place and turn into it: its position, size, corners, colors and content change on the way, while the two cross-fade. There is nothing to call before or after the change: the two elements pair up when the layout hides one and shows the other, wherever they are on the page. Inside a `ContentControl`, the elements of the old and the new content can also pair up by `x:Name`.
+Give two elements the same `MagicMoveId`. When one of them disappears and the other one appears, the old one seems to travel to the new one's place and turn into it: its position, size, corners, colors and content change on the way, while the two cross-fade. There is nothing to call before or after the change: the two elements pair up when the layout hides one and shows the other, wherever they are on the page. Inside a `ContentControl`, the elements of the old and the new content can also pair up by `x:Name`.
 
 ### Steps that flow into each other
 
@@ -207,7 +207,7 @@ With an id, the two elements can be anywhere, even in a popup. The text box is c
 ```xml
 <Grid x:Name="AskAnchor" Height="40">
     <!-- Collapsed while the popup is open -->
-    <Border anim:Animate.MagicMove="AskBox"
+    <Border anim:Animate.MagicMoveId="AskBox"
             Visibility="{Binding IsOpen, ElementName=AskPopup,
                                  Converter={StaticResource InverseBooleanToVisibility}}">
         <TextBox GotFocus="AskBox_GotFocus" />
@@ -215,7 +215,7 @@ With an id, the two elements can be anywhere, even in a popup. The text box is c
 
     <Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40"
            PlacementTarget="{Binding ElementName=AskAnchor}">
-        <Border anim:Animate.MagicMove="AskBox" Width="{Binding ActualWidth, ElementName=AskAnchor}">
+        <Border anim:Animate.MagicMoveId="AskBox" Width="{Binding ActualWidth, ElementName=AskAnchor}">
             <!-- A larger text box and a Send button -->
         </Border>
     </Popup>
@@ -230,7 +230,7 @@ With an id, the two elements can be anywhere, even in a popup. The text box is c
 
 ```csharp
 // Each topping has an id of its own
-Animate.SetMagicMove(chip, "topping-" + name);
+Animate.SetMagicMoveId(chip, "topping-" + name);
 
 // Moving it: remove it from one list, and add a new one to the other
 Available.Children.Remove(chip);
@@ -245,7 +245,7 @@ Chosen.Children.Add(CreateChip(name));
 
 ```xml
 <!-- In the template of the RadioButton, visible only when it is checked -->
-<Border x:Name="Pill" Visibility="Collapsed" anim:Animate.MagicMove="SelectionPill" />
+<Border x:Name="Pill" Visibility="Collapsed" anim:Animate.MagicMoveId="SelectionPill" />
 ```
 
 <p align="center">
@@ -265,8 +265,8 @@ The ids can be bound, so that each item of a list has its own. The list and the 
 </Grid>
 
 <!-- In the list, and in the details: the same ids -->
-<Image Source="{Binding Image}" anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
-<TextBlock Text="{Binding Title}" anim:Animate.MagicMove="{Binding Id, StringFormat='title-{0}'}" />
+<Image Source="{Binding Image}" anim:Animate.MagicMoveId="{Binding Id, StringFormat='photo-{0}'}" />
+<TextBlock Text="{Binding Title}" anim:Animate.MagicMoveId="{Binding Id, StringFormat='title-{0}'}" />
 ```
 
 <p align="center">
@@ -276,13 +276,15 @@ The ids can be bound, so that each item of a list has its own. The list and the 
 ### Parameters and rules
 
 ```xml
-<Border anim:Animate.MagicMove="{anim:MagicMove Id=SelectionPill, Travel=Behind, Duration=0.4s, Easing=Bouncy}" />
+<Border anim:Animate.MagicMoveId="SelectionPill"
+        anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind, Duration=0.4s, Easing=Bouncy}" />
 ```
+
+`MagicMoveId` pairs the elements, and `MagicMoveSettings` says how they travel. Without a `MagicMoveId`, the settings do nothing. When the two elements have different parameters, those of the element that appears win.
 
 - `Travel`: `Automatic` (the default) travels behind the other elements when the element is a background, like a selection pill, and above them otherwise. `Above` travels above everything on the page, even outside the containers that clip their content. `Behind` travels behind the elements it travels between.
 - `Duration`: by default, it depends on the distance, from 0.5 s for a short trip to 0.9 s for a long one.
 - `Easing`: as for the other animations. By default, it's `StrongEaseInOut`: very slow at the start and the end, and very fast in between. With `Bouncy`, the size changes without bouncing.
-- A bound id uses the default parameters, because a markup extension can't hold a binding.
 - The elements are hidden with `Visibility`, or added and removed. A template whose visual states use `Opacity` needs to use `Visibility` instead.
 - When several elements could pair, like in the templates of two lists, the two that are the closest in the page travel.
 - An element that disappears waits up to 0.3 s for its partner. If none comes, it plays its own `Disappear`.
@@ -846,6 +848,8 @@ This is a preview, and the API may still change. It is tested in Chrome, Edge an
 - **Older browsers:** the library relies on Web Animations with `composite: 'add'`. In a browser without CSS `linear()` curves, it bakes each curve into keyframes, with the same motion. Without the SVG geometry properties of CSS, a `Rectangle` or an `Ellipse` snaps to its new size inside its animated box, like a `Path`. Both fallbacks were checked by hiding these features from the library in Chrome, not in an older browser.
 - **Hosts:** OpenSilver's MAUI Hybrid and Photino hosts are not tested. In the Simulator, the JavaScript batches can arrive a frame apart.
 - **XAML:** effects set in Style setters, and curves of your own (an `IEasingFunction` as the `Easing`), aren't tested yet. Effects declared as resources work.
+
+**From 0.2 to 3.4:** the version numbers now follow OpenSilver's, and `Animate.MagicMove` became two properties: `MagicMoveId` takes the id, and `MagicMoveSettings` takes `Travel`, `Duration` and `Easing`, like `{anim:MagicMove Duration=0.4s}`. XAML that still uses `Animate.MagicMove`, or `{anim:MagicMove Id=...}`, no longer builds.
 
 Known limitations:
 

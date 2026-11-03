@@ -91,7 +91,7 @@ Measure and arrange hooks run inside `Dispatcher.DisableProcessing()`. The libra
 - **The XAML names and the designer labels match**:
   - `Appear` is "When it appears", `Disappear` is "When it disappears", and `MoveAndResize` is "When it moves or changes size".
   - `ItemsAppear`, `ItemsDisappear` and `ItemsMoveAndResize` are "When an item appears / disappears / moves or changes size", and `ItemsCascade` is "Cascade".
-  - `TextChange` is "When its text changes", and `MagicMove` is "Magic move".
+  - `TextChange` is "When its text changes", and `MagicMoveId` is "Magic move", with the `MagicMoveSettings` next to it.
   - `Hover` is "When the mouse is over it", and `Press` is "When it is pressed".
   - For parameters, the label is the XAML name split into words: `StartAfter` is "Start after", `OthersMove` is "Other elements move", `OnPageOpen` is "When the page opens", `ApplyTo` is "Apply to", and `AlsoOnWindowResize` is "Also when the browser window is resized". `BlinkFirst` is "Blink first". `From`, `To`, `Distance`, `Duration`, `Easing`, `Bounciness`, `Wave`, `Speed`, `Cursor` and `Travel` keep their names.
 - **Off by default.** Choosing an effect is enough; every parameter has a good default.
@@ -130,8 +130,8 @@ The NuGet package is `OpenSilver.Animations`, described as "Easy animations for 
 <TextBlock Text="Welcome" anim:Animate.Appear="{anim:Typewriter Speed=40, BlinkFirst=1.5s}" />
 
 <!-- Magic move -->
-<Border anim:Animate.MagicMove="SelectionPill" />
-<Image anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
+<Border anim:Animate.MagicMoveId="SelectionPill" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind}" />
+<Image anim:Animate.MagicMoveId="{Binding Id, StringFormat='photo-{0}'}" />
 
 <!-- A reusable effect, and app-wide settings in App.xaml -->
 <anim:Slide x:Key="Intro" From="Bottom" Duration="0.4s" />
@@ -255,14 +255,14 @@ Animate.Skip(() => LoadInitialData());
   - **Messages:** "The text of BadgeCount changed; it rolls up (0.3 s, from its TextChange)." or "The text of BadgeCount changed at once, because reduced motion is simulated (AnimationSettings.SimulateReducedMotion)."
   - **Around it.** The TextBlock gets its new size at once. To move what is around it smoothly, add `MoveAndResize` to the TextBlock or to its container; both play together.
 - **Magic move.**
-  - `Animate.MagicMove`: an id, which can be bound. Or `{anim:MagicMove Id=..., Travel=Automatic|Above|Behind, Duration=..., Easing=...}`. A markup extension can't hold a binding, so a bound id uses the default parameters.
+  - `Animate.MagicMoveId`: a string, which can be bound. `Animate.MagicMoveSettings`: how the element travels, `{anim:MagicMove Travel=Automatic|Above|Behind, Duration=..., Easing=...}`. `MagicMoveSettings` without a `MagicMoveId` is ignored, with a warning. A text given to it throws a `FormatException` that says to write `MagicMoveId`. Before 3.4, a single property, `Animate.MagicMove`, took both the id and the settings.
     - When an element with an id disappears (collapsed or removed) and another one with the same id appears, the old one seems to travel to the new one's place and turn into it. Moving the same element to another parent works too.
     - `Duration`: 0.05 to 3 s. By default it depends on the distance: 0.5 s up to 150 px, growing to 0.9 s at 900 px and beyond, in proportion to `DefaultDuration` (5/3 to 3 times it).
     - `Easing`: Smooth by default. With Bouncy, only the move bounces; the size changes Smooth.
     - `Travel`: see "Magic move" below.
     - The parameters of the element that appears are used; when it has none, those of the element that disappeared.
-  - `Animate.MagicMoveByName` (bool) on a ContentControl or a Frame: when its content changes, the elements with the same `x:Name` in the old and new content travel, while the old content fades out and the new one fades in. An element with its own `MagicMove` travels by its id instead, and the parts of control templates don't count, because their names are the same in every control. An old content with its own Disappear, or a new one with its own Appear, plays it instead of the fade.
-  - **Messages:** "Pill of RadioButton "Month" appeared as Pill of RadioButton "Week" disappeared, with the same Magic move "SelectionPill"; it travels from where that one was, behind the elements around it (StrongEaseInOut, 0.5 s for the distance)." and "The content of WizardHost changed (MagicMoveByName): 3 elements with the same x:Name in both travel to their new places, like Avatar (…), while the old content fades out and the new one fades in (…)."
+  - `Animate.MagicMoveByName` (bool) on a ContentControl or a Frame: when its content changes, the elements with the same `x:Name` in the old and new content travel, while the old content fades out and the new one fades in. An element with its own `MagicMoveId` travels by its id instead, and the parts of control templates don't count, because their names are the same in every control. An old content with its own Disappear, or a new one with its own Appear, plays it instead of the fade.
+  - **Messages:** "Pill of RadioButton "Month" appeared as Pill of RadioButton "Week" disappeared, with the same MagicMoveId "SelectionPill"; it travels from where that one was, behind the elements around it (StrongEaseInOut, 0.5 s for the distance)." and "The content of WizardHost changed (MagicMoveByName): 3 elements with the same x:Name in both travel to their new places, like Avatar (…), while the old content fades out and the new one fades in (…)."
   - **Snaps.** With `IsEnabled` off, inside `Animate.Skip`, while dragging, or in the designer, the new element appears at once.
 - **Globals.**
   - `AnimationSettings`:
@@ -317,7 +317,7 @@ This section is the specification for the XAML.io repo. It is not implemented in
    - **"Animate list items":** on a Panel or ItemsControl, `ItemsAppear=Fade`, `ItemsDisappear=Fade` and `ItemsMoveAndResize=Smooth`. On anything else it shows "Select the list first" and a "Select the nearest list" button.
    - **"Animate text changes"** (TextBlock): `TextChange=Roll` when the current text is a number, `CrossFade` otherwise.
    - **"Page intro":** `Appear={anim:Slide From=Bottom}` on the selected elements, with Start after spread by 0.1 s in reading order; opens the page intro timeline.
-   - **"Move between two elements (Magic move)":** sets `MagicMove` to an id suggested from `x:Name`, and shows "Give the same id to the other element".
+   - **"Move between two elements (Magic move)":** sets `MagicMoveId` to an id suggested from `x:Name`, and shows "Give the same id to the other element".
 2. **Sections**, in this order, each shown only when it applies:
    - "When it appears" and "When it disappears": any element.
    - "When it moves or changes size": any FrameworkElement.
@@ -646,10 +646,10 @@ Each line is what the developer sets, and what must happen.
 - **A side panel whose content switches layout while its edge is dragged:** `Orientation="{Responsive ElementName=Panel, Threshold=220, ...}"` on its content, and `ApplyTo=EverythingInside` on the panel. The edge follows the pointer; at the breakpoint, the content glides into its new layout while the drag goes on.
 - **Settings form with toggles that show sub-options:** `ApplyTo=EverythingInside` on the form.
 - **Page intro:** `Appear` with `StartAfter` on each element; the subtitle has `OnPageOpen=PushOthers`; the title uses `Typewriter`.
-- **Selection pill across radio buttons:** `MagicMove=SelectionPill` on the template background. Travel is automatic, and resolves to Behind, whichever direction it travels: the pill slides under the labels.
-- **Chips that move between two lists:** the same `MagicMove` id on the chip in each list, and `ItemsMoveAndResize` on both lists. The chip travels above the page while the chips around it make room.
+- **Selection pill across radio buttons:** `MagicMoveId=SelectionPill` on the template background. Travel is automatic, and resolves to Behind, whichever direction it travels: the pill slides under the labels.
+- **Chips that move between two lists:** the same `MagicMoveId` on the chip in each list, and `ItemsMoveAndResize` on both lists. The chip travels above the page while the chips around it make room.
 - **Wizard pages:** `MagicMoveByName` on the Frame or ContentControl. The elements that both steps have travel, the rest cross-fades.
-- **List to detail photo:** a bound `MagicMove` id on the thumbnail and on the detail image, and on their titles. The photo and its title leave together, also while the detail image is still loading; going back, the other thumbnails show at once.
+- **List to detail photo:** a bound `MagicMoveId` on the thumbnail and on the detail image, and on their titles. The photo and its title leave together, also while the detail image is still loading; going back, the other thumbnails show at once.
 
 ## When things animate (library logic)
 

@@ -50,7 +50,7 @@ namespace OpenSilver.Animations.Engine
         private const int MaxCaptures = 100;
 
         /// <summary>
-        /// Set once an element has a MagicMove or a MagicMoveByName. Until then, the elements that
+        /// Set once an element has a MagicMoveId or a MagicMoveByName. Until then, the elements that
         /// appear or disappear are never checked for one.
         /// </summary>
         internal static bool AnyMagic;
@@ -67,12 +67,22 @@ namespace OpenSilver.Animations.Engine
         private readonly List<EarlyArrival> _earlyArrivals = new List<EarlyArrival>();
         private bool _earlyArrivalsExpire;
 
-        public static void OnMagicMoveSet(UIElement element, MagicMove magicMove)
+        public static void CheckMagicMoveSettings(UIElement element)
         {
-            if (_instance != null && !magicMove.HasId)
+            if (_instance == null)
             {
-                Warn("MagicMove", element, "it has no Id, so it is ignored");
+                return;
             }
+
+            // Later, as the MagicMoveId may come after it in the XAML. A bound id can be empty
+            // until its data comes.
+            Deployment.Current.Dispatcher.BeginInvoke(() =>
+            {
+                if (GetMagicId(element) == null && element.ReadLocalValue(Animate.MagicMoveIdProperty) is not Expression)
+                {
+                    Warn("MagicMoveSettings", element, "there is no MagicMoveId, so it is ignored. MagicMoveSettings says how the element travels; MagicMoveId gives the id that links it to the others");
+                }
+            });
         }
 
         public static void CheckMagicMoveByName(UIElement element)
@@ -84,7 +94,7 @@ namespace OpenSilver.Animations.Engine
         }
 
         private static string GetMagicId(UIElement element)
-            => element.GetValue(Animate.MagicMoveProperty) is MagicMove magicMove && magicMove.HasId ? magicMove.Id.Trim() : null;
+            => element.GetValue(Animate.MagicMoveIdProperty) is string id && !string.IsNullOrWhiteSpace(id) ? id.Trim() : null;
 
         #region Departures
 
@@ -214,7 +224,7 @@ namespace OpenSilver.Animations.Engine
                 Id = id,
                 Ghost = ghost,
                 Swap = swap,
-                Settings = Animate.GetMagicMove(element),
+                Settings = Animate.GetMagicMoveSettings(element),
                 Rect = rect,
                 Ancestors = ancestors,
                 IsBackground = IsBackground(element, parent),
@@ -614,8 +624,8 @@ namespace OpenSilver.Animations.Engine
             string toName = NameOfMagic(element, null);
             string fromName = NameOfMagic(departure.Element, departure.Parent);
             string described = self
-                ? $"{toName} moved, with its Magic move \"{departure.Key}\""
-                : $"{toName} appeared as {(fromName == toName ? "another " + fromName : fromName)} disappeared, with the same Magic move \"{departure.Key}\"";
+                ? $"{toName} moved, with its MagicMoveId \"{departure.Key}\""
+                : $"{toName} appeared as {(fromName == toName ? "another " + fromName : fromName)} disappeared, with the same MagicMoveId \"{departure.Key}\"";
 
             if (!_effectsPlay)
             {
@@ -647,7 +657,7 @@ namespace OpenSilver.Animations.Engine
             }
 
             // The settings of the element that appears, or else those of the one that disappeared.
-            MagicMove own = Animate.GetMagicMove(element);
+            MagicMove own = Animate.GetMagicMoveSettings(element);
             MagicMove magicMove = own != null && own.HasParameters ? own
                 : departure.Settings != null && departure.Settings.HasParameters ? departure.Settings
                 : null;
@@ -821,7 +831,7 @@ namespace OpenSilver.Animations.Engine
             }
 
             ghost.Handled = true;
-            string start = $"{NameOfMagic(departure.Element, ghost.Parent)} disappeared, and no element with its Magic move \"{departure.Key}\" appeared within {Seconds(MagicWaitMs)}";
+            string start = $"{NameOfMagic(departure.Element, ghost.Parent)} disappeared, and no element with its MagicMoveId \"{departure.Key}\" appeared within {Seconds(MagicWaitMs)}";
             if (ghost.Effect != null && _effectsPlay)
             {
                 double wait = PlayGhost(ghost, 0, settings, batch);

@@ -44,7 +44,7 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <Border x:Name="Pill" Background="White" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="8" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="SelectionPill" />
+                                    anim:Animate.MagicMoveId="SelectionPill" />
                             <ContentPresenter Margin="{Responsive Mobile='12,7', Tablet='18,7'}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                     </ControlTemplate>
@@ -194,7 +194,7 @@
         <TextBlock Style="{StaticResource IntroText}"
                    Text="Chapter 1 made elements fade in and out. Magic move goes further: when an element disappears and another one with the same id appears, the second one starts where the first one was, and travels to its own place, while the two cross-fade. It is the trick behind steps that flow into each other, text boxes that open into a card, and photos that open where they are." />
         <TextBlock Style="{StaticResource IntroText}"
-                   Text="In a ContentControl whose content is replaced, MagicMoveByName gives the ids for you: the elements with the same x:Name travel. Anywhere else, give the two elements the same id with Animate.MagicMove. They can be in two templates, in two lists, in a popup, or inside panels that appear and disappear. They only need to change at the same moment." />
+                   Text="In a ContentControl whose content is replaced, MagicMoveByName gives the ids for you: the elements with the same x:Name travel. Anywhere else, give the two elements the same id with Animate.MagicMoveId. They can be in two templates, in two lists, in a popup, or inside panels that appear and disappear. They only need to change at the same moment." />
 
         <!-- 1. Wizard -->
         <controls:DemoCard Title="Steps that flow into each other"
@@ -211,11 +211,11 @@
         <!-- 2. A text box that opens into a popup -->
         <controls:DemoCard Title="A text box that opens into a popup"
                            Description="Click the text box. A Popup opens over it with a larger card to write in, and a binding to IsOpen collapses the text box while the popup is open. The text box and the card have the same id: the text box grows into the card, and the card shrinks back into the text box when the popup closes."
-                           Xaml='&lt;Grid x:Name="AskAnchor" Height="40"&gt;&#10;    &lt;!-- Collapsed while the popup is open --&gt;&#10;    &lt;Border anim:Animate.MagicMove="AskBox"&#10;            Visibility="{Binding IsOpen, ElementName=AskPopup,&#10;                                 Converter={StaticResource InverseBooleanToVisibility}}"&gt;&#10;        &lt;TextBox GotFocus="AskBox_GotFocus" /&gt;&#10;    &lt;/Border&gt;&#10;&#10;    &lt;!-- Opens over the text box. StayOpen=False closes it on a click outside --&gt;&#10;    &lt;Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40"&#10;           PlacementTarget="{Binding ElementName=AskAnchor}"&gt;&#10;        &lt;Border anim:Animate.MagicMove="AskBox" Width="{Binding ActualWidth, ElementName=AskAnchor}"&gt;&#10;            &lt;!-- A larger text box and a Send button --&gt;&#10;        &lt;/Border&gt;&#10;    &lt;/Popup&gt;&#10;&lt;/Grid&gt;&#10;&#10;// AskBox_GotFocus&#10;AskPopup.IsOpen = true;'
+                           Xaml='&lt;Grid x:Name="AskAnchor" Height="40"&gt;&#10;    &lt;!-- Collapsed while the popup is open --&gt;&#10;    &lt;Border anim:Animate.MagicMoveId="AskBox"&#10;            Visibility="{Binding IsOpen, ElementName=AskPopup,&#10;                                 Converter={StaticResource InverseBooleanToVisibility}}"&gt;&#10;        &lt;TextBox GotFocus="AskBox_GotFocus" /&gt;&#10;    &lt;/Border&gt;&#10;&#10;    &lt;!-- Opens over the text box. StayOpen=False closes it on a click outside --&gt;&#10;    &lt;Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40"&#10;           PlacementTarget="{Binding ElementName=AskAnchor}"&gt;&#10;        &lt;Border anim:Animate.MagicMoveId="AskBox" Width="{Binding ActualWidth, ElementName=AskAnchor}"&gt;&#10;            &lt;!-- A larger text box and a Send button --&gt;&#10;        &lt;/Border&gt;&#10;    &lt;/Popup&gt;&#10;&lt;/Grid&gt;&#10;&#10;// AskBox_GotFocus&#10;AskPopup.IsOpen = true;'
                            Expectations="• Click the text box: it grows into the card, which opens over it, and you can type in the card at once. Nothing flashes before it grows, and no focus frame jumps from the text box to the card: the border of the card shows where you type.&#10;• Click outside the card, press Escape, or click Send: the card shrinks back into the text box.&#10;• What you type in one is in the other, and Send empties it.">
             <Grid x:Name="AskAnchor" Height="40" Width="{Responsive Mobile=NaN, Tablet=520}" HorizontalAlignment="{Responsive Mobile=Stretch, Tablet=Left}">
                 <Border Background="White" BorderBrush="#D9DCE7" BorderThickness="1" CornerRadius="20"
-                        anim:Animate.MagicMove="AskBox"
+                        anim:Animate.MagicMoveId="AskBox"
                         Visibility="{Binding IsOpen, ElementName=AskPopup, Converter={StaticResource InverseBooleanToVisibility}}">
                     <Grid>
                         <TextBox x:Name="AskBox" Style="{StaticResource PlainTextBox}" Padding="18,0" VerticalAlignment="Center"
@@ -228,7 +228,7 @@
                 <Popup x:Name="AskPopup" StayOpen="False" Placement="Bottom" VerticalOffset="-40" PlacementTarget="{Binding ElementName=AskAnchor}"
                        Opened="AskPopup_Opened">
                     <Border Width="{Binding ActualWidth, ElementName=AskAnchor}" Background="White" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"
-                            CornerRadius="14" Padding="12,10" anim:Animate.MagicMove="AskBox" KeyDown="AskCard_KeyDown">
+                            CornerRadius="14" Padding="12,10" anim:Animate.MagicMoveId="AskBox" KeyDown="AskCard_KeyDown">
                         <Border.Effect>
                             <DropShadowEffect ShadowDepth="2" Color="Black" BlurRadius="14" Opacity="0.15" />
                         </Border.Effect>
@@ -253,7 +253,7 @@
         <!-- 3. Chips -->
         <controls:DemoCard Title="Toppings that change lists"
                            Description="Click a topping to put it on the pizza, or to take it off. The code removes it from its list and adds a new one with the same id to the other list: the new one travels from where the old one was, above everything."
-                           Xaml='// Each topping has an id of its own&#10;Animate.SetMagicMove(chip, "topping-" + name);&#10;&#10;// Moving it: remove it from one list, and add a new one to the other&#10;Available.Children.Remove(chip);&#10;Chosen.Children.Add(CreateChip(name));'
+                           Xaml='// Each topping has an id of its own&#10;Animate.SetMagicMoveId(chip, "topping-" + name);&#10;&#10;// Moving it: remove it from one list, and add a new one to the other&#10;Available.Children.Remove(chip);&#10;Chosen.Children.Add(CreateChip(name));'
                            Expectations="• The topping you click travels to the end of the other list, above everything.&#10;• The toppings after it in its old list slide over to fill its place.&#10;• Click several toppings quickly: each one travels on its own.">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -277,7 +277,7 @@
         <!-- 4. Selection pill -->
         <controls:DemoCard Title="A selection pill that slides"
                            Description="Each button of this segmented control has its own white pill in its template, shown only when the button is checked. All the pills have the same id: when you click another button, its pill travels from the one that was shown."
-                           Xaml='&lt;!-- In the template of the RadioButton, shown when it is checked --&gt;&#10;&lt;Border x:Name="Pill" Visibility="Collapsed" anim:Animate.MagicMove="SelectionPill" /&gt;&#10;&#10;&lt;!-- With parameters --&gt;&#10;anim:Animate.MagicMove="{anim:MagicMove Id=SelectionPill, Duration=0.4s, Easing=Bouncy}"'
+                           Xaml='&lt;!-- In the template of the RadioButton, shown when it is checked --&gt;&#10;&lt;Border x:Name="Pill" Visibility="Collapsed" anim:Animate.MagicMoveId="SelectionPill" /&gt;&#10;&#10;&lt;!-- With parameters --&gt;&#10;anim:Animate.MagicMoveSettings="{anim:MagicMove Duration=0.4s, Easing=Bouncy}"'
                            Expectations="• The white pill slides from the checked button to the one you click, behind the labels, which never disappear under it.&#10;• It stretches or shrinks when the buttons have different widths, like Day and Month.&#10;• Click quickly from one button to another: the pill turns around from where it is, without jumping.">
             <Border Background="#E9EBF2" CornerRadius="10" Padding="3" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal">
@@ -292,7 +292,7 @@
         <!-- 5. Photos -->
         <controls:DemoCard Title="A photo that opens where it is"
                            Description="Click a photo. The list is collapsed, and the details of the photo are shown in its place. The photo and its title have ids made from the photo's Id, in the list and in the details: they grow from their place in the list into the large photo and the heading. The rest of the list fades out, and the Grid that holds both resizes smoothly."
-                           Xaml="&lt;Grid anim:Animate.MoveAndResize=&quot;Smooth&quot;&gt;&#10;    &lt;ItemsControl x:Name=&quot;PhotoList&quot; anim:Animate.Appear=&quot;Fade&quot; anim:Animate.Disappear=&quot;Fade&quot; /&gt;&#10;    &lt;StackPanel x:Name=&quot;PhotoDetails&quot; anim:Animate.Disappear=&quot;Fade&quot; /&gt;&#10;&lt;/Grid&gt;&#10;&#10;&lt;!-- In the list, and in the details: the same ids --&gt;&#10;&lt;Image Source=&quot;{Binding Image}&quot; anim:Animate.MagicMove=&quot;{Binding Id, StringFormat='photo-{0}'}&quot; /&gt;&#10;&lt;TextBlock Text=&quot;{Binding Title}&quot; anim:Animate.MagicMove=&quot;{Binding Id, StringFormat='title-{0}'}&quot; /&gt;"
+                           Xaml="&lt;Grid anim:Animate.MoveAndResize=&quot;Smooth&quot;&gt;&#10;    &lt;ItemsControl x:Name=&quot;PhotoList&quot; anim:Animate.Appear=&quot;Fade&quot; anim:Animate.Disappear=&quot;Fade&quot; /&gt;&#10;    &lt;StackPanel x:Name=&quot;PhotoDetails&quot; anim:Animate.Disappear=&quot;Fade&quot; /&gt;&#10;&lt;/Grid&gt;&#10;&#10;&lt;!-- In the list, and in the details: the same ids --&gt;&#10;&lt;Image Source=&quot;{Binding Image}&quot; anim:Animate.MagicMoveId=&quot;{Binding Id, StringFormat='photo-{0}'}&quot; /&gt;&#10;&lt;TextBlock Text=&quot;{Binding Title}&quot; anim:Animate.MagicMoveId=&quot;{Binding Id, StringFormat='title-{0}'}&quot; /&gt;"
                            Expectations="• The photo you click grows from its place into the large photo, and its title grows into the heading.&#10;• The other photos fade out, the description and the button fade in, and the demo grows to its new height smoothly.&#10;• Back to the photos makes them shrink back into their place in the list, while the other photos fade back in.">
             <Grid anim:Animate.MoveAndResize="Smooth">
                 <ItemsControl x:Name="PhotoList" anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade">
@@ -306,9 +306,9 @@
                             <Button Style="{StaticResource PhotoTile}" Margin="0,0,12,12" Click="Photo_Click">
                                 <StackPanel Width="150">
                                     <Image Source="{Binding Image}" Width="150" Height="100" Stretch="UniformToFill"
-                                           anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
+                                           anim:Animate.MagicMoveId="{Binding Id, StringFormat='photo-{0}'}" />
                                     <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,6,0,0"
-                                               anim:Animate.MagicMove="{Binding Id, StringFormat='title-{0}'}" />
+                                               anim:Animate.MagicMoveId="{Binding Id, StringFormat='title-{0}'}" />
                                 </StackPanel>
                             </Button>
                         </DataTemplate>
@@ -317,9 +317,9 @@
 
                 <StackPanel x:Name="PhotoDetails" MaxWidth="480" HorizontalAlignment="Left" Visibility="Collapsed" anim:Animate.Disappear="Fade">
                     <Image Source="{Binding Image}" Height="{Responsive Mobile=200, Tablet=320}" Stretch="UniformToFill"
-                           anim:Animate.MagicMove="{Binding Id, StringFormat='photo-{0}'}" />
+                           anim:Animate.MagicMoveId="{Binding Id, StringFormat='photo-{0}'}" />
                     <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="0,12,0,0"
-                               anim:Animate.MagicMove="{Binding Id, StringFormat='title-{0}'}" />
+                               anim:Animate.MagicMoveId="{Binding Id, StringFormat='title-{0}'}" />
                     <TextBlock Text="{Binding Description}" Style="{StaticResource BodyText}" Margin="0,4,0,0" anim:Animate.Appear="Fade" />
                     <Button Content="Back to the photos" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
                             Click="BackToPhotos_Click" anim:Animate.Appear="Fade" />
@@ -333,9 +333,9 @@
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• The element that appears has 0.3 s to come after the one that disappears. When nothing comes, the one that disappeared plays its own Disappear, or disappears at once." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• Elements travel above the page, so that nothing cuts them off. A background, like a selection pill, travels behind the elements around it instead, so that it never covers the labels. Set Travel=Above or Travel=Behind to choose." />
+                           Text="• Elements travel above the page, so that nothing cuts them off. A background, like a selection pill, travels behind the elements around it instead, so that it never covers the labels. Set Travel=Above or Travel=Behind in Animate.MagicMoveSettings to choose." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
-                           Text="• The farther an element goes, the longer it takes: 0.5 s for a short trip, up to 0.9 s across the page. It starts very slowly, goes very fast in the middle, and ends very slowly, so that the eye can follow it. Set Duration and Easing to change that." />
+                           Text="• The farther an element goes, the longer it takes: 0.5 s for a short trip, up to 0.9 s across the page. It starts very slowly, goes very fast in the middle, and ends very slowly, so that the eye can follow it. Set Duration and Easing in Animate.MagicMoveSettings to change that." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"
                            Text="• A text grows or shrinks as a whole, like a picture, so that its words never wrap differently on the way. Boxes, like the pill and the cards, change their width and height." />
                 <TextBlock Style="{StaticResource BodyText}" Margin="0,4,0,0"

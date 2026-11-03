@@ -172,7 +172,7 @@
                     <ControlTemplate TargetType="ListBoxItem">
                         <Grid Background="Transparent">
                             <Border x:Name="Pill" Background="{Binding Accent}" CornerRadius="10" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=TargetChip, Duration=0.5s, Easing=Bouncy}" />
+                                    anim:Animate.MagicMoveId="TargetChip" anim:Animate.MagicMoveSettings="{anim:MagicMove Duration=0.5s, Easing=Bouncy}" />
                             <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -196,10 +196,10 @@
                     <ControlTemplate TargetType="ListBoxItem">
                         <Grid Background="Transparent">
                             <Border x:Name="Hover" Background="#0FFFFFFF" CornerRadius="12" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=RowHover, Travel=Behind, Duration=0.25s, Easing=Smooth}"
+                                    anim:Animate.MagicMoveId="RowHover" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind, Duration=0.25s, Easing=Smooth}"
                                     anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
                             <Border x:Name="Picked" Background="#17FFFFFF" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="12" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=PickedCommit, Travel=Behind}"
+                                    anim:Animate.MagicMoveId="PickedCommit" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind}"
                                     anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
                             <Grid Margin="10,8,44,8">
                                 <Grid.ColumnDefinitions>
@@ -229,7 +229,8 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Picked" Property="Visibility" Value="Visible" />
                                 <Setter TargetName="Check" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="Avatar" Property="anim:Animate.MagicMove" Value="{anim:MagicMove Id=CommitAvatar, Duration=0.55s, Easing=Smooth}" />
+                                <Setter TargetName="Avatar" Property="anim:Animate.MagicMoveId" Value="CommitAvatar" />
+                                <Setter TargetName="Avatar" Property="anim:Animate.MagicMoveSettings" Value="{anim:MagicMove Duration=0.55s, Easing=Smooth}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -246,7 +247,7 @@
                     <ControlTemplate TargetType="ListBoxItem">
                         <Grid Background="Transparent">
                             <Border x:Name="Hover" Background="#0FFFFFFF" CornerRadius="12" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=RowHover, Travel=Behind, Duration=0.25s, Easing=Smooth}"
+                                    anim:Animate.MagicMoveId="RowHover" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind, Duration=0.25s, Easing=Smooth}"
                                     anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
                             <Grid Margin="10,9">
                                 <Grid.ColumnDefinitions>
@@ -283,7 +284,7 @@
                     <ControlTemplate TargetType="RadioButton">
                         <Grid Background="Transparent">
                             <Border x:Name="Pill" Background="{StaticResource CardTextBrush}" CornerRadius="10" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=LiveTab, Travel=Behind}" />
+                                    anim:Animate.MagicMoveId="LiveTab" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind}" />
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,8" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -306,7 +307,7 @@
                     <ControlTemplate TargetType="ListBoxItem">
                         <Grid Background="Transparent" MinWidth="40">
                             <Border x:Name="Pill" Background="{StaticResource CardTextBrush}" CornerRadius="7" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=RangePill, Travel=Behind, Duration=0.45s, Easing=Bouncy}" />
+                                    anim:Animate.MagicMoveId="RangePill" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind, Duration=0.45s, Easing=Bouncy}" />
                             <TextBlock Text="{Binding Name}" FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="8,4" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -329,7 +330,7 @@
                     <ControlTemplate TargetType="ListBoxItem">
                         <Grid Background="Transparent">
                             <Border x:Name="Hover" Background="#14FFFFFF" CornerRadius="8" Visibility="Collapsed"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=BarHover, Travel=Behind, Duration=0.2s, Easing=Smooth}"
+                                    anim:Animate.MagicMoveId="BarHover" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind, Duration=0.2s, Easing=Smooth}"
                                     anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
                             <StackPanel VerticalAlignment="Bottom" Margin="3,0,3,3">
                                 <TextBlock x:Name="Value" Text="{Binding Label}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource CardTextBrush}"
@@ -368,13 +369,15 @@
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="8,2,8,3" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="anim:Animate.MagicMove" Value="{anim:MagicMove Id=TargetChip, Duration=0.55s, Easing=Overshoot}" />
+            <Setter Property="anim:Animate.MagicMoveId" Value="TargetChip" />
+            <Setter Property="anim:Animate.MagicMoveSettings" Value="{anim:MagicMove Duration=0.55s, Easing=Overshoot}" />
         </Style>
 
         <Style x:Key="CommitAvatar" TargetType="Border">
             <Setter Property="Background" Value="{Binding Commit.Color}" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="anim:Animate.MagicMove" Value="{anim:MagicMove Id=CommitAvatar, Duration=0.55s, Easing=Overshoot}" />
+            <Setter Property="anim:Animate.MagicMoveId" Value="CommitAvatar" />
+            <Setter Property="anim:Animate.MagicMoveSettings" Value="{anim:MagicMove Duration=0.55s, Easing=Overshoot}" />
         </Style>
 
         <!-- Confetti, with no timer: each piece is where it lands, below the stage, out of sight. Its
@@ -453,7 +456,7 @@
                                 anim:Animate.Appear="{anim:Pop StartAfter=0.45s, Bounciness=0.6}">
                             <Button x:Name="TryButton" Style="{StaticResource LaunchButton}" Command="{Binding Open}"
                                     Visibility="{Binding IsIdle, Converter={StaticResource BooleanToVisibility}}"
-                                    anim:Animate.MagicMove="{anim:MagicMove Id=Card, Travel=Above, Duration=0.6s}"
+                                    anim:Animate.MagicMoveId="Card" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Above, Duration=0.6s}"
                                     anim:Animate.Hover="{anim:Grow Zoom=1.04, Easing=Bouncy}" anim:Animate.Press="Shrink">
                                 <StackPanel Orientation="Horizontal">
                                     <Border Width="50" Height="50" CornerRadius="25" Background="White">
@@ -565,7 +568,7 @@
                     <Border x:Name="Card" Background="{StaticResource CardBrush}" CornerRadius="28"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Visibility="{Binding IsIdle, Converter={StaticResource InverseBooleanToVisibility}}"
-                            anim:Animate.MagicMove="{anim:MagicMove Id=Card, Travel=Above, Duration=0.6s}"
+                            anim:Animate.MagicMoveId="Card" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Above, Duration=0.6s}"
                             anim:Animate.MoveAndResize="{anim:Smooth ApplyTo=EverythingInside, Duration=0.55s, Easing=Overshoot}">
                         <Border.Effect>
                             <DropShadowEffect Color="#1C1E2B" BlurRadius="40" ShadowDepth="14" Direction="270" Opacity="0.35" />
@@ -633,7 +636,7 @@
                                         <Button x:Name="ReviewButton" Style="{StaticResource ActionButton}" Command="{Binding Review}"
                                                 Visibility="{Binding HasCommit, Converter={StaticResource BooleanToVisibility}}"
                                                 anim:Animate.Appear="{anim:Zoom From=0.85, Easing=Overshoot, Duration=0.45s}"
-                                                anim:Animate.MagicMove="{anim:MagicMove Id=ShipAction, Duration=0.55s, Easing=Smooth}"
+                                                anim:Animate.MagicMoveId="ShipAction" anim:Animate.MagicMoveSettings="{anim:MagicMove Duration=0.55s, Easing=Smooth}"
                                                 anim:Animate.Hover="{anim:Grow Zoom=1.02}" anim:Animate.Press="Shrink">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Target.Name, StringFormat='Ship to {0}'}" anim:Animate.TextChange="Retype" />
@@ -658,7 +661,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Border Style="{StaticResource CommitAvatar}" Width="38" Height="38" CornerRadius="19"
-                                                anim:Animate.MagicMove="{anim:MagicMove Id=CommitAvatar, Duration=0.6s, Easing=StrongEaseInOut}">
+                                                anim:Animate.MagicMoveSettings="{anim:MagicMove Duration=0.6s, Easing=StrongEaseInOut}">
                                             <TextBlock Text="{Binding Commit.Initial}" FontSize="15" FontWeight="Bold" Foreground="#0C0C14"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
@@ -668,7 +671,7 @@
                                                            FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,7,0"
                                                            anim:Animate.Appear="{StaticResource StepAppear}" />
                                                 <Border Style="{StaticResource TargetChip}"
-                                                        anim:Animate.MagicMove="{anim:MagicMove Id=TargetChip, Duration=0.6s, Easing=StrongEaseInOut}">
+                                                        anim:Animate.MagicMoveSettings="{anim:MagicMove Duration=0.6s, Easing=StrongEaseInOut}">
                                                     <TextBlock Text="{Binding Target.Name}" FontSize="12" FontWeight="SemiBold" Foreground="White" />
                                                 </Border>
                                             </StackPanel>
@@ -686,7 +689,7 @@
                                                 Content="Cancel" anim:Animate.Appear="{StaticResource StepAppear}"
                                                 anim:Animate.Hover="{anim:Grow Zoom=1.03}" anim:Animate.Press="Shrink" />
                                         <Button Grid.Column="2" Style="{StaticResource ActionButton}" Command="{Binding Ship}"
-                                                anim:Animate.MagicMove="{anim:MagicMove Id=ShipAction, Duration=0.6s, Easing=StrongEaseInOut}"
+                                                anim:Animate.MagicMoveId="ShipAction" anim:Animate.MagicMoveSettings="{anim:MagicMove Duration=0.6s, Easing=StrongEaseInOut}"
                                                 anim:Animate.Hover="{anim:Grow Zoom=1.03}" anim:Animate.Press="Shrink">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="Ship it" />
@@ -858,7 +861,7 @@
                             </StackPanel>
                         </UniformGrid>
                         <TextBlock Margin="0,12,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" TextAlignment="Center" TextWrapping="Wrap"
-                                   Text="Each click only changes a property of the view model. Everything that moves is an attribute in the XAML, like Appear, MagicMove or MoveAndResize." />
+                                   Text="Each click only changes a property of the view model. Everything that moves is an attribute in the XAML, like Appear, MagicMoveId or MoveAndResize." />
                     </StackPanel>
                 </Border>
             </StackPanel>

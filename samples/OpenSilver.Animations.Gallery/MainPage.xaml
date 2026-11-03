@@ -132,7 +132,7 @@
                                 <Grid>
                                     <Border x:Name="ChapterSelection" Background="{StaticResource AccentLightBrush}" CornerRadius="8" Margin="0,1"
                                             Visibility="{Binding IsCurrent, Converter={StaticResource BooleanToVisibility}}"
-                                            anim:Animate.MagicMove="{anim:MagicMove Id=ChapterSelection, Travel=Behind}"
+                                            anim:Animate.MagicMoveId="ChapterSelection" anim:Animate.MagicMoveSettings="{anim:MagicMove Travel=Behind}"
                                             anim:Animate.Appear="Fade" anim:Animate.Disappear="Fade" />
                                     <Button Style="{StaticResource ChapterButton}" Tag="{Binding}" Click="Chapter_Click">
                                         <Grid>

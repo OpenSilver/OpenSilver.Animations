@@ -20,25 +20,15 @@ using System.Windows.Media.Animation;
 namespace OpenSilver.Animations
 {
     /// <summary>
-    /// Links elements with the same id: when one of them disappears and another one appears, the
-    /// old one seems to travel to the new one's place and to turn into it, like a selection pill
-    /// that slides to the button you click. In XAML, write the id (<c>"SelectionPill"</c>), bind it
-    /// (<c>"{Binding Id, StringFormat='photo-{0}'}"</c>), or use the markup extension to set
-    /// parameters (<c>"{anim:MagicMove Id=SelectionPill, Duration=0.4s}"</c>).
+    /// How an element with a <see cref="Animate.SetMagicMoveId">MagicMoveId</see> travels: above or
+    /// behind the other elements, how long, and with which curve, given in
+    /// <see cref="Animate.SetMagicMoveSettings">MagicMoveSettings</see>
+    /// (<c>"{anim:MagicMove Travel=Behind, Duration=0.4s}"</c>). Without it, the element travels
+    /// with the default parameters. The id itself is given by MagicMoveId.
     /// </summary>
-    /// <remarks>
-    /// A markup extension can't hold a binding: a bound id uses the default parameters.
-    /// </remarks>
     [TypeConverter(typeof(MagicMoveConverter))]
     public sealed class MagicMove : MarkupExtension
     {
-        /// <summary>
-        /// The id that links the elements. Elements that use the same id travel to each other.
-        /// When several of them could, like in the templates of two lists, the two that are the
-        /// closest in the page travel.
-        /// </summary>
-        public string Id { get; set; }
-
         /// <summary>
         /// Where the element travels: <see cref="MagicMoveTravel.Automatic"/> (the default),
         /// <see cref="MagicMoveTravel.Above"/> or <see cref="MagicMoveTravel.Behind"/> the other elements.
@@ -61,33 +51,16 @@ namespace OpenSilver.Animations
         [TypeConverter(typeof(EasingConverter))]
         public IEasingFunction Easing { get; set; }
 
-        internal bool HasId => !string.IsNullOrWhiteSpace(Id);
-
         internal bool HasParameters => Travel != MagicMoveTravel.Automatic || Duration != null || Easing != null;
 
         /// <summary>
         /// Returns this object.
         /// </summary>
         public override object ProvideValue(IServiceProvider serviceProvider) => this;
-
-        /// <summary>
-        /// Makes a <see cref="MagicMove"/> with this id.
-        /// </summary>
-        public static MagicMove Parse(string text) => new MagicMove { Id = text?.Trim() };
-
-        /// <summary>
-        /// Makes a <see cref="MagicMove"/> with this id.
-        /// </summary>
-        public static implicit operator MagicMove(string id) => Parse(id);
-
-        /// <summary>
-        /// Returns the id.
-        /// </summary>
-        public override string ToString() => Id ?? string.Empty;
     }
 
     /// <summary>
-    /// Where an element with <see cref="Animate.MagicMoveProperty">MagicMove</see> travels.
+    /// Where an element with a <see cref="Animate.SetMagicMoveId">MagicMoveId</see> travels.
     /// </summary>
     public enum MagicMoveTravel
     {
@@ -110,7 +83,8 @@ namespace OpenSilver.Animations
     }
 
     /// <summary>
-    /// Converts an id to a <see cref="MagicMove"/>, which also makes a bound id work.
+    /// Explains that the id goes in <see cref="Animate.SetMagicMoveId">MagicMoveId</see>, when a
+    /// text is given to <see cref="Animate.SetMagicMoveSettings">MagicMoveSettings</see>.
     /// </summary>
     public sealed class MagicMoveConverter : TypeConverter
     {
@@ -119,7 +93,11 @@ namespace OpenSilver.Animations
             => sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
 
         /// <inheritdoc />
+        /// <exception cref="FormatException">Always, for a text.</exception>
         public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
-            => value is string s ? MagicMove.Parse(s) : base.ConvertFrom(context, culture, value);
+            => value is string s
+                ? throw new FormatException($"The id of a Magic move goes in anim:Animate.MagicMoveId=\"{s.Trim()}\". " +
+                                            "MagicMoveSettings only says how it travels, like {anim:MagicMove Duration=0.4s}.")
+                : base.ConvertFrom(context, culture, value);
     }
 }
