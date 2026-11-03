@@ -91,7 +91,7 @@ The [live gallery](http://opensilver-animations-library.azurewebsites.net) is a 
 
 **Why OpenSilver only.** OpenSilver runs WPF-style XAML and C# in the browser, and renders the XAML as real HTML elements, in a DOM that it keeps apart from the visual tree. The library depends on that separation: it animates what the browser shows, and never touches your elements or their properties. [How it works](#how-it-works-and-why-it-is-built-on-opensilver) explains what that makes possible, and [About OpenSilver](#about-opensilver-and-xamlio) describes OpenSilver if you come from WPF or WinUI.
 
-**Status:** preview, version 0.1, MIT license. It requires OpenSilver 3.4 (in preview for now), and it has been tested in Chromium, the engine of Chrome and Edge. See [Status and limitations](#status-and-limitations).
+**Status:** preview, version 0.2, MIT license. It requires OpenSilver 3.4 (in preview for now), and it has been tested in Chrome, Edge and Firefox, Safari on iOS, and Chrome on Android. See [Status and limitations](#status-and-limitations).
 
 ## Contents
 
@@ -482,6 +482,26 @@ Write the name of an effect, or use it as a markup extension to set parameters:
 
 Times are written `0.3s`, `300ms`, `300` (milliseconds) or `00:00:00.3`.
 
+**Reusing an effect.** Declare an effect once as a resource, with its parameters, and use it on as many elements as you like, or in a Style:
+
+```xml
+<UserControl.Resources>
+    <anim:Slide x:Key="Intro" From="Bottom" Easing="EaseOut" Duration="0.4s" />
+</UserControl.Resources>
+
+<Border anim:Animate.Appear="{StaticResource Intro}" />
+
+<Setter Property="anim:Animate.Appear" Value="{StaticResource Intro}" />
+```
+
+**Curves of your own.** `Easing` also takes any `IEasingFunction`, like the easing functions of WPF and Silverlight, declared as a resource:
+
+```xml
+<ElasticEase x:Key="Springy" EasingMode="EaseOut" Oscillations="2" />
+
+<Border anim:Animate.Appear="{anim:Zoom Easing={StaticResource Springy}}" />
+```
+
 ### When the others move
 
 <p align="center">
@@ -530,6 +550,8 @@ When the app reorders the items during a drag, the items that change places glid
 ```xml
 <ItemsControl ItemsSource="{Binding Steps}" anim:Animate.ItemsMoveAndResize="Smooth" />
 ```
+
+On a touch screen, OpenSilver scrolls the page when the finger moves, so the gallery sets `AllowScrollOnTouchMove` to `false` on the step while it is dragged, and clears it at the drop.
 
 <p align="center">
   <img src="docs/images/drag-reorder.gif" width="460" alt="A list of steps. The second step is dragged down past two others, which glide up out of its way, then dragged back up to the top, and dropped.">
@@ -819,11 +841,11 @@ Some changes are better instant, and the library leaves them out on purpose:
 
 ## Status and limitations
 
-This is a preview. The API may still change, and these parts are not verified yet:
+This is a preview, and the API may still change. It is tested in Chrome, Edge and Firefox, Safari on iOS, and Chrome on Android, so it should work in most modern browsers, on computers, phones and tablets. These parts are not verified yet:
 
-- **Browsers:** it is tested in Chromium, the engine of Chrome and Edge. Safari and Firefox are not verified. The library relies on Web Animations with `composite: 'add'`, on CSS `linear()` curves (with a fallback that isn't tested yet), and on the SVG geometry properties of CSS.
+- **Older browsers:** the library relies on Web Animations with `composite: 'add'`. In a browser without CSS `linear()` curves, it bakes each curve into keyframes, with the same motion. Without the SVG geometry properties of CSS, a `Rectangle` or an `Ellipse` snaps to its new size inside its animated box, like a `Path`. Both fallbacks were checked by hiding these features from the library in Chrome, not in an older browser.
 - **Hosts:** OpenSilver's MAUI Hybrid and Photino hosts are not tested. In the Simulator, the JavaScript batches can arrive a frame apart.
-- **XAML:** effects declared as resources or in Style setters aren't tested yet.
+- **XAML:** effects set in Style setters, and curves of your own (an `IEasingFunction` as the `Easing`), aren't tested yet. Effects declared as resources work.
 
 Known limitations:
 
