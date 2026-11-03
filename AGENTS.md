@@ -69,7 +69,7 @@ dotnet build OpenSilver.Animations.slnx -c Release -p:OpenSilverVersion=3.4.0-pr
 dotnet run --project samples\OpenSilver.Animations.Gallery.Browser\OpenSilver.Animations.Gallery.Browser.csproj -c Release --no-build --urls http://localhost:55620
 
 # Pack (a second argument gives another OpenSilver version)
-build\Build_NuGet.bat 0.2.0-preview
+build\Build_NuGet.bat 3.4.0-preview
 ```
 
 ## Code conventions

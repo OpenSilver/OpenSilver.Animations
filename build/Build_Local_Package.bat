@@ -3,7 +3,7 @@
 REM Packs the library with a version that never changes, and puts it in build\local-packages, next to
 REM the OpenSilver packages of Build_Local_OpenSilver.bat. An app, like the Showcase, can then use the
 REM library before it is published: it lists build\local-packages as a package source, and references
-REM OpenSilver.Animations 0.1.0-preview-local.
+REM OpenSilver.Animations 3.4.0-preview-local.
 
 SETLOCAL
 
@@ -11,7 +11,7 @@ IF "%~1" == "--help" GOTO :help
 IF "%~1" == "-h" GOTO :help
 
 SET LOCAL_PACKAGES=%~dp0local-packages
-SET PackageVersion=0.1.0-preview-local
+SET PackageVersion=3.4.0-preview-local
 IF NOT "%~1" == "" SET PackageVersion=%~1
 
 REM An empty OpenSilverVersion would replace the one in Directory.Build.props, so it's only passed when given.
@@ -37,7 +37,7 @@ ECHO %ESC%[92mDone. Rebuild the app to use OpenSilver.Animations %PackageVersion
 EXIT /b 0
 
 :help
-ECHO [1] Package version (default: 0.1.0-preview-local)
+ECHO [1] Package version (default: 3.4.0-preview-local)
 ECHO [2] OpenSilver version (default: the one in Directory.Build.props)
 
 ENDLOCAL

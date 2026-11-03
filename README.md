@@ -91,7 +91,7 @@ The [live gallery](http://opensilver-animations-library.azurewebsites.net) is a 
 
 **Why OpenSilver only.** OpenSilver runs WPF-style XAML and C# in the browser, and renders the XAML as real HTML elements, in a DOM that it keeps apart from the visual tree. The library depends on that separation: it animates what the browser shows, and never touches your elements or their properties. [How it works](#how-it-works-and-why-it-is-built-on-opensilver) explains what that makes possible, and [About OpenSilver](#about-opensilver-and-xamlio) describes OpenSilver if you come from WPF or WinUI.
 
-**Status:** preview, version 0.2, MIT license. It requires OpenSilver 3.4 (in preview for now), and it has been tested in Chrome, Edge and Firefox, Safari on iOS, and Chrome on Android. See [Status and limitations](#status-and-limitations).
+**Status:** preview, version 3.4 (numbered like OpenSilver), MIT license. It requires OpenSilver 3.4 (in preview for now), and it has been tested in Chrome, Edge and Firefox, Safari on iOS, and Chrome on Android. See [Status and limitations](#status-and-limitations).
 
 ## Contents
 
@@ -682,7 +682,7 @@ You need an OpenSilver app. If you don't have one, [About OpenSilver](#about-ope
 2. **The package.** Preview builds of `OpenSilver.Animations` are published on the same feed. The package isn't on NuGet.org yet. Add it to the project that holds your XAML:
 
    ```xml
-   <PackageReference Include="OpenSilver.Animations" Version="0.2.0-preview-*" />
+   <PackageReference Include="OpenSilver.Animations" Version="3.4.0-preview-*" />
    ```
 
    To use a build of your own, see [Building from source](#building-from-source).
@@ -873,7 +873,7 @@ dotnet build OpenSilver.Animations.slnx -c Release
 dotnet run --project samples\OpenSilver.Animations.Gallery.Browser\OpenSilver.Animations.Gallery.Browser.csproj -c Release --no-build
 ```
 
-To try your own build in an app, `build\Build_Local_Package.bat` packs `OpenSilver.Animations` `0.1.0-preview-local` into `build\local-packages`. Add that folder as a package source of the app. The script needs Visual Studio's `msbuild` in the PATH, for example in a Developer PowerShell. [docs/development.md](docs/development.md) has the details, including how to build with a local OpenSilver.
+To try your own build in an app, `build\Build_Local_Package.bat` packs `OpenSilver.Animations` `3.4.0-preview-local` into `build\local-packages`. Add that folder as a package source of the app. The script needs Visual Studio's `msbuild` in the PATH, for example in a Developer PowerShell. [docs/development.md](docs/development.md) has the details, including how to build with a local OpenSilver.
 
 ## License
 
