@@ -237,6 +237,8 @@ namespace OpenSilver.Animations.Gallery.Chapters
             }
 
             StopDrop();
+            // Otherwise, on a touch screen, the page scrolls instead of the step moving.
+            row.AllowScrollOnTouchMove = false;
             _dragRow = row;
             _dragShift = (TranslateTransform)row.RenderTransform;
             _dragShift.Y = 0;
@@ -322,6 +324,7 @@ namespace OpenSilver.Animations.Gallery.Chapters
             };
 
             _dragShift.Y = 0;
+            _dragRow.ClearValue(UIElement.AllowScrollOnTouchMoveProperty);
             _dragRow = null;
             _drop = drop;
             _dropContainer = _dragContainer;
