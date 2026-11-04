@@ -374,6 +374,7 @@
                                 <StackPanel Margin="0,12,0,0" Visibility="{Binding Expectations, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NonEmptyToVisibility}}">
                                     <ToggleButton x:Name="ExpectationsToggle" Content="What should happen" Style="{StaticResource ExpanderToggle}" HorizontalAlignment="Left" Margin="-6,0,0,0" />
                                     <TextBlock Text="{TemplateBinding Expectations}" Style="{StaticResource BodyText}" FontSize="13" Margin="18,4,0,0"
+											   anim:Animate.Appear="{anim:Wipe From=Top}" anim:Animate.Disappear="{anim:Wipe To=Top}"
                                                Visibility="{Binding IsChecked, ElementName=ExpectationsToggle, Converter={StaticResource BooleanToVisibility}}" />
                                 </StackPanel>
                             </StackPanel>
